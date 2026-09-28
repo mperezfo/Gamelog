@@ -129,7 +129,7 @@ The Dockerfile needs BuildKit (`docker buildx`): the build stages run on the bui
 
 ## CI and releases
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs `gofmt`, `go vet`, the backend tests, the frontend linter, the frontend build and the documentation check on every push and pull request.
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs `gofmt`, `go vet`, the backend tests, the frontend linter, the frontend build and the documentation check on every pull request and every push to `main`. A branch without a pull request gets no CI run, so open a draft pull request to get one while work is still in progress.
 
 Once those pass, a push to `main` publishes the `edge` image, and pushing a tag `vX.Y.Z` publishes that release as `X.Y.Z`, `X.Y`, `X` and `latest` and creates its GitHub Release, with notes generated from the commits since the previous one. Versions follow [Semantic Versioning](https://semver.org).
 
