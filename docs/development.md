@@ -127,6 +127,22 @@ docker buildx build -t gamelog .
 
 The Dockerfile needs BuildKit (`docker buildx`): the build stages run on the builder's own platform and cross-compile for the target one, which the legacy builder does not support.
 
+## Commits and pull requests
+
+Changes reach `main` through pull requests, which are squash-merged: each one lands as a single commit whose message is the pull request's title.
+
+Those titles, and commits in general, follow [Conventional Commits](https://www.conventionalcommits.org):
+
+```
+feat(games): redesign filters as Notion-style pills
+fix(calendar): keep the last week inside the month
+docs: describe the commit conventions
+```
+
+The scope is optional, and names an area of the app rather than a layer, since most changes touch both backend and frontend: `games`, `calendar`, `lookups`, `auth`, `import`, `api`.
+
+A breaking change (`feat!:`, or a `BREAKING CHANGE:` footer) is one that makes somebody self-hosting Gamelog act on their deployment or their data: renaming or removing a `GAMELOG_*` variable, changing the port or the `/data` volume, an import/export format older files no longer load into, a removed or incompatible API endpoint, a higher minimum MariaDB version. A new migration is not one, since it is applied on its own at startup.
+
 ## CI and releases
 
 [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs `gofmt`, `go vet`, the backend tests, the frontend linter, the frontend build and the documentation check on every push and pull request.
