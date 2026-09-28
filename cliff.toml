@@ -1,0 +1,46 @@
+# git-cliff configuration.
+#
+# Used by the `release` job in .github/workflows/ci.yml to turn the Conventional
+# Commits between two tags into that tag's GitHub Release notes. Preview it
+# locally for the range since the last tag with:
+#
+#   git cliff --unreleased --tag vX.Y.Z
+#
+# https://git-cliff.org/docs/configuration
+
+[changelog]
+header = ""
+trim = true
+body = """
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in commits %}
+- {{ commit.message | upper_first }} ({{ commit.id | truncate(length=7, end="") }})\
+{% if commit.breaking %} — **BREAKING CHANGE:** {{ commit.breaking_description }}{% endif %}
+{% endfor %}
+{% endfor %}\
+"""
+footer = ""
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+filter_commits = false
+tag_pattern = "v[0-9]*"
+sort_commits = "oldest"
+
+commit_parsers = [
+  { message = "^feat", group = "Features" },
+  { message = "^fix", group = "Bug Fixes" },
+  { message = "^perf", group = "Performance" },
+  { message = "^docs", group = "Documentation" },
+  { message = "^refactor", group = "Refactoring" },
+  { message = "^test", group = "Testing" },
+  { message = "^chore\\(deps\\)", group = "Dependencies" },
+  { message = "^chore", skip = true },
+  { message = "^ci", skip = true },
+  { message = "^build", skip = true },
+  { message = "^style", skip = true },
+  { message = "^revert", group = "Reverts" },
+]

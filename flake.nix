@@ -28,6 +28,7 @@
             air # backend live reload
             nodejs_22 # frontend (Vite)
             mariadb.client # mysql/mariadb CLI for inspecting the database
+            git-cliff # previews release notes from Conventional Commits
           ];
 
           shellHook = ''
