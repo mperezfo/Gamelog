@@ -1,0 +1,189 @@
+@import 'tailwindcss';
+
+/*
+ * All styling is written with Tailwind utilities, mobile-first: views are
+ * designed for small screens and scaled up with the sm:/md:/lg: breakpoints,
+ * never the other way around.
+ *
+ * Colour never appears as a literal in a component. Every surface, line and
+ * piece of text names a role below, and the two themes redefine what those
+ * roles resolve to. That is what lets the whole application be re-themed here
+ * rather than by auditing `dark:` variants scattered across files.
+ */
+
+/*
+ * The theme is an explicit class on <html>, not only prefers-color-scheme,
+ * because the choice has three states: light, dark, and following the system.
+ * See src/theme/theme.ts.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-canvas: var(--gl-canvas);
+  --color-surface: var(--gl-surface);
+  --color-sunken: var(--gl-sunken);
+  --color-hover: var(--gl-hover);
+
+  --color-line: var(--gl-line);
+  --color-line-strong: var(--gl-line-strong);
+
+  --color-ink: var(--gl-ink);
+  --color-ink-muted: var(--gl-ink-muted);
+  --color-ink-faint: var(--gl-ink-faint);
+
+  --color-accent: var(--gl-accent);
+  --color-accent-strong: var(--gl-accent-strong);
+  --color-accent-ink: var(--gl-accent-ink);
+
+  --color-danger: var(--gl-danger);
+  --color-danger-soft: var(--gl-danger-soft);
+
+  --color-ok: var(--gl-ok);
+
+  /*
+   * A system stack rather than a webfont: it is what makes the first paint
+   * instant, and it ages better than whichever typeface is fashionable.
+   */
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica,
+    'Apple Color Emoji', Arial, sans-serif;
+
+  /* Small radii throughout. Nothing here is a pill or a rounded card. */
+  --radius-control: 4px;
+}
+
+/*
+ * Light. The near-black is warm rather than pure #000: on white, a slightly
+ * brown black reads as ink instead of as a hole in the page.
+ */
+:root {
+  --gl-canvas: #ffffff;
+  --gl-surface: #ffffff;
+  --gl-sunken: #f7f6f3;
+  --gl-hover: rgb(55 53 47 / 0.06);
+
+  --gl-line: #e9e9e7;
+  --gl-line-strong: #dcdbd8;
+
+  --gl-ink: #37352f;
+  --gl-ink-muted: #787774;
+  --gl-ink-faint: #9b9a97;
+
+  --gl-accent: #2383e2;
+  --gl-accent-strong: #1a6dbf;
+  --gl-accent-ink: #ffffff;
+
+  --gl-danger: #d44c47;
+  --gl-danger-soft: rgb(212 76 71 / 0.1);
+
+  --gl-ok: #448361;
+}
+
+.dark {
+  --gl-canvas: #191919;
+  --gl-surface: #202020;
+  --gl-sunken: #252525;
+  --gl-hover: rgb(255 255 255 / 0.055);
+
+  --gl-line: #2f2f2f;
+  --gl-line-strong: #3d3d3d;
+
+  --gl-ink: #d4d4d4;
+  --gl-ink-muted: #9b9b9b;
+  --gl-ink-faint: #6f6f6f;
+
+  --gl-accent: #2383e2;
+  --gl-accent-strong: #529cca;
+  --gl-accent-ink: #ffffff;
+
+  --gl-danger: #ff7369;
+  --gl-danger-soft: rgb(255 115 105 / 0.12);
+
+  --gl-ok: #4dab9a;
+}
+
+@layer base {
+  body {
+    background-color: var(--gl-canvas);
+    color: var(--gl-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* The theme switch and the row actions change on hover; everything else
+     should not animate just because it can. */
+  button {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background-color: rgb(35 131 226 / 0.25);
+  }
+
+  /* A click leaves whatever it hit focused, and the browser's own default
+   * outline does not know the difference between that and a Tab press — so
+   * a clicked button or dropdown was staying ringed until something else was
+   * clicked. :focus-visible is the browser's own answer to "was this
+   * keyboard-driven", so this clears the outline for everything else
+   * (a click, a programmatic focus) while a real Tab press still gets one. */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Thin, unobtrusive scrollbars everywhere, hidden entirely until they're
+   * actually wanted: a container's thumb only shows up while the pointer is
+   * over it or it was scrolled a moment ago (the `.gl-scrolling` class —
+   * see useScrollbarFade — since keyboard/programmatic scrolling has no
+   * pointer to hover with), fading in and out rather than snapping.
+   *
+   * The one exception is `.scrollbar-persistent`: the page's own main
+   * content area (see AppShell, GamesPage), which should always carry a
+   * visible scrollbar so the page never reads as unscrollable.
+   *
+   * `scrollbar-color` covers Firefox and `::-webkit-scrollbar-thumb` covers
+   * Chromium — the two don't share a mechanism, so both are written. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 200ms ease;
+  }
+
+  *:hover,
+  .gl-scrolling {
+    scrollbar-color: var(--gl-line-strong) transparent;
+  }
+
+  .scrollbar-persistent {
+    scrollbar-color: var(--gl-line-strong) transparent !important;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border: 2.5px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+    transition: background-color 200ms ease;
+  }
+
+  *:hover::-webkit-scrollbar-thumb,
+  .gl-scrolling::-webkit-scrollbar-thumb {
+    background-color: var(--gl-line-strong);
+  }
+
+  .scrollbar-persistent::-webkit-scrollbar-thumb {
+    background-color: var(--gl-line-strong) !important;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+}

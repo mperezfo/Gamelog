@@ -1,0 +1,11 @@
+.git
+.direnv
+result
+frontend/node_modules
+frontend/dist
+backend/tmp
+backend/data
+notion_export
+import_notion.py
+*.md
+!README.md

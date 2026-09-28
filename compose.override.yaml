@@ -1,0 +1,23 @@
+# For developing the project itself only.
+#
+# Docker Compose merges this with compose.yaml automatically when running
+# `docker compose up` with no flags.
+
+services:
+  db:
+    # Expose MariaDB to the host so the native backend (and any SQL client)
+    # can connect. In production the database is not published.
+    ports:
+      - '127.0.0.1:3306:3306'
+
+  # Web client for inspecting the data by hand: http://localhost:8081
+  adminer:
+    image: adminer:5
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      - '127.0.0.1:8081:8080'
+    depends_on:
+      db:
+        condition: service_healthy

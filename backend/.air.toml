@@ -1,0 +1,28 @@
+# air (github.com/air-verse/air) configuration for the backend.
+# Usage: run `air` inside backend/ instead of `go run ./cmd/server`.
+# It watches .go files, rebuilds and restarts the binary on its own in 1-2s.
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/server ./cmd/server"
+  entrypoint = ["./tmp/server"]
+  delay = 300
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "migrations"]
+  exclude_regex = ["_test\\.go"]
+  stop_on_error = true
+  # Keeps the build error visible in the terminal until the next save,
+  # instead of letting it scroll away among the logs.
+  log = "build-errors.log"
+
+[log]
+  time = true
+
+[misc]
+  # Clean up tmp/ when exiting with Ctrl-C.
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = true

@@ -1,0 +1,194 @@
+# Self-hosting
+
+[`Dockerfile`](../Dockerfile) builds a single image with everything the app needs except a database: Caddy serves the frontend's static build and reverse-proxies `/api/*` to the Go backend, both started by [`entrypoint.sh`](../entrypoint.sh), listening on port 9999.
+
+## Image
+
+Images are published to `ghcr.io/mperezfo/gamelog` for `linux/amd64` and `linux/arm64`:
+
+| Tag | What it is |
+| --- | --- |
+| `latest` | The most recent release |
+| `1.2.3`, `1.2`, `1` | A release, or the most recent one in that minor or major line |
+| `edge` | The current state of `main`, unreleased |
+
+Pin to a major version (`1`) to get fixes and features without breaking changes, or to an exact one if you want to upgrade by hand.
+
+## Docker Compose
+
+```yaml
+services:
+  gamelog:
+    image: ghcr.io/mperezfo/gamelog:latest
+    restart: unless-stopped
+    init: true
+    environment:
+      GAMELOG_DB_HOST: db
+      GAMELOG_DB_PASSWORD: change-me
+      GAMELOG_SECURE_COOKIE: "true" # once served over HTTPS
+    ports:
+      - "9999:9999"
+    volumes:
+      - gamelog-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: gamelog
+      MARIADB_USER: gamelog
+      MARIADB_PASSWORD: change-me
+      MARIADB_RANDOM_ROOT_PASSWORD: "true"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  gamelog-data:
+  db-data:
+```
+
+`db`'s healthcheck matters here, not just for monitoring: without `condition: service_healthy`, `depends_on` only waits for the container to start, not for MariaDB to be ready to accept connections — which takes a few seconds — so `gamelog` would still race it and crash on its first try.
+
+`gamelog-data` is where uploaded covers and avatars are kept (see `GAMELOG_IMAGES_DIR` below) — back it up like the database.
+
+Updating a deployment is:
+
+```sh
+docker compose pull && docker compose up -d
+```
+
+Pending database migrations are applied at startup, so there is no extra step.
+
+## Behind a reverse proxy
+
+Sitting behind a reverse proxy (Traefik, nginx-proxy-manager, ...) on its own Docker network is the common case: drop the `ports:` mapping, put `gamelog` on that network instead, and point the proxy at port 9999.
+
+### Traefik
+
+With a `proxy` network Traefik already watches:
+
+```yaml
+services:
+  gamelog:
+    image: ghcr.io/mperezfo/gamelog:latest
+    restart: unless-stopped
+    init: true
+    environment:
+      GAMELOG_DB_HOST: db
+      GAMELOG_DB_PASSWORD: change-me
+      GAMELOG_SECURE_COOKIE: "true"
+    networks:
+      - proxy
+      - backend
+    volumes:
+      - gamelog-data:/data
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: proxy
+      traefik.http.routers.gamelog.rule: Host(`gamelog.example.com`)
+      traefik.http.routers.gamelog.entrypoints: websecure
+      traefik.http.routers.gamelog.tls.certresolver: letsencrypt
+      traefik.http.services.gamelog.loadbalancer.server.port: "9999"
+
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: gamelog
+      MARIADB_USER: gamelog
+      MARIADB_PASSWORD: change-me
+      MARIADB_RANDOM_ROOT_PASSWORD: "true"
+    networks:
+      - backend
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  proxy:
+    external: true
+  # Not published anywhere: only gamelog and db need to reach each other.
+  backend:
+
+volumes:
+  gamelog-data:
+  db-data:
+```
+
+`gamelog` needs both networks — `proxy` is how the reverse proxy in front of it reaches it, `backend` is how it reaches `db` — a service that lists `networks:` stops joining Compose's implicit default network, so without `backend` here `db` would be unreachable by name, which is exactly the bug that produces `lookup db: no such host` in the logs.
+
+Swap `gamelog.example.com` for the real hostname, and `letsencrypt` for whatever certresolver your Traefik instance defines — both are placeholders for values only your setup knows.
+
+### Caddy
+
+For a Caddy instance you run yourself with a static Caddyfile, `gamelog` needs no labels, only to sit on the same `proxy` network as that Caddy container — the same Compose file as above without the `labels:` block, for the same reasons — and a site block in that Caddyfile, reaching `gamelog` by its service name:
+
+```
+gamelog.example.com {
+	reverse_proxy gamelog:9999
+}
+```
+
+## Configuration
+
+Everything is configured through environment variables. Every variable has a default aimed at local development, so only the ones that differ need to be set. See also [`.env.example`](../.env.example).
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `GAMELOG_DB_HOST` | `127.0.0.1` | MariaDB host |
+| `GAMELOG_DB_PORT` | `3306` | MariaDB port |
+| `GAMELOG_DB_NAME` | `gamelog` | Database name |
+| `GAMELOG_DB_USER` | `gamelog` | User |
+| `GAMELOG_DB_PASSWORD` | `gamelog` | Password |
+| `GAMELOG_SECURE_COOKIE` | `false` | Mark the session cookie `Secure`. Turn on when served over HTTPS |
+| `GAMELOG_SESSION_LIFETIME` | `8760h` | How long a session lasts unused. It renews itself while in use |
+| `GAMELOG_ADMIN_PASSWORD` | — | Creates the admin at startup, only on a deployment with no accounts |
+| `GAMELOG_IMAGES_DIR` | `/data/images` in the image | Where uploaded images are stored, content-addressed by the sha256 of their bytes |
+| `GAMELOG_MIGRATE` | `true` | Apply pending migrations at startup. Set to `false` to control when the schema changes yourself |
+| `GAMELOG_DOCS` | `true` | Serve the interactive API documentation at `/api/docs` |
+| `GAMELOG_PORT` | `8080` | Backend port. Inside the image it is an internal detail between Caddy and the backend: the container's public port is always 9999 |
+
+The defaults are local development credentials. Change them before deploying anywhere, even behind Tailscale.
+
+## Accounts
+
+Each account has a library of its own. Two people sharing a deployment are, in practice, two separate libraries sharing a process and a database: neither sees the other's games, genres, developers, publishers or platforms.
+
+There are no roles. There is one account named `admin` that creates and removes the others and owns no library, and everybody else owns a library and manages nothing but their own profile and password. There is no self-registration: accounts exist because the admin created them.
+
+**The first run.** While the database has no accounts, the application shows a "choose the admin password" form instead of a login screen, and it stops showing it the moment any account exists. For an unattended install, set `GAMELOG_ADMIN_PASSWORD` and the admin is created at startup instead — at the cost of a password sitting in a file.
+
+**Sessions** are a random token in an `HttpOnly` cookie, stored hashed. They last a year by default (`GAMELOG_SESSION_LIFETIME`) and renew themselves while they are used, so in practice nobody is ever signed out. They are rows rather than self-contained tokens precisely so that they can be revoked: deleting an account ends its sessions immediately, and changing a password ends every session but the one that changed it.
+
+Set `GAMELOG_SECURE_COOKIE=true` on any deployment served over HTTPS. It is off by default because a `Secure` cookie is never sent back over plain `http://`, which is how a Tailscale address is usually reached, and then nobody could log in at all.
+
+**If the admin password is lost**, reset it from a shell in the container:
+
+```sh
+docker compose exec gamelog /app/server -reset-admin-password
+```
+
+It reads the new password from stdin and ends every session the account had.
+
+## Backups
+
+The **Account** page can download a full backup of your account as a `.zip` — every game, genre, developer, publisher and platform, your profile, plus every cover and avatar they use — and restore one, replacing what is there. It covers one account at a time; see [Import and export](import-export.md) for the details.
+
+To back up a whole deployment, back up both volumes: the database (`db-data`, or a `mariadb-dump`) and `gamelog-data`, which holds the images.

@@ -1,0 +1,24 @@
+# The database for developing Gamelog: backend and frontend run natively and
+# this only brings up MariaDB — compose.override.yaml adds what that loop
+# needs. To self-host the app, see the compose example in the README.
+
+services:
+  db:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${GAMELOG_DB_NAME:-gamelog}
+      MARIADB_USER: ${GAMELOG_DB_USER:-gamelog}
+      MARIADB_PASSWORD: ${GAMELOG_DB_PASSWORD:-gamelog}
+      MARIADB_ROOT_PASSWORD: ${GAMELOG_DB_ROOT_PASSWORD:-root}
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  db-data:
