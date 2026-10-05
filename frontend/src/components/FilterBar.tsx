@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 
-import { CheckIcon, PlusIcon, XIcon } from './icons'
+import { CheckIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { FilterPopover } from './FilterPopover'
 
 export interface FilterOption {
@@ -137,9 +137,10 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
             <button
               type="button"
               onClick={() => setSelectedKey(null)}
-              className="w-full border-b border-line px-2.5 py-2 text-left text-xs font-medium text-ink-faint hover:text-ink-muted"
+              className="flex w-full items-center gap-1 border-b border-line py-2.5 pr-2.5 pl-2 text-left text-[13px] font-medium text-ink-muted transition-colors duration-75 hover:text-ink"
             >
-              ← {selectedField.label}
+              <ChevronLeftIcon className="size-4 shrink-0" />
+              {selectedField.label}
             </button>
             <FilterOptionList
               field={selectedField}
