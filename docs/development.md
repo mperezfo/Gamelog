@@ -145,7 +145,7 @@ A breaking change (`feat!:`, or a `BREAKING CHANGE:` footer) is one that makes s
 
 ## CI and releases
 
-[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs `gofmt`, `go vet`, the backend tests, the frontend linter, the frontend build and the documentation check on every pull request and every push to `main`. A branch without a pull request gets no CI run, so open a draft pull request to get one while work is still in progress.
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml) runs `gofmt`, `go vet`, the backend tests, the frontend linter, the frontend build and the documentation check on every pull request and every push to `main`. A pull request only runs the checks for the areas it touches (`backend/`, `frontend/`, or the documentation); a skipped check counts as passing, and a push to `main` always runs all of them. Pushing again to a pull request cancels the run it supersedes. A branch without a pull request gets no CI run, so open a draft pull request to get one while work is still in progress.
 
 Once those pass, a push to `main` publishes the `edge` image, and pushing a tag `vX.Y.Z` publishes that release as `X.Y.Z`, `X.Y`, `X` and `latest` and creates its GitHub Release. Versions follow [Semantic Versioning](https://semver.org).
 
