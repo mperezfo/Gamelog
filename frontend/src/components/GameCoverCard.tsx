@@ -3,6 +3,7 @@ import { formatScore } from '../lib/format'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
 import { StarIcon } from './icons'
+import { CoverOverlay } from './CoverOverlay'
 
 interface GameCoverCardProps {
   game: Game
@@ -21,7 +22,7 @@ export function GameCoverCard({ game, onClick, caption, className = 'w-32 shrink
   const unreleased = isUnreleased(game)
   return (
     <button type="button" onClick={onClick} className={`flex flex-col gap-1.5 text-left ${className}`}>
-      <div className={`aspect-[3/4] w-full overflow-hidden rounded-control bg-sunken ${unreleased ? UNRELEASED_RING : ''}`}>
+      <div className={`relative aspect-[3/4] w-full overflow-hidden rounded-control bg-sunken ${unreleased ? UNRELEASED_RING : ''}`}>
         {game.cover_image_url ? (
           <img
             src={game.cover_image_url}
@@ -34,6 +35,7 @@ export function GameCoverCard({ game, onClick, caption, className = 'w-32 shrink
             {game.title.slice(0, 1)}
           </div>
         )}
+        {game.cover_image_url && <CoverOverlay />}
       </div>
 
       <div className="flex flex-col gap-0.5">

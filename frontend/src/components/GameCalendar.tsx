@@ -5,6 +5,7 @@ import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming
 import type { Game } from '../types/game'
 import { Button } from './Button'
 import { ChevronDownIcon, ChevronUpIcon } from './icons'
+import { CoverOverlay } from './CoverOverlay'
 
 type DateField = 'release_date' | 'logged_date'
 
@@ -253,11 +254,14 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                     }
                   >
                     {game.cover_image_url ? (
-                      <img
-                        src={game.cover_image_url}
-                        alt=""
-                        className={`${single ? 'h-8 w-full shrink-0 object-cover xl:h-11 2xl:h-16' : 'size-3.5 shrink-0 rounded-[2px] object-cover'} ${unreleased ? UNRELEASED_IMAGE : ''}`}
-                      />
+                      <span className={single ? 'relative block w-full shrink-0 overflow-hidden' : 'contents'}>
+                        <img
+                          src={game.cover_image_url}
+                          alt=""
+                          className={`${single ? 'h-8 w-full object-cover xl:h-11 2xl:h-16' : 'size-3.5 shrink-0 rounded-[2px] object-cover'} ${unreleased ? UNRELEASED_IMAGE : ''}`}
+                        />
+                        {single && <CoverOverlay />}
+                      </span>
                     ) : (
                       <span className={single ? 'h-8 w-full shrink-0 bg-black/10 xl:h-11 2xl:h-16' : 'size-3.5 shrink-0 rounded-[2px] bg-black/10'} />
                     )}

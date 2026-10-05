@@ -7,6 +7,7 @@ import { coverFocalStyle } from '../lib/cover'
 import { formatDate } from '../lib/format'
 import { daysUntilRelease, upcomingGames } from '../lib/upcoming'
 import type { Game } from '../types/game'
+import { CoverOverlay } from './CoverOverlay'
 
 interface UpcomingReleaseProps {
   games: Game[]
@@ -61,7 +62,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
         onClick={() => onSelectGame(next)}
         className="flex flex-1 items-center gap-4 rounded-control bg-sunken p-3 text-left transition-colors duration-75 hover:bg-hover sm:p-4"
       >
-        <div className="aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-control bg-canvas sm:w-28">
+        <div className="relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-control bg-canvas sm:w-28">
           {next.cover_image_url ? (
             <img
               src={next.cover_image_url}
@@ -74,6 +75,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
               {next.title.slice(0, 1)}
             </div>
           )}
+          {next.cover_image_url && <CoverOverlay />}
         </div>
 
         <div className="flex min-w-0 max-w-[16rem] flex-col gap-0.5 sm:max-w-xs">
@@ -102,13 +104,14 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
                 className="flex items-center gap-2 rounded-control px-1.5 py-1.5 text-left transition-colors duration-75 hover:bg-hover"
               >
                 {game.cover_image_url ? (
-                  <div className="size-8 shrink-0 overflow-hidden rounded-[3px]">
+                  <div className="relative size-8 shrink-0 overflow-hidden rounded-[3px]">
                     <img
                       src={game.cover_image_url}
                       alt=""
                       className="size-full object-cover"
                       style={coverFocalStyle(game)}
                     />
+                    <CoverOverlay />
                   </div>
                 ) : (
                   <span className="size-8 shrink-0 rounded-[3px] bg-canvas" />
