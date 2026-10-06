@@ -1,6 +1,7 @@
 import { coverFocalStyle } from '../lib/cover'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
+import { CoverOverlay } from './CoverOverlay'
 
 interface GameCardProps {
   game: Game
@@ -35,13 +36,14 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
         } ${unreleased ? UNRELEASED_RING : ''}`}
       >
         {game.cover_image_url && (
-          <div className="aspect-square size-7 shrink-0 overflow-hidden rounded-[3px] bg-canvas">
+          <div className="relative aspect-square size-7 shrink-0 overflow-hidden rounded-[3px] bg-canvas">
             <img
               src={game.cover_image_url}
               alt=""
               className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
               style={coverFocalStyle(game)}
             />
+            <CoverOverlay />
           </div>
         )}
         <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{game.title}</span>
@@ -67,8 +69,9 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
       onClick={onClick}
       className={`flex w-full max-w-[420px] flex-col gap-2 rounded-control bg-sunken p-2 text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
     >
-      <div className="aspect-video w-full overflow-hidden rounded-control bg-canvas">
+      <div className="relative aspect-video w-full overflow-hidden rounded-control bg-canvas">
         <img src={game.cover_image_url} alt="" className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`} />
+        <CoverOverlay />
       </div>
 
       <div className="flex min-w-0 flex-col gap-0.5 px-0.5 pb-0.5">

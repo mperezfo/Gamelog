@@ -6,6 +6,7 @@ import { fuzzySearch } from '../lib/fuzzy'
 import { STATUS_DOT, STATUS_LABELS, type Game } from '../types/game'
 import { HighlightMatch } from './HighlightMatch'
 import { SearchIcon, XIcon } from './icons'
+import { CoverOverlay } from './CoverOverlay'
 
 interface GlobalSearchProps {
   onSelect: (game: Game) => void
@@ -150,13 +151,14 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
                 ].join(' ')}
               >
                 {game.cover_image_url ? (
-                  <div className="h-8 w-6 shrink-0 overflow-hidden rounded-[3px]">
+                  <div className="relative h-8 w-6 shrink-0 overflow-hidden rounded-[3px]">
                     <img
                       src={game.cover_image_url}
                       alt=""
                       className="size-full object-cover"
                       style={coverFocalStyle(game)}
                     />
+                    <CoverOverlay />
                   </div>
                 ) : (
                   <span className="h-8 w-6 shrink-0 rounded-[3px] bg-sunken" />

@@ -4,6 +4,7 @@ import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type
 
 import { errorMessage } from '../api/client'
 import { Button } from '../components/Button'
+import { CoverOverlay } from '../components/CoverOverlay'
 import { DataTable } from '../components/DataTable'
 import { Field } from '../components/Field'
 import { FilterBar, type FilterField } from '../components/FilterBar'
@@ -238,11 +239,14 @@ export function GamesPage() {
           return (
             <span className="flex min-w-0 items-center gap-2.5">
               {game.cover_image_url ? (
-                <img
-                  src={game.cover_image_url}
-                  alt=""
-                  className={`h-9 w-7 shrink-0 rounded-[3px] object-cover ${unreleased ? `${UNRELEASED_RING} ${UNRELEASED_IMAGE}` : ''}`}
-                />
+                <span className={`relative h-9 w-7 shrink-0 overflow-hidden rounded-[3px] ${unreleased ? UNRELEASED_RING : ''}`}>
+                  <img
+                    src={game.cover_image_url}
+                    alt=""
+                    className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
+                  />
+                  <CoverOverlay />
+                </span>
               ) : (
                 <span className={`h-9 w-7 shrink-0 rounded-[3px] bg-sunken ${unreleased ? UNRELEASED_RING : ''}`} />
               )}
