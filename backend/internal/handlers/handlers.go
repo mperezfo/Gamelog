@@ -18,6 +18,7 @@ import (
 
 	"github.com/mperezfo/gamelog/internal/auth"
 	"github.com/mperezfo/gamelog/internal/models"
+	"github.com/mperezfo/gamelog/internal/notify"
 	"github.com/mperezfo/gamelog/internal/repository"
 )
 
@@ -27,7 +28,7 @@ import (
 // nothing outside it, so the prefix belongs to the operation rather than to a
 // mounted sub-router, and the OpenAPI document then describes the same paths
 // the frontend and the reverse proxy use.
-func Register(api huma.API, db *gorm.DB, authentication *auth.Service, imagesDir, version string) {
+func Register(api huma.API, db *gorm.DB, authentication *auth.Service, notifications *notify.Registry, imagesDir, version string) {
 	// Schema aliases have to be registered before the first operation, since
 	// Huma builds each schema as the operation using it is registered.
 	api.OpenAPI().Components.Schemas.RegisterTypeAlias(
@@ -51,6 +52,7 @@ func Register(api huma.API, db *gorm.DB, authentication *auth.Service, imagesDir
 	registerLookups(api, db)
 	registerPortability(api, db, authentication, imagesDir)
 	registerImages(api, imagesDir)
+	registerNotifications(api, db, notifications)
 }
 
 // statusSchema documents models.Status as an enum whose values come from
