@@ -9,6 +9,7 @@ import { DataTable } from '../components/DataTable'
 import { Field } from '../components/Field'
 import { FilterBar, type FilterField } from '../components/FilterBar'
 import { GameCoverCard } from '../components/GameCoverCard'
+import { GamesStats } from '../components/GamesStats'
 import { GenreTag } from '../components/GenreTag'
 import { GridIcon, PlusIcon, SearchIcon, TableIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
@@ -456,14 +457,7 @@ export function GamesPage() {
         )}
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-1 border-t border-line px-4 py-2 text-xs text-ink-faint sm:px-6">
-        <span>{stats.count} games</span>
-        {stats.average != null && <span>Average score: {stats.average.toFixed(1)}</span>}
-        {stats.releaseSpan && (
-          <span title={stats.releaseRange ?? undefined}>Release range: {stats.releaseSpan}</span>
-        )}
-        {stats.loggedSpan && <span title={stats.loggedRange ?? undefined}>Logged range: {stats.loggedSpan}</span>}
-      </div>
+      <GamesStats stats={stats} />
     </div>
   )
 }
