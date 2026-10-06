@@ -168,9 +168,14 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
           // 56px, leaving every icon a pixel closer to the divider than to
           // the left edge. Painted outside the box, the full 56px is
           // surface and the divider sits on the page's own margin.
-          'fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col overflow-hidden bg-surface shadow-[1px_0_0_0_var(--color-line)]',
+          //
+          // The shadow is only there while the sidebar is on screen. A
+          // closed mobile drawer is parked at -translate-x-full, which ends
+          // exactly at x=0, so its outset shadow would be the 1px line left
+          // showing on the viewport's left edge.
+          'fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col overflow-hidden bg-surface sm:shadow-[1px_0_0_0_var(--color-line)]',
           'transition-[transform,width] duration-150 ease-out sm:translate-x-0',
-          open ? 'translate-x-0' : '-translate-x-full',
+          open ? 'translate-x-0 shadow-[1px_0_0_0_var(--color-line)]' : '-translate-x-full',
           pinned ? '' : expanded ? 'sm:w-64' : 'sm:w-14',
         ].join(' ')}
       >
