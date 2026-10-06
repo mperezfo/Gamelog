@@ -33,6 +33,13 @@ const DEFAULT_SORT_FIELD = 'title'
  * client-side, same as every other GamesPage filter. */
 const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => boolean }> = {
   cover: { label: 'No cover image', test: (g) => !g.cover_image_url },
+  // Only games that have a cover count: without one there is nothing to crop,
+  // and "No cover image" already covers them.
+  portrait_crop: {
+    label: 'No portrait crop',
+    test: (g) =>
+      !!g.cover_image_url && g.cover_focal_x == null && g.cover_focal_y == null && g.cover_zoom == null,
+  },
   release_date: { label: 'No release date', test: (g) => !g.release_date },
   score: { label: 'No score', test: (g) => g.score == null },
   tagline: { label: 'No tagline', test: (g) => !g.tagline },
