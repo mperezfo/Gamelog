@@ -173,7 +173,7 @@ jobs:
         with:
           config: cliff.toml
           args: --latest --strip header
-      - run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag --notes-file "$CHANGELOG_PATH"
+      - run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --verify-tag --notes-file "$CHANGELOG_PATH"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANGELOG_PATH: ${{ steps.changelog.outputs.changelog }}
