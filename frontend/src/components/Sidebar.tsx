@@ -135,13 +135,16 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
 
   return (
     <>
-      {open && (
-        <div
-          className="fixed inset-0 z-30 bg-black/30 sm:hidden"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
+      {/* Always mounted so that it can fade in and out with the drawer;
+          pointer-events-none keeps it from swallowing taps while closed. */}
+      <div
+        className={[
+          'fixed inset-0 z-30 bg-black/30 transition-opacity duration-150 ease-out motion-reduce:transition-none sm:hidden',
+          open ? 'opacity-100' : 'pointer-events-none opacity-0',
+        ].join(' ')}
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
       {/*
         Always fixed to the viewport, never a flex sibling of the page
@@ -174,7 +177,11 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
           // exactly at x=0, so its outset shadow would be the 1px line left
           // showing on the viewport's left edge.
           'fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col overflow-hidden bg-surface sm:shadow-[1px_0_0_0_var(--color-line)]',
-          'transition-[transform,width] duration-150 ease-out sm:translate-x-0',
+          // `translate`, not `transform`: Tailwind v4 implements
+          // translate-x-* with the standalone `translate` property, which a
+          // `transform` transition does not cover. Listing the wrong one is
+          // what made the mobile drawer jump instead of sliding.
+          'transition-[translate,width] duration-150 ease-out motion-reduce:transition-none sm:translate-x-0',
           open ? 'translate-x-0 shadow-[1px_0_0_0_var(--color-line)]' : '-translate-x-full',
           pinned ? '' : expanded ? 'sm:w-64' : 'sm:w-14',
         ].join(' ')}
