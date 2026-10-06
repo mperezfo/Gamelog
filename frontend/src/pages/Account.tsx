@@ -1,6 +1,7 @@
 import { ApiStatus } from '../components/ApiStatus'
 import { BackupSection } from '../components/BackupSection'
 import { ChangePassword } from '../components/ChangePassword'
+import { NotificationsSection } from '../components/NotificationsSection'
 import { PageContainer } from '../components/PageContainer'
 import { ProfileForm } from '../components/ProfileForm'
 import { Section } from '../components/Section'
@@ -79,6 +80,13 @@ export function Account() {
               className="w-auto"
             />
           </div>
+        </Section>
+
+        <Section
+          title="Notifications"
+          description="Get a reminder before the games in your library come out. Only the channels your administrator has set up are listed."
+        >
+          <NotificationsSection />
         </Section>
 
         <Section
