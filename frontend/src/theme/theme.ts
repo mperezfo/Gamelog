@@ -59,10 +59,15 @@ export function isDark(theme: Theme): boolean {
  *
  * `color-scheme` is set alongside the class so that the parts of the page the
  * application does not paint — scrollbars, form controls, the canvas behind a
- * bounce scroll — follow the theme too.
+ * bounce scroll — follow the theme too. `theme-color` does the same for the
+ * browser UI around the page, such as the status bar on Android.
  */
 export function applyTheme(theme: Theme): void {
   const dark = isDark(theme)
   document.documentElement.classList.toggle('dark', dark)
   document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+  const canvas = getComputedStyle(document.documentElement).getPropertyValue('--gl-canvas').trim()
+  if (canvas) {
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', canvas)
+  }
 }

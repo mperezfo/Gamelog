@@ -63,11 +63,13 @@ function LibraryShell({ user, children }: AppShellProps) {
           reserved, so it overlaps the page like a flyout instead of
           shoving content sideways every time the pointer crosses it. */}
       <div className={`flex h-dvh min-w-0 flex-col ${sidebarPinned ? 'sm:pl-64' : 'sm:pl-14'}`}>
-        <div className="flex h-12 shrink-0 items-center border-b border-line px-3 sm:hidden">
-          <Button variant="ghost" className="px-2" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
-            <MenuIcon />
-          </Button>
-          <span className="ml-1 text-sm font-semibold tracking-tight text-ink">Gamelog</span>
+        <div className="pad-top-safe shrink-0 border-b border-line sm:hidden">
+          <div className="flex h-12 items-center px-3">
+            <Button variant="ghost" className="px-2" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+              <MenuIcon />
+            </Button>
+            <span className="ml-1 text-sm font-semibold tracking-tight text-ink">Gamelog</span>
+          </div>
         </div>
 
         {/* min-h-0 is what lets a flex item actually shrink to this bounded
@@ -75,7 +77,7 @@ function LibraryShell({ user, children }: AppShellProps) {
             page silently pushes main past the viewport instead of scrolling
             inside it. A page like GamesPage that manages its own internal
             scroll region sets h-full and never triggers this one at all. */}
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-persistent">{children}</main>
+        <main className="pad-bottom-safe min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-persistent">{children}</main>
       </div>
 
       {(modal.game || modal.creating) && <GamePanel game={modal.game} onClose={modal.close} />}
@@ -89,21 +91,23 @@ function AdminShell({ user, children }: AppShellProps) {
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
-      <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-line px-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="text-sm font-semibold tracking-tight text-ink">Gamelog</span>
-          <span className="truncate text-[13px] text-ink-faint">{user.name}</span>
-        </div>
+      <header className="pad-top-safe shrink-0 border-b border-line">
+        <div className="flex h-12 items-center justify-between gap-3 px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="text-sm font-semibold tracking-tight text-ink">Gamelog</span>
+            <span className="truncate text-[13px] text-ink-faint">{user.name}</span>
+          </div>
 
-        <div className="flex items-center gap-1.5">
-          <ThemeSwitch theme={theme} onChange={setTheme} />
-          <Button variant="ghost" onClick={() => signOut.mutate()} disabled={signOut.isPending}>
-            Sign out
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <ThemeSwitch theme={theme} onChange={setTheme} />
+            <Button variant="ghost" onClick={() => signOut.mutate()} disabled={signOut.isPending}>
+              Sign out
+            </Button>
+          </div>
         </div>
       </header>
 
-      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-persistent">{children}</main>
+      <main className="pad-bottom-safe min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-persistent">{children}</main>
     </div>
   )
 }

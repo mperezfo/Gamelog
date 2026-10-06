@@ -86,6 +86,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
       <div
         className={[
           'relative flex h-full w-full flex-col overflow-y-auto bg-surface p-6',
+          'pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
           'shadow-[-12px_0_32px_rgba(0,0,0,0.12)] transition-transform duration-200 ease-out sm:w-[760px]',
           visible ? 'translate-x-0' : 'translate-x-full',
         ].join(' ')}

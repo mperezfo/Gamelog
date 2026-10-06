@@ -2,7 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Gamelog</title>
@@ -19,6 +20,12 @@
               window.matchMedia('(prefers-color-scheme: dark)').matches)
           document.documentElement.classList.toggle('dark', dark)
           document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+          // The canvas colour of each theme (--gl-canvas in src/index.css),
+          // for the browser UI around the page. The stylesheet has not
+          // loaded yet at this point, so it cannot be read from there.
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute('content', dark ? '#191919' : '#ffffff')
         } catch (error) {
           // A browser with storage blocked simply gets the light theme.
         }
