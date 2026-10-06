@@ -146,6 +146,16 @@ gamelog.example.com {
 }
 ```
 
+## Installing as an app
+
+Gamelog ships a web app manifest, so Chrome on Android can install it to the home screen as a standalone app, without the browser's address bar.
+
+This only works over **HTTPS**. Browsers treat a plain `http://` page as insecure and, instead of installing the app, just add a shortcut that still opens in a browser tab. Serving Gamelog over HTTPS (see the reverse proxy examples above) is therefore what unlocks it. `http://localhost` is the one exception, which makes local development work.
+
+To try it on a phone against an `http://` instance, without setting up HTTPS yet, open `chrome://flags/#unsafely-treat-insecure-origin-as-secure` in Chrome, add the instance's origin (for example `http://192.168.1.10:9999`), enable the flag and relaunch the browser. Only do this for your own server.
+
+There is no offline mode: Gamelog needs its API for everything, so the app still needs a connection.
+
 ## Configuration
 
 Everything is configured through environment variables. Every variable has a default aimed at local development, so only the ones that differ need to be set. See also [`.env.example`](../.env.example).
