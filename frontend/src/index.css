@@ -52,6 +52,20 @@
 }
 
 /*
+ * Room for the system bars. The page is drawn edge to edge (see
+ * `viewport-fit=cover` in index.html), so on a phone it runs underneath the
+ * status bar and the gesture bar; these keep what has to stay tappable or
+ * readable clear of them. Both are 0 wherever nothing overlaps the page.
+ */
+@utility pad-top-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility pad-bottom-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/*
  * Light. The near-black is warm rather than pure #000: on white, a slightly
  * brown black reads as ink instead of as a hole in the page.
  */

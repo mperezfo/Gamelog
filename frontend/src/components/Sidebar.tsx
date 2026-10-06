@@ -176,7 +176,7 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
           // closed mobile drawer is parked at -translate-x-full, which ends
           // exactly at x=0, so its outset shadow would be the 1px line left
           // showing on the viewport's left edge.
-          'fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col overflow-hidden bg-surface sm:shadow-[1px_0_0_0_var(--color-line)]',
+          'pad-top-safe pad-bottom-safe fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col overflow-hidden bg-surface sm:shadow-[1px_0_0_0_var(--color-line)]',
           // `translate`, not `transform`: Tailwind v4 implements
           // translate-x-* with the standalone `translate` property, which a
           // `transform` transition does not cover. Listing the wrong one is

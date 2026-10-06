@@ -20,7 +20,7 @@ export function AuthLayout({ title, description, children }: AuthLayoutProps) {
   const { theme, setTheme } = useThemeChoice()
 
   return (
-    <div className="flex min-h-dvh flex-col">
+    <div className="pad-top-safe pad-bottom-safe flex min-h-dvh flex-col">
       <div className="flex justify-end p-3">
         <ThemeSwitch theme={theme} onChange={setTheme} />
       </div>
