@@ -3,6 +3,7 @@ import { useId, useRef, useState, type FocusEvent, type KeyboardEvent, type RefO
 import { MONTH_ABBREVIATIONS } from '../lib/format'
 import type { DateFormat } from '../types/auth'
 import { useDateFormat } from '../hooks/useSession'
+import { Dropdown } from './Dropdown'
 import { CalendarIcon } from './icons'
 
 interface DateFieldProps {
@@ -34,6 +35,8 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0')
 }
 
+const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(index + 1), label: abbr }))
+
 /**
  * A date field built from three plain number inputs (day, month, year —
  * ordered to match the account's date format) rather than one
@@ -52,7 +55,7 @@ function pad2(n: number): string {
  * order they were rendered in.
  *
  * 'long' writes its month as a name ("Dec"), not a number, so its month
- * segment is a `<select>` of the same twelve abbreviations formatDate uses
+ * segment is a Dropdown of the same twelve abbreviations formatDate uses
  * (see MONTH_ABBREVIATIONS) instead of a text box — the only place this
  * field's three segments aren't all the same shape.
  */
@@ -92,7 +95,7 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
 
   const dayRef = useRef<HTMLInputElement>(null)
   const monthRef = useRef<HTMLInputElement>(null)
-  const monthSelectRef = useRef<HTMLSelectElement>(null)
+  const monthSelectRef = useRef<HTMLButtonElement>(null)
   const yearRef = useRef<HTMLInputElement>(null)
   const pickerRef = useRef<HTMLInputElement>(null)
   const refs: Record<SegmentKind, RefObject<HTMLInputElement | null>> = { d: dayRef, m: monthRef, y: yearRef }
@@ -193,28 +196,23 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[13px] font-medium text-ink-muted">{label}</label>
-      <div className="relative flex h-9 items-center gap-1 rounded-control bg-sunken pr-8 pl-2.5 focus-within:ring-2 focus-within:ring-accent/40">
+      <div className="relative flex h-9 items-center gap-1 rounded-control bg-sunken pr-8 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40">
         {order.map((kind, index) => (
           <span key={kind} className="flex items-center gap-1">
             {index > 0 && separator && <span className="text-sm text-ink-faint">{separator}</span>}
 
             {kind === 'm' && monthIsName ? (
-              <select
+              <Dropdown
                 id={kind === order[0] ? id : undefined}
                 ref={monthSelectRef}
+                aria-label={`${label}, month`}
                 value={month}
-                onChange={(event) => handleMonthNameChange(event.target.value)}
-                className="w-14 bg-transparent text-sm text-ink outline-none"
-              >
-                <option value="" disabled hidden>
-                  MMM
-                </option>
-                {MONTH_ABBREVIATIONS.map((abbr, monthIndex) => (
-                  <option key={abbr} value={pad2(monthIndex + 1)}>
-                    {abbr}
-                  </option>
-                ))}
-              </select>
+                onChange={handleMonthNameChange}
+                options={MONTH_OPTIONS}
+                placeholder="MMM"
+                chevron={false}
+                className="w-9 text-sm text-ink"
+              />
             ) : (
               <input
                 id={kind === order[0] ? id : undefined}

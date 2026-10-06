@@ -21,6 +21,11 @@ const DATE_FORMAT_OPTIONS: { value: DateFormat; label: string }[] = [
   { value: 'mdy', label: formatDate('2023-12-31', 'mdy') },
 ]
 
+const GAMES_VIEW_OPTIONS: { value: GamesView; label: string }[] = [
+  { value: 'table', label: 'Table' },
+  { value: 'grid', label: 'Grid' },
+]
+
 /** Everything one account can do to itself: how it appears, how the app
  * looks on this device, and its password. */
 export function Account() {
@@ -50,36 +55,29 @@ export function Account() {
             <Select
               label="Date format"
               value={user.date_format}
-              onChange={(event) =>
+              onChange={(dateFormat) =>
                 updatePreferences.mutate({
                   theme: user.theme,
-                  dateFormat: event.target.value as DateFormat,
+                  dateFormat,
                   gamesView: user.games_view,
                 })
               }
+              options={DATE_FORMAT_OPTIONS}
               className="w-auto"
-            >
-              {DATE_FORMAT_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+            />
             <Select
               label="Default Games view"
               value={user.games_view}
-              onChange={(event) =>
+              onChange={(gamesView) =>
                 updatePreferences.mutate({
                   theme: user.theme,
                   dateFormat: user.date_format,
-                  gamesView: event.target.value as GamesView,
+                  gamesView,
                 })
               }
+              options={GAMES_VIEW_OPTIONS}
               className="w-auto"
-            >
-              <option value="table">Table</option>
-              <option value="grid">Grid</option>
-            </Select>
+            />
           </div>
         </Section>
 

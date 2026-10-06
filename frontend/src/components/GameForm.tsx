@@ -238,14 +238,9 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
         <Select
           label="Status"
           value={status}
-          onChange={(event) => setStatus(event.target.value as GameStatus)}
-        >
-          {GAME_STATUSES.map((value) => (
-            <option key={value} value={value}>
-              {STATUS_LABELS[value]}
-            </option>
-          ))}
-        </Select>
+          onChange={setStatus}
+          options={GAME_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
+        />
 
         <Field
           label="Score"
@@ -261,15 +256,13 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
         <Select
           label="Platform"
           value={platformId}
-          onChange={(event) => setPlatformId(event.target.value)}
-        >
-          <option value="">—</option>
-          {(platforms.data ?? []).map((platform) => (
-            <option key={platform.id} value={platform.id}>
-              {platform.name}
-            </option>
-          ))}
-        </Select>
+          onChange={setPlatformId}
+          align="right"
+          options={[
+            { value: '', label: '—' },
+            ...(platforms.data ?? []).map((platform) => ({ value: String(platform.id), label: platform.name })),
+          ]}
+        />
       </div>
 
       <Field
