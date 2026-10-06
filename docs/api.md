@@ -52,6 +52,10 @@ DELETE /api/games/{id}
 GET/POST            /api/genres        (same for developers, publishers, platforms)
 GET/PUT/DELETE      /api/genres/{id}
 
+GET    /api/notifications/channels          the reminder channels on offer, with your setup
+PUT    /api/notifications/channels/{type}   switch one on or off, and its settings
+POST   /api/notifications/channels/{type}/test   sends a test message
+
 POST   /api/images                          uploads a cover or avatar
 GET    /api/images/{name}
 

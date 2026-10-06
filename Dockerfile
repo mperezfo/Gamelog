@@ -35,7 +35,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags "-X main.v
 # because the backend never serves static files and self-hosting should
 # stay a single container to run.
 FROM caddy:2-alpine
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl tzdata
 COPY --from=frontend /app/dist /srv/www
 COPY --from=backend /app/server /app/server
 COPY Caddyfile /etc/caddy/Caddyfile

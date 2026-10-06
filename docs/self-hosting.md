@@ -173,6 +173,10 @@ Everything is configured through environment variables. Every variable has a def
 | `GAMELOG_IMAGES_DIR` | `/data/images` in the image | Where uploaded images are stored, content-addressed by the sha256 of their bytes |
 | `GAMELOG_MIGRATE` | `true` | Apply pending migrations at startup. Set to `false` to control when the schema changes yourself |
 | `GAMELOG_DOCS` | `true` | Serve the interactive API documentation at `/api/docs` |
+| `GAMELOG_NTFY_URL` | none | Base URL of the [ntfy](https://ntfy.sh) server release reminders are sent through. Without it the ntfy channel is not offered. See [Release reminders](#release-reminders) |
+| `GAMELOG_NTFY_TOKEN` | none | Access token for that ntfy server, if it needs one |
+| `GAMELOG_NOTIFY_HOUR` | `9` | Hour of the day, in the server's time zone, from which the day's reminders go out |
+| `TZ` | `UTC` | The server's time zone, such as `Europe/Madrid`. It decides which day it is for release dates, and when `GAMELOG_NOTIFY_HOUR` falls |
 | `GAMELOG_PORT` | `8080` | Backend port. Inside the image it is an internal detail between Caddy and the backend: the container's public port is always 9999 |
 
 The defaults are local development credentials. Change them before deploying anywhere, even behind Tailscale.
@@ -196,6 +200,25 @@ docker compose exec gamelog /app/server -reset-admin-password
 ```
 
 It reads the new password from stdin and ends every session the account had.
+
+## Release reminders
+
+Each account can be reminded that a game in its library is about to come out, using the release date saved on the game. A reminder is sent a number of days ahead, which each account chooses, and again on the day itself. Games already marked as played are left out, and a game whose date is moved is announced again for the new one.
+
+What a deployment can reach is up to the administrator, through configuration. Each account then switches the available channels on or off from its own page and fills in whatever they need, such as an ntfy topic. An account only ever picks where its reminders go, never which server they go through, so nobody can make the backend call an address of their own. The channel is not listed for accounts at all until it is configured.
+
+The only channel so far is ntfy. Point `GAMELOG_NTFY_URL` at a server you run or at `https://ntfy.sh`, and set `GAMELOG_NTFY_TOKEN` if the server requires authentication:
+
+```yaml
+environment:
+  GAMELOG_NTFY_URL: https://ntfy.example.com
+  GAMELOG_NTFY_TOKEN: tk_changeme
+  TZ: Europe/Madrid
+```
+
+Each account chooses a topic and subscribes to it in the ntfy app. Anyone who knows a topic on a server that is open can read it, so pick one that is hard to guess. The "Send a test" button on the account page delivers a message with the saved settings, so a typo shows up straight away.
+
+Reminders are sent by the backend itself, which checks every 15 minutes and sends nothing before `GAMELOG_NOTIFY_HOUR`. Set `TZ` to your own time zone, or "today" and that hour are in UTC. A reminder that could not be delivered is tried again on the next check, and one that was delivered is never repeated. If the backend is down for a whole day, the reminders of that day are not sent afterwards.
 
 ## Backups
 
