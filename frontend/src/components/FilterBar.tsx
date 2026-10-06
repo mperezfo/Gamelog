@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 
-import { CheckIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
+import { ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { FilterPopover } from './FilterPopover'
+import { OptionRow } from './OptionRow'
 
 export interface FilterOption {
   value: string
@@ -79,18 +80,7 @@ function FilterOptionList({
         {filtered.map((option) => {
           const active = selected.includes(option.value)
           return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => pick(option.value)}
-              className={[
-                'flex w-full items-center justify-between gap-2 rounded-control px-2 py-1.5 text-left text-sm transition-colors duration-75',
-                active ? 'text-ink' : 'text-ink-muted hover:bg-hover hover:text-ink',
-              ].join(' ')}
-            >
-              <span className="truncate">{option.label}</span>
-              {active && <CheckIcon className="size-3.5 shrink-0 text-accent" />}
-            </button>
+            <OptionRow key={option.value} label={option.label} active={active} onClick={() => pick(option.value)} />
           )
         })}
       </div>

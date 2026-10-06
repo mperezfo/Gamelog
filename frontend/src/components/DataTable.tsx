@@ -80,6 +80,7 @@ function DataTableInner<T>({ table, onRowClick, emptyMessage = 'Nothing here yet
             <tr
               key={row.id}
               onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+              data-tap-target={onRowClick ? '' : undefined}
               className={[
                 'border-b border-line',
                 onRowClick ? 'cursor-pointer hover:bg-hover' : '',

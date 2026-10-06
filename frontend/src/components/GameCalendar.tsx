@@ -4,6 +4,7 @@ import { monthGrid, monthLabel, monthNames, weekdayLabels } from '../lib/calenda
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
 import { Button } from './Button'
+import { Dropdown } from './Dropdown'
 import { ChevronDownIcon, ChevronUpIcon } from './icons'
 import { CoverOverlay } from './CoverOverlay'
 
@@ -22,6 +23,8 @@ interface GameCalendarProps {
 const MAX_PER_DAY = 3
 const MIN_YEAR = 1970
 const MAX_YEAR = new Date().getFullYear() + 5
+
+const MONTH_OPTIONS = monthNames().map((name, index) => ({ value: String(index), label: name }))
 
 function startOfThisMonth(): Date {
   const now = new Date()
@@ -123,18 +126,13 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
 
           {pickerOpen && (
             <div className="absolute top-full left-0 z-10 mt-1 flex items-center gap-1.5 rounded-control bg-surface p-2 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
-              <select
+              <Dropdown
                 aria-label="Month"
-                value={month.getMonth()}
-                onChange={(event) => setMonth((m) => new Date(m.getFullYear(), Number(event.target.value), 1))}
-                className="h-8 rounded-control bg-sunken px-2 text-sm text-ink outline-none"
-              >
-                {monthNames().map((name, index) => (
-                  <option key={name} value={index}>
-                    {name}
-                  </option>
-                ))}
-              </select>
+                value={String(month.getMonth())}
+                onChange={(value) => setMonth((m) => new Date(m.getFullYear(), Number(value), 1))}
+                options={MONTH_OPTIONS}
+                className="h-8 rounded-control bg-sunken px-2 text-sm text-ink"
+              />
               <div className="relative flex">
                 <input
                   aria-label="Year"

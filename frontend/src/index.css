@@ -101,6 +101,35 @@
   --gl-ok: #4dab9a;
 }
 
+/*
+ * The radius of the tap ripple (see useTapFeedback). Registered so that it can
+ * be animated: an unregistered custom property would jump from 0 to its end
+ * value instead of growing.
+ */
+@property --gl-tap-r {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+
+@keyframes gl-tap-grow {
+  from {
+    --gl-tap-r: 0px;
+  }
+  to {
+    --gl-tap-r: var(--tap-max);
+  }
+}
+
+@keyframes gl-tap-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @layer base {
   body {
     background-color: var(--gl-canvas);
@@ -114,6 +143,62 @@
      should not animate just because it can. */
   button {
     cursor: pointer;
+  }
+
+  /* Tap feedback. Tailwind only applies `hover:` where a real pointer can
+   * hover, so on a phone a tap would otherwise change nothing. useTapFeedback
+   * marks the pressed element with data-tap and sets where it was touched
+   * (--tap-x/--tap-y), how far the ripple has to reach (--tap-max) and its
+   * timings; this draws it. The ripple lives on a pseudo-element laid over
+   * the element, so it follows the element's own radius and needs neither
+   * overflow: hidden nor any wrapper. It takes its colour from the text, which
+   * is dark on a light button and white on the primary one. */
+  [data-tap]:not(tr) {
+    position: relative;
+  }
+
+  [data-tap]:not(tr)::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(
+      circle at var(--tap-x) var(--tap-y),
+      color-mix(in srgb, currentColor 16%, transparent) var(--gl-tap-r),
+      transparent calc(var(--gl-tap-r) + 1px)
+    );
+  }
+
+  [data-tap='down']::after {
+    animation: gl-tap-grow var(--tap-grow) cubic-bezier(0.2, 0, 0, 1) forwards;
+  }
+
+  [data-tap='up']::after {
+    --gl-tap-r: var(--tap-max);
+    animation: gl-tap-fade var(--tap-fade) ease-out forwards;
+  }
+
+  /* A table row is too wide for a ripple to read well, and a pseudo-element
+   * on a <tr> is not reliable, so a pressed row just takes the hover tint. */
+  tr[data-tap-target] {
+    transition: background-color var(--tap-fade, 300ms) ease-out;
+  }
+
+  tr[data-tap='down'] {
+    background-color: var(--gl-hover);
+  }
+
+  /* Taps fire at once rather than waiting to see whether this is a double-tap
+   * zoom. Pinch zoom and panning are untouched. */
+  button,
+  a,
+  summary,
+  select,
+  label,
+  [role='button'],
+  [data-tap-target] {
+    touch-action: manipulation;
   }
 
   ::selection {

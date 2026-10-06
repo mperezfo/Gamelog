@@ -9,6 +9,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { useScrollbarFade } from './hooks/useScrollbarFade'
 import { useSession } from './hooks/useSession'
 import { useSetupStatus } from './hooks/useSetup'
+import { useTapFeedback } from './hooks/useTapFeedback'
 import { useTruncationTooltip } from './hooks/useTruncationTooltip'
 import { Account } from './pages/Account'
 import { Admin } from './pages/Admin'
@@ -35,6 +36,7 @@ const queryClient = new QueryClient({
 export default function App() {
   useTruncationTooltip()
   useScrollbarFade()
+  useTapFeedback()
 
   return (
     <QueryClientProvider client={queryClient}>
