@@ -3,8 +3,10 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -64,6 +66,21 @@ type Config struct {
 	// by the sha256 of their bytes. Local disk rather than object storage for
 	// now: S3-compatible storage is a later step, not a v1 requirement.
 	ImagesDir string
+
+	// NtfyURL is the base URL of the ntfy server release reminders are sent
+	// through, such as "https://ntfy.sh" or a self-hosted instance. Empty means
+	// the ntfy channel is not offered at all. It is the administrator who picks
+	// the server, never an account: that is what keeps a reminder from being
+	// aimed at an address of somebody's choosing.
+	NtfyURL string
+	// NtfyToken is an access token sent to that server, for one that requires
+	// authentication. Empty sends none.
+	NtfyToken string
+
+	// NotifyHour is the hour of the day, in the server's time zone, from which
+	// the day's reminders go out. Reminders are never sent earlier than this,
+	// so a game that comes out tomorrow is not announced in the small hours.
+	NotifyHour int
 }
 
 // DSN returns the connection string for the MySQL/MariaDB driver.
@@ -110,6 +127,19 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 
+	notifyHour, err := envInt("GAMELOG_NOTIFY_HOUR", 9)
+	if err != nil {
+		return Config{}, err
+	}
+	if notifyHour < 0 || notifyHour > 23 {
+		return Config{}, fmt.Errorf("GAMELOG_NOTIFY_HOUR: %d is not an hour between 0 and 23", notifyHour)
+	}
+
+	ntfyURL, err := envBaseURL("GAMELOG_NTFY_URL")
+	if err != nil {
+		return Config{}, err
+	}
+
 	return Config{
 		Port:            port,
 		DBHost:          env("GAMELOG_DB_HOST", "127.0.0.1"),
@@ -124,6 +154,9 @@ func Load() (Config, error) {
 		AdminPassword:   env("GAMELOG_ADMIN_PASSWORD", ""),
 		ShutdownTimeout: 10 * time.Second,
 		ImagesDir:       env("GAMELOG_IMAGES_DIR", "./data/images"),
+		NtfyURL:         ntfyURL,
+		NtfyToken:       env("GAMELOG_NTFY_TOKEN", ""),
+		NotifyHour:      notifyHour,
 	}, nil
 }
 
@@ -132,6 +165,21 @@ func env(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+// envBaseURL reads the base URL of a service, without a trailing slash so that
+// a path can be appended to it. Unset is fine and gives "": the service is
+// simply not configured.
+func envBaseURL(key string) (string, error) {
+	raw, ok := os.LookupEnv(key)
+	if !ok || raw == "" {
+		return "", nil
+	}
+	u, err := url.Parse(raw)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("%s: %q is not an http:// or https:// URL", key, raw)
+	}
+	return strings.TrimRight(raw, "/"), nil
 }
 
 func envInt(key string, fallback int) (int, error) {

@@ -24,6 +24,7 @@ import (
 	"github.com/mperezfo/gamelog/internal/config"
 	"github.com/mperezfo/gamelog/internal/database"
 	"github.com/mperezfo/gamelog/internal/models"
+	"github.com/mperezfo/gamelog/internal/notify"
 	"github.com/mperezfo/gamelog/internal/repository"
 	"github.com/mperezfo/gamelog/internal/router"
 )
@@ -106,6 +107,9 @@ func run(resetAdmin bool) error {
 	if err := backfillSlugs(ctx, authentication, db); err != nil {
 		return err
 	}
+
+	// Release reminders go out from this process, for as long as it runs.
+	go notify.NewScheduler(db, router.NotificationChannels(cfg), cfg.NotifyHour).Run(ctx)
 
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", strconv.Itoa(cfg.Port)),

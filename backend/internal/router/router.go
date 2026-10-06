@@ -14,6 +14,7 @@ import (
 	"github.com/mperezfo/gamelog/internal/auth"
 	"github.com/mperezfo/gamelog/internal/config"
 	"github.com/mperezfo/gamelog/internal/handlers"
+	"github.com/mperezfo/gamelog/internal/notify"
 )
 
 // Version is the version of the API reported in the OpenAPI document. It is
@@ -40,6 +41,14 @@ const (
 	SchemasPath = "/api/schemas"
 )
 
+// NotificationChannels builds the release reminder channels a configuration
+// enables. The router offers them to accounts and the scheduler sends through
+// them, so both are built by this one function and cannot disagree about what
+// the deployment offers.
+func NotificationChannels(cfg config.Config) *notify.Registry {
+	return notify.NewRegistry(notify.Options{NtfyURL: cfg.NtfyURL, NtfyToken: cfg.NtfyToken})
+}
+
 // New builds the API router.
 //
 // The backend serves /api/* only: the frontend is an independent static build,
@@ -57,7 +66,7 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	// against the OpenAPI description of the API, which is generated from the
 	// same Go types that validate the requests (see the handlers package).
 	api := humachi.New(r, openAPIConfig())
-	handlers.Register(api, db, authentication, cfg.ImagesDir, version)
+	handlers.Register(api, db, authentication, NotificationChannels(cfg), cfg.ImagesDir, version)
 
 	// Outside Huma, since the page is ours. Left out, the route simply does
 	// not exist: the documentation is what grants a stranger a console onto
