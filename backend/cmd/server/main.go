@@ -23,6 +23,7 @@ import (
 	"github.com/mperezfo/gamelog/internal/auth"
 	"github.com/mperezfo/gamelog/internal/config"
 	"github.com/mperezfo/gamelog/internal/database"
+	"github.com/mperezfo/gamelog/internal/imagefile"
 	"github.com/mperezfo/gamelog/internal/models"
 	"github.com/mperezfo/gamelog/internal/repository"
 	"github.com/mperezfo/gamelog/internal/router"
@@ -40,18 +41,38 @@ func main() {
 		Level: slog.LevelInfo,
 	})))
 
-	resetAdmin := flag.Bool("reset-admin-password", false,
+	var tasks maintenance
+	flag.BoolVar(&tasks.resetAdmin, "reset-admin-password", false,
 		"Read a new password for the admin account from stdin, set it, and exit. "+
 			"The way back into a deployment whose admin password was lost.")
+	flag.BoolVar(&tasks.normalizeImages, "normalize-images", false,
+		"Convert every stored image the backend cannot read (AVIF, typically) to JPEG or PNG, "+
+			"move the games and accounts that use it to the new file, and exit.")
+	flag.BoolVar(&tasks.dryRun, "dry-run", false,
+		"With -normalize-images: list what would be converted, and change nothing.")
 	flag.Parse()
 
-	if err := run(*resetAdmin); err != nil {
+	if err := run(tasks); err != nil {
 		slog.Error("server exited with an error", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(resetAdmin bool) error {
+// maintenance is the one-off tasks the flags ask for instead of serving.
+type maintenance struct {
+	resetAdmin      bool
+	normalizeImages bool
+	dryRun          bool
+}
+
+func run(tasks maintenance) error {
+	if tasks.resetAdmin && tasks.normalizeImages {
+		return errors.New("-reset-admin-password and -normalize-images are separate runs: pick one")
+	}
+	if tasks.dryRun && !tasks.normalizeImages {
+		return errors.New("-dry-run only applies to -normalize-images")
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("loading configuration: %w", err)
@@ -93,9 +114,12 @@ func run(resetAdmin bool) error {
 		SecureCookie: cfg.SecureCookie,
 	})
 
-	// A maintenance run: set the password and leave without listening.
-	if resetAdmin {
+	// A maintenance run: do the task and leave without listening.
+	if tasks.resetAdmin {
 		return resetAdminPassword(ctx, authentication)
+	}
+	if tasks.normalizeImages {
+		return normalizeImages(ctx, db, cfg.ImagesDir, tasks.dryRun)
 	}
 
 	if err := bootstrapAdmin(ctx, authentication, cfg.AdminPassword); err != nil {
@@ -280,5 +304,40 @@ func resetAdminPassword(ctx context.Context, authentication *auth.Service) error
 	}
 
 	slog.Info("admin password reset", "sessions", "every session the account had has ended")
+	return nil
+}
+
+// normalizeImages converts every stored image the backend cannot read, the
+// way uploads have been converted on the way in since: images stored before
+// that (or restored from a backup made before it) can be AVIF files under a
+// .png name, which get no thumbnails and are slow to show.
+func normalizeImages(ctx context.Context, db *gorm.DB, dir string, dryRun bool) error {
+	names, err := imagefile.StoredNames(dir)
+	if err != nil {
+		return err
+	}
+
+	report, err := imagefile.NormalizeStored(ctx, db, dir, names, dryRun)
+	if err != nil {
+		return err
+	}
+
+	verb := "converted"
+	if dryRun {
+		verb = "would convert"
+	}
+	for _, conversion := range report.Converted {
+		found := string(conversion.Found)
+		if found == "" {
+			found = "unknown"
+		}
+		slog.Info(verb, "from", conversion.From, "to", conversion.To, "found", found,
+			"games", conversion.Games, "accounts", conversion.Users)
+	}
+	for _, failure := range report.Failed {
+		slog.Warn("could not read", "image", failure.Name, "error", failure.Err)
+	}
+	slog.Info("images checked", "checked", report.Checked, "converted", len(report.Converted),
+		"unreadable", len(report.Failed), "dry_run", dryRun)
 	return nil
 }

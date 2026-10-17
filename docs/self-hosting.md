@@ -213,3 +213,16 @@ It reads the new password from stdin and ends every session the account had.
 The **Account** page can download a full backup of your account as a `.zip` — every game, genre, developer, publisher and platform, your profile, plus every cover and avatar they use — and restore one, replacing what is there. It covers one account at a time; see [Import and export](import-export.md) for the details.
 
 To back up a whole deployment, back up both volumes: the database (`db-data`, or a `mariadb-dump`) and `gamelog-data`, which holds the images.
+
+## Stored images
+
+Covers and avatars are stored as JPEG, PNG, WebP or GIF, judged from the file's bytes rather than its name. An upload in any other format the backend can read, which in practice means AVIF (what many websites serve, even when the saved file ends in `.png`), is converted on the way in: to JPEG, or to PNG when it has transparency.
+
+Images uploaded before that conversion existed can still be AVIF under another name. They get no thumbnails, so the full image is sent and decoded wherever the cover is shown, which is slow on a phone. To find and convert them, see what would change first, then run it:
+
+```sh
+docker compose exec gamelog /app/server -normalize-images -dry-run
+docker compose exec gamelog /app/server -normalize-images
+```
+
+Every converted image gets a new name, and the games and accounts that used it are moved to it; the old file and its thumbnails are deleted. A JPEG, PNG, WebP or GIF that was merely misnamed is renamed, never re-encoded. Running it again once there is nothing left to convert changes nothing.
