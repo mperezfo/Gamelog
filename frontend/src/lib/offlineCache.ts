@@ -1,6 +1,6 @@
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import type { Query } from '@tanstack/react-query'
-import type { PersistQueryClientOptions } from '@tanstack/react-query-persist-client'
+import type { PersistedClient, PersistQueryClientOptions } from '@tanstack/react-query-persist-client'
 import { del, get, set } from 'idb-keyval'
 
 /**
@@ -16,7 +16,28 @@ const STORAGE_KEY = 'gamelog-query-cache'
 const persister = createAsyncStoragePersister({
   storage: { getItem: get<string>, setItem: set, removeItem: del },
   key: STORAGE_KEY,
+  serialize: (client) => JSON.stringify(withoutFailures(client)),
 })
+
+/**
+ * Stores a query whose last refresh failed as the success it last was.
+ *
+ * The failure says nothing about the data, which is what the copy is for,
+ * and an Error does not survive JSON anyway: restored as `{}`, it showed as
+ * a bare "Something went wrong." on the next page load until the refetch
+ * came back.
+ */
+function withoutFailures(client: PersistedClient): PersistedClient {
+  const queries = client.clientState.queries.map((query) =>
+    query.state.status === 'error' && query.state.data !== undefined
+      ? {
+          ...query,
+          state: { ...query.state, status: 'success' as const, error: null, fetchFailureCount: 0, fetchFailureReason: null },
+        }
+      : query
+  )
+  return { ...client, clientState: { ...client.clientState, queries } }
+}
 
 /** Queries that make no sense to show from an old copy: the API's live
  * health, and the admin's account list, which stays behind a connection. */
