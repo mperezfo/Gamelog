@@ -28,6 +28,7 @@ import { UpcomingRelease } from '../components/UpcomingRelease'
 import { useEdgeFade } from '../hooks/useEdgeFade'
 import { useGameModal } from '../hooks/useGameModal'
 import { useGames, useUpdateGame } from '../hooks/useGames'
+import { useOffline } from '../hooks/useOffline'
 import { compareForBoard, sameDateGroup } from '../lib/gameSort'
 import { GAME_STATUSES, STATUS_DOT, STATUS_LABELS, type Game, type GameStatus } from '../types/game'
 
@@ -42,6 +43,7 @@ export function Dashboard() {
   const updateGame = useUpdateGame()
 
   const modal = useGameModal()
+  const offline = useOffline()
   const [activeGame, setActiveGame] = useState<Game | undefined>(undefined)
   // Which column to highlight as the drop target. Tracked separately from
   // dnd-kit's own per-column isOver (which only lights up when the pointer
@@ -132,8 +134,9 @@ export function Dashboard() {
   // A small activation distance so a plain click still opens the panel: only
   // a real drag (pointer actually moving) starts one.
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
-  // Omitted entirely on touch devices — see `isTouchDevice` above.
-  const sensors = useSensors(isTouchDevice ? undefined : pointerSensor)
+  // Omitted entirely on touch devices (see `isTouchDevice` above) and while
+  // offline, when a drop could not be saved.
+  const sensors = useSensors(isTouchDevice || offline ? undefined : pointerSensor)
 
   const all = useMemo(() => games.data ?? [], [games.data])
 
@@ -360,13 +363,13 @@ export function Dashboard() {
     <div className="flex flex-col gap-8 px-4 py-5 sm:px-6 sm:py-6">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-semibold tracking-tight text-ink">Dashboard</h1>
-        <Button variant="primary" onClick={modal.openNew}>
+        <Button variant="primary" onClick={modal.openNew} disabled={offline}>
           <PlusIcon className="size-4" />
           New game
         </Button>
       </div>
 
-      {games.isError && <Notice tone="error">{errorMessage(games.error)}</Notice>}
+      {games.isError && !offline && <Notice tone="error">{errorMessage(games.error)}</Notice>}
 
       {!games.isPending && (
         <>

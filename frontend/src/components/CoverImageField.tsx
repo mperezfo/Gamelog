@@ -20,6 +20,8 @@ interface CoverImageFieldProps {
    * Null means no zoom (1). */
   zoom: number | null
   onZoomChange: (zoom: number | null) => void
+  /** Shows the cover without any way to replace, crop or remove it. */
+  readOnly?: boolean
 }
 
 const MIN_ZOOM = 1
@@ -76,6 +78,7 @@ export function CoverImageField({
   onFocalChange,
   zoom,
   onZoomChange,
+  readOnly = false,
 }: CoverImageFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -347,12 +350,13 @@ export function CoverImageField({
         <div
           ref={coverBoxRef}
           className="group relative h-96 w-full overflow-hidden rounded-control bg-sunken"
-          onClick={() => value && setShowOverlay((shown) => !shown)}
+          onClick={() => value && !readOnly && setShowOverlay((shown) => !shown)}
           onMouseLeave={() => setShowOverlay(false)}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
+          // Without these the box is simply not a drop target.
+          onDragEnter={readOnly ? undefined : handleDragEnter}
+          onDragLeave={readOnly ? undefined : handleDragLeave}
+          onDragOver={readOnly ? undefined : handleDragOver}
+          onDrop={readOnly ? undefined : handleDrop}
         >
           {value ? (
             <>
@@ -380,64 +384,68 @@ export function CoverImageField({
                   {coverNatural.w} × {coverNatural.h}
                 </span>
               )}
-              <div
-                className={[
-                  'absolute inset-0 flex items-center justify-center gap-2 bg-black/45 transition-opacity duration-75',
-                  showOverlay
-                    ? 'pointer-events-auto opacity-100'
-                    : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100',
-                ].join(' ')}
-              >
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={uploading}
-                  className="bg-surface/90 hover:bg-surface"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    inputRef.current?.click()
-                  }}
+              {!readOnly && (
+                <div
+                  className={[
+                    'absolute inset-0 flex items-center justify-center gap-2 bg-black/45 transition-opacity duration-75',
+                    showOverlay
+                      ? 'pointer-events-auto opacity-100'
+                      : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100',
+                  ].join(' ')}
                 >
-                  {uploading ? 'Uploading…' : 'Replace'}
-                </Button>
-                {!uploading && (
                   <Button
                     type="button"
                     variant="secondary"
+                    disabled={uploading}
                     className="bg-surface/90 hover:bg-surface"
                     onClick={(event) => {
                       event.stopPropagation()
-                      startCropping()
+                      inputRef.current?.click()
                     }}
                   >
-                    Set portrait crop
+                    {uploading ? 'Uploading…' : 'Replace'}
                   </Button>
-                )}
-                {!uploading && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="bg-surface/90 px-2 hover:bg-surface"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onChange('')
-                      onFocalChange(null, null)
-                      onZoomChange(null)
-                      setShowOverlay(false)
-                    }}
-                    aria-label="Remove cover"
-                  >
-                    <TrashIcon className="size-3.5" />
-                  </Button>
-                )}
-              </div>
+                  {!uploading && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="bg-surface/90 hover:bg-surface"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        startCropping()
+                      }}
+                    >
+                      Set portrait crop
+                    </Button>
+                  )}
+                  {!uploading && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="bg-surface/90 px-2 hover:bg-surface"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onChange('')
+                        onFocalChange(null, null)
+                        onZoomChange(null)
+                        setShowOverlay(false)
+                      }}
+                      aria-label="Remove cover"
+                    >
+                      <TrashIcon className="size-3.5" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <div className="flex size-full flex-col items-center justify-center gap-2">
               <ImageIcon className="size-5 text-ink-faint" />
-              <Button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}>
-                {uploading ? 'Uploading…' : 'Add a cover'}
-              </Button>
+              {!readOnly && (
+                <Button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}>
+                  {uploading ? 'Uploading…' : 'Add a cover'}
+                </Button>
+              )}
             </div>
           )}
 

@@ -19,6 +19,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useGameModal } from '../hooks/useGameModal'
 import { useDateFormat, useDefaultGamesView } from '../hooks/useSession'
 import { useGames } from '../hooks/useGames'
+import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
 import { STATUS_LABELS, type Game } from '../types/game'
 import { dateRange, dateRangeSpan, formatDate, formatScore } from '../lib/format'
@@ -130,6 +131,7 @@ export function GamesPage() {
   )
 
   const modal = useGameModal()
+  const offline = useOffline()
 
   // The search box is local state, not `filters.q` directly: a value bound
   // straight to the URL snaps back to it on every re-render, and a fast
@@ -434,14 +436,14 @@ export function GamesPage() {
           </button>
         </div>
 
-        <Button variant="primary" className="order-6 sm:order-none" onClick={modal.openNew}>
+        <Button variant="primary" className="order-6 sm:order-none" onClick={modal.openNew} disabled={offline}>
           <PlusIcon className="size-4" />
           New game
         </Button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-persistent px-4 py-3 sm:px-6">
-        {games.isError && <Notice tone="error">{errorMessage(games.error)}</Notice>}
+        {games.isError && !offline && <Notice tone="error">{errorMessage(games.error)}</Notice>}
         {games.isPending && <p className="text-[13px] text-ink-faint">Loading…</p>}
         {games.data && view === 'table' && (
           <DataTable

@@ -11,6 +11,7 @@ import { PlatformBadge } from '../components/PlatformBadge'
 import { useFilterParams } from '../hooks/useFilterParams'
 import { useGames } from '../hooks/useGames'
 import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '../hooks/useLookups'
+import { useOffline } from '../hooks/useOffline'
 import type { Game } from '../types/game'
 import type { Lookup, LookupKind } from '../types/lookup'
 
@@ -56,6 +57,7 @@ function idsOf(kind: LookupKind, game: Game): number[] {
 export function LookupPage({ kind, title }: LookupPageProps) {
   const list = useLookups(kind)
   const games = useGames()
+  const offline = useOffline()
   const [editing, setEditing] = useState<Lookup | 'new' | null>(null)
   // Kept in the URL, same as GamesPage's own sort — a link built or bookmarked
   // with one of these open reproduces the same order, and each of the four
@@ -128,14 +130,14 @@ export function LookupPage({ kind, title }: LookupPageProps) {
               </button>
             </div>
           </div>
-          <Button variant="primary" onClick={() => setEditing('new')}>
+          <Button variant="primary" onClick={() => setEditing('new')} disabled={offline}>
             <PlusIcon className="size-4" />
             New
           </Button>
         </div>
       </div>
 
-      {list.isError && <Notice tone="error">{errorMessage(list.error)}</Notice>}
+      {list.isError && !offline && <Notice tone="error">{errorMessage(list.error)}</Notice>}
       {list.isPending && <p className="text-[13px] text-ink-faint">Loading…</p>}
 
       {editing === 'new' && (
@@ -177,6 +179,7 @@ function LookupRow({
 }) {
   const [confirming, setConfirming] = useState(false)
   const remove = useDeleteLookup(kind)
+  const offline = useOffline()
 
   return (
     <li className="group border-b border-line last:border-0">
@@ -203,7 +206,7 @@ function LookupRow({
         </span>
 
         <div className="flex shrink-0 items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
-          <Button variant="ghost" className="px-2" title="Rename" aria-label={`Rename ${item.name}`} onClick={onEdit}>
+          <Button variant="ghost" className="px-2" title="Rename" aria-label={`Rename ${item.name}`} onClick={onEdit} disabled={offline}>
             <PencilIcon />
           </Button>
           <Button
@@ -212,6 +215,7 @@ function LookupRow({
             title="Delete"
             aria-label={`Delete ${item.name}`}
             onClick={() => setConfirming(true)}
+            disabled={offline}
           >
             <TrashIcon />
           </Button>
@@ -229,7 +233,7 @@ function LookupRow({
             <Button
               variant="danger"
               className="border border-danger/30"
-              disabled={remove.isPending}
+              disabled={remove.isPending || offline}
               onClick={() => remove.mutate(item.id, { onSuccess: () => setConfirming(false) })}
             >
               {remove.isPending ? 'Deleting…' : 'Delete'}
@@ -259,6 +263,7 @@ function LookupForm({
   const update = useUpdateLookup(kind)
   const saving = create.isPending || update.isPending
   const error = create.error ?? update.error
+  const offline = useOffline()
 
   function submit(event: FormEvent) {
     event.preventDefault()
@@ -304,7 +309,7 @@ function LookupForm({
       </div>
       {error && <Notice tone="error">{errorMessage(error)}</Notice>}
       <div className="flex gap-2">
-        <Button type="submit" variant="primary" disabled={saving}>
+        <Button type="submit" variant="primary" disabled={saving || offline}>
           {saving ? 'Saving…' : item ? 'Save' : 'Create'}
         </Button>
         <Button onClick={onDone}>Cancel</Button>

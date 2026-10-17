@@ -4,6 +4,7 @@ import { errorMessage } from '../api/client'
 import { useGameModal } from '../hooks/useGameModal'
 import { useCreateGame, useDeleteGame, useGames, useUpdateGame } from '../hooks/useGames'
 import { useCreateLookup, useLookups } from '../hooks/useLookups'
+import { useOffline } from '../hooks/useOffline'
 import { foldCase } from '../lib/fuzzy'
 import type { Game, GameInput, GameStatus } from '../types/game'
 import { GAME_STATUSES, STATUS_LABELS } from '../types/game'
@@ -65,6 +66,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const modal = useGameModal()
   const createDeveloper = useCreateLookup('developers')
   const createPublisher = useCreateLookup('publishers')
+  const offline = useOffline()
 
   const [title, setTitle] = useState(game?.title ?? '')
   const [status, setStatus] = useState<GameStatus>(game?.status ?? 'wishlist')
@@ -196,125 +198,131 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
 
   return (
     <form onSubmit={submit} onKeyDown={guardEnter} className="flex flex-col gap-5">
-      <CoverImageField
-        value={coverImageUrl}
-        onChange={setCoverImageUrl}
-        focalX={coverFocalX}
-        focalY={coverFocalY}
-        onFocalChange={(x, y) => {
-          setCoverFocalX(x)
-          setCoverFocalY(y)
-        }}
-        zoom={coverZoom}
-        onZoomChange={setCoverZoom}
-      />
-
-      <input
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-        placeholder="Untitled"
-        required
-        aria-invalid={duplicateGame ? true : undefined}
-        className={[
-          'w-full bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:text-ink-faint',
-          duplicateGame ? 'text-danger' : 'text-ink',
-        ].join(' ')}
-      />
-
-      {duplicateGame && (
-        <Notice tone="error">
-          This game already exists.{' '}
-          <button
-            type="button"
-            className="font-medium underline underline-offset-2"
-            onClick={() => modal.openGame(duplicateGame)}
-          >
-            Open it
-          </button>
-        </Notice>
-      )}
-
-      <div className="grid grid-cols-3 gap-3">
-        <Select
-          label="Status"
-          value={status}
-          onChange={setStatus}
-          options={GAME_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
+      {/* Offline, the game can still be read here, just not changed. A
+          disabled fieldset disables every control inside it at once, and
+          keeps whatever was being typed for when the server is back. */}
+      <fieldset disabled={offline} className="contents">
+        <CoverImageField
+          readOnly={offline}
+          value={coverImageUrl}
+          onChange={setCoverImageUrl}
+          focalX={coverFocalX}
+          focalY={coverFocalY}
+          onFocalChange={(x, y) => {
+            setCoverFocalX(x)
+            setCoverFocalY(y)
+          }}
+          zoom={coverZoom}
+          onZoomChange={setCoverZoom}
         />
+
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder="Untitled"
+          required
+          aria-invalid={duplicateGame ? true : undefined}
+          className={[
+            'w-full bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:text-ink-faint',
+            duplicateGame ? 'text-danger' : 'text-ink',
+          ].join(' ')}
+        />
+
+        {duplicateGame && (
+          <Notice tone="error">
+            This game already exists.{' '}
+            <button
+              type="button"
+              className="font-medium underline underline-offset-2"
+              onClick={() => modal.openGame(duplicateGame)}
+            >
+              Open it
+            </button>
+          </Notice>
+        )}
+
+        <div className="grid grid-cols-3 gap-3">
+          <Select
+            label="Status"
+            value={status}
+            onChange={setStatus}
+            options={GAME_STATUSES.map((value) => ({ value, label: STATUS_LABELS[value] }))}
+          />
+
+          <Field
+            label="Score"
+            type="number"
+            min={0}
+            max={10}
+            step={0.1}
+            placeholder="—"
+            value={score}
+            onChange={(event) => setScore(event.target.value)}
+          />
+
+          <Select
+            label="Platform"
+            value={platformId}
+            onChange={setPlatformId}
+            align="right"
+            options={[
+              { value: '', label: '—' },
+              ...(platforms.data ?? []).map((platform) => ({ value: String(platform.id), label: platform.name })),
+            ]}
+          />
+        </div>
 
         <Field
-          label="Score"
-          type="number"
-          min={0}
-          max={10}
-          step={0.1}
-          placeholder="—"
-          value={score}
-          onChange={(event) => setScore(event.target.value)}
+          label="Tagline"
+          placeholder="A short, witty summary"
+          value={tagline}
+          onChange={(event) => setTagline(event.target.value)}
         />
 
-        <Select
-          label="Platform"
-          value={platformId}
-          onChange={setPlatformId}
-          align="right"
-          options={[
-            { value: '', label: '—' },
-            ...(platforms.data ?? []).map((platform) => ({ value: String(platform.id), label: platform.name })),
-          ]}
-        />
-      </div>
+        <div className="grid grid-cols-2 gap-3">
+          <DateField label="Release date" value={releaseDate} onChange={setReleaseDate} />
+          <DateField label="Logged date" value={loggedDate} onChange={setLoggedDate} />
+        </div>
 
-      <Field
-        label="Tagline"
-        placeholder="A short, witty summary"
-        value={tagline}
-        onChange={(event) => setTagline(event.target.value)}
-      />
+        <div className="flex flex-col gap-3">
+          <ChipMultiSelect
+            label="Genres"
+            options={genres.data ?? []}
+            selectedIds={genreIds}
+            onChange={setGenreIds}
+          />
+          <MultiSelectDropdown
+            label="Developers"
+            options={developers.data ?? []}
+            selectedIds={developerIds}
+            onChange={setDeveloperIds}
+            placeholder="Select developers…"
+            onCreate={(name) => createDeveloper.mutateAsync({ name, icon: null, color: null })}
+          />
+          <MultiSelectDropdown
+            label="Publishers"
+            options={publishers.data ?? []}
+            selectedIds={publisherIds}
+            onChange={setPublisherIds}
+            placeholder="Select publishers…"
+            onCreate={(name) => createPublisher.mutateAsync({ name, icon: null, color: null })}
+          />
+        </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <DateField label="Release date" value={releaseDate} onChange={setReleaseDate} />
-        <DateField label="Logged date" value={loggedDate} onChange={setLoggedDate} />
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <ChipMultiSelect
-          label="Genres"
-          options={genres.data ?? []}
-          selectedIds={genreIds}
-          onChange={setGenreIds}
+        <Textarea
+          label="Notes"
+          rows={3}
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
         />
-        <MultiSelectDropdown
-          label="Developers"
-          options={developers.data ?? []}
-          selectedIds={developerIds}
-          onChange={setDeveloperIds}
-          placeholder="Select developers…"
-          onCreate={(name) => createDeveloper.mutateAsync({ name, icon: null, color: null })}
-        />
-        <MultiSelectDropdown
-          label="Publishers"
-          options={publishers.data ?? []}
-          selectedIds={publisherIds}
-          onChange={setPublisherIds}
-          placeholder="Select publishers…"
-          onCreate={(name) => createPublisher.mutateAsync({ name, icon: null, color: null })}
-        />
-      </div>
-
-      <Textarea
-        label="Notes"
-        rows={3}
-        value={notes}
-        onChange={(event) => setNotes(event.target.value)}
-      />
+      </fieldset>
 
       {saveError && <Notice tone="error">{errorMessage(saveError)}</Notice>}
       {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}
 
       <div className="flex items-center justify-between gap-2 pt-2">
         <div className="flex gap-2">
-          <Button type="submit" variant="primary" disabled={saving || Boolean(duplicateGame)}>
+          <Button type="submit" variant="primary" disabled={saving || offline || Boolean(duplicateGame)}>
             {saving ? 'Saving…' : game ? 'Save' : 'Create game'}
           </Button>
           {onCancel && <Button onClick={onCancel}>Cancel</Button>}
@@ -328,7 +336,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
                 <Button
                   variant="danger"
                   className="border border-danger/30"
-                  disabled={remove.isPending}
+                  disabled={remove.isPending || offline}
                   onClick={() => remove.mutate(game.id, { onSuccess: onDeleted })}
                 >
                   {remove.isPending ? 'Deleting…' : 'Delete'}
@@ -336,7 +344,13 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
                 <Button onClick={() => setConfirmingDelete(false)}>Cancel</Button>
               </div>
             ) : (
-              <Button variant="danger" className="px-2" title="Delete this game" onClick={() => setConfirmingDelete(true)}>
+              <Button
+                variant="danger"
+                className="px-2"
+                title="Delete this game"
+                onClick={() => setConfirmingDelete(true)}
+                disabled={offline}
+              >
                 <TrashIcon />
               </Button>
             )}

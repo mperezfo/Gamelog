@@ -68,6 +68,24 @@ npm run dev -- --host
 
 Vite will print the network URL. API calls are proxied by the Vite server itself, so there is no need to expose the backend as well.
 
+### Trying the offline mode
+
+The [offline mode](self-hosting.md#offline-mode) has two halves: the copy of the data kept in IndexedDB, with the read-only UI on top of it, and the service worker that lets the app itself open without the server. Only the first runs under `npm run dev`; the service worker is registered in production builds only.
+
+Under `npm run dev`, either:
+
+- stop `air`: the Vite proxy then answers 502, as Caddy does in production, and the app switches to offline. Start it again and the app notices within a few seconds; or
+- tick **Simulate offline** at the bottom of the Account page (development builds only), which makes every request fail as if the server were gone, without stopping anything. It survives a reload, so starting from the device copy can be tried too.
+
+For the whole thing, service worker included, try a production build. `vite preview` proxies `/api` to the backend as well:
+
+```sh
+cd frontend
+npm run build && npm run preview
+```
+
+Open <http://localhost:4173> and sign in once, then stop the preview server (or tick **Offline** in the browser's developer tools, Network tab) and reload. The service worker and its caches can be inspected and cleared under **Application** in the developer tools.
+
 ## How it fits together
 
 The backend serves `/api/*` and nothing else — never a static file. The frontend always calls relative `/api/...` paths: in development the Vite dev server proxies them to the backend on `:8080` (see [`frontend/vite.config.ts`](../frontend/vite.config.ts)), and in the published image Caddy serves the frontend's static build and proxies `/api/*` to the backend on the same origin. That removes the need for CORS in the backend and for per-environment URLs.

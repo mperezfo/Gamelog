@@ -4,9 +4,10 @@ import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
-import { errorMessage } from './api/client'
+import { errorMessage, UnreachableError } from './api/client'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { useReconnect } from './hooks/useOffline'
 import { useOfflineSync } from './hooks/useOfflineSync'
 import { useScrollbarFade } from './hooks/useScrollbarFade'
 import { useSession } from './hooks/useSession'
@@ -32,6 +33,9 @@ const queryClient = new QueryClient({
       // revalidate on window focus.
       refetchOnWindowFocus: false,
       staleTime: 30_000,
+      // A server that cannot be reached will not be reached a second later
+      // either; the app shows what it has and checks back (see useReconnect).
+      retry: (failureCount, error) => !(error instanceof UnreachableError) && failureCount < 3,
     },
   },
 })
@@ -69,6 +73,7 @@ export default function App() {
 function Gate() {
   const setup = useSetupStatus()
   const session = useSession()
+  useReconnect()
 
   if (setup.isPending || session.isPending) {
     return <Centred>Loading…</Centred>
@@ -76,7 +81,9 @@ function Gate() {
 
   // If even the setup check failed, the API is not answering at all: nothing
   // below would work, and saying so beats a login form that cannot log in.
-  if (setup.isError) {
+  // Unless there is a copy of it from an earlier visit, which is all the
+  // offline mode needs.
+  if (setup.isError && !setup.data) {
     return (
       <Centred>
         <span className="text-ink">Gamelog cannot reach its API.</span>
