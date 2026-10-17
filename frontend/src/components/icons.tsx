@@ -201,6 +201,16 @@ export function ImageIcon(props: IconProps) {
   )
 }
 
+export function CloudOffIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="m3 3 18 18" />
+      <path d="M6.2 6.2A6.5 6.5 0 0 0 7.5 19H17a4 4 0 0 0 1.3-.2" />
+      <path d="M21.2 16.4A4 4 0 0 0 17.5 10.5h-.9A6.5 6.5 0 0 0 10.4 5" />
+    </Icon>
+  )
+}
+
 export function CheckIcon(props: IconProps) {
   return (
     <Icon {...props}>
