@@ -1,4 +1,4 @@
-import { coverFocalStyle } from '../lib/cover'
+import { coverFocalStyle, imageUrl, preloadImage } from '../lib/cover'
 import { formatScore } from '../lib/format'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
@@ -21,12 +21,21 @@ interface GameCoverCardProps {
 export function GameCoverCard({ game, onClick, caption, className = 'w-32 shrink-0' }: GameCoverCardProps) {
   const unreleased = isUnreleased(game)
   return (
-    <button type="button" onClick={onClick} className={`flex flex-col gap-1.5 text-left ${className}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      // The panel this opens shows the full-size cover: start on it before
+      // the click lands.
+      onPointerEnter={() => preloadImage(game.cover_image_url)}
+      className={`flex flex-col gap-1.5 text-left ${className}`}
+    >
       <div className={`relative aspect-[3/4] w-full overflow-hidden rounded-control bg-sunken ${unreleased ? UNRELEASED_RING : ''}`}>
         {game.cover_image_url ? (
           <img
-            src={game.cover_image_url}
+            src={imageUrl(game.cover_image_url, 'md')}
             alt=""
+            loading="lazy"
+            decoding="async"
             className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
             style={coverFocalStyle(game)}
           />

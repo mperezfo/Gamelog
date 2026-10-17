@@ -1,4 +1,4 @@
-import { coverFocalStyle } from '../lib/cover'
+import { coverFocalStyle, imageUrl, preloadImage } from '../lib/cover'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
 import { CoverOverlay } from './CoverOverlay'
@@ -25,12 +25,16 @@ interface GameCardProps {
 export function GameCard({ game, onClick, compact = false }: GameCardProps) {
   const genre = game.genres?.[0]
   const unreleased = isUnreleased(game)
+  // The panel this opens shows the full-size cover: start on it as soon as
+  // the pointer (or a finger) reaches the card rather than on the click.
+  const preload = () => preloadImage(game.cover_image_url)
 
   if (compact) {
     return (
       <button
         type="button"
         onClick={onClick}
+        onPointerEnter={preload}
         className={`flex w-full max-w-[420px] items-center gap-2 rounded-control bg-sunken text-left transition-colors duration-75 hover:bg-hover ${
           game.cover_image_url ? 'py-1 pr-2.5 pl-1' : 'py-2 pr-2.5 pl-2.5'
         } ${unreleased ? UNRELEASED_RING : ''}`}
@@ -38,8 +42,10 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
         {game.cover_image_url && (
           <div className="relative aspect-square size-7 shrink-0 overflow-hidden rounded-[3px] bg-canvas">
             <img
-              src={game.cover_image_url}
+              src={imageUrl(game.cover_image_url, 'sm')}
               alt=""
+              loading="lazy"
+              decoding="async"
               className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
               style={coverFocalStyle(game)}
             />
@@ -56,6 +62,7 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
       <button
         type="button"
         onClick={onClick}
+        onPointerEnter={preload}
         className={`flex w-full max-w-[420px] items-center gap-2 rounded-control bg-sunken px-2.5 py-2.5 text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
       >
         <span className="min-w-0 flex-1 truncate text-sm text-ink">{game.title}</span>
@@ -67,10 +74,17 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
     <button
       type="button"
       onClick={onClick}
+      onPointerEnter={preload}
       className={`flex w-full max-w-[420px] flex-col gap-2 rounded-control bg-sunken p-2 text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
     >
       <div className="relative aspect-video w-full overflow-hidden rounded-control bg-canvas">
-        <img src={game.cover_image_url} alt="" className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`} />
+        <img
+          src={imageUrl(game.cover_image_url, 'md')}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
+        />
         <CoverOverlay />
       </div>
 

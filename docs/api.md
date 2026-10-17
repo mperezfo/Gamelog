@@ -53,7 +53,7 @@ GET/POST            /api/genres        (same for developers, publishers, platfor
 GET/PUT/DELETE      /api/genres/{id}
 
 POST   /api/images                          uploads a cover or avatar
-GET    /api/images/{name}
+GET    /api/images/{name}?size=             sm or md for a thumbnail, made once
 
 GET    /api/export                          the library as one JSON document
 POST   /api/import?mode=&dry_run=           loads one back in

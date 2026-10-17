@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type P
 
 import { uploadImage } from '../api/images'
 import { errorMessage } from '../api/client'
+import { imageUrl } from '../lib/cover'
 import { Button } from './Button'
 import { ImageIcon, TrashIcon } from './icons'
 import { Notice } from './Notice'
@@ -116,6 +117,10 @@ export function CoverImageField({
   // crop editor's <img> loads, which hasn't happened yet the first time
   // someone just hovers the plain cover to check its resolution.
   const [coverNatural, setCoverNatural] = useState<{ w: number; h: number } | null>(null)
+  // Which original has finished loading. Until the current one has, its
+  // thumbnail (usually already cached by the card that opened this panel)
+  // stands in for it, so the cover never shows up as an empty box.
+  const [loadedCover, setLoadedCover] = useState<string | null>(null)
 
   async function handleFile(file: File | undefined) {
     if (!file) return
@@ -351,14 +356,23 @@ export function CoverImageField({
         >
           {value ? (
             <>
+              {loadedCover !== value && (
+                <img
+                  src={imageUrl(value, 'md')}
+                  alt=""
+                  draggable={false}
+                  className="absolute inset-0 size-full object-cover object-top select-none"
+                />
+              )}
               <img
                 key={value}
                 src={value}
                 alt=""
                 draggable={false}
-                onLoad={(event) =>
+                onLoad={(event) => {
                   setCoverNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })
-                }
+                  setLoadedCover(value)
+                }}
                 className="absolute inset-0 size-full object-cover object-top select-none"
               />
               {coverNatural && (

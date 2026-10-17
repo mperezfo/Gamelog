@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { monthGrid, monthLabel, monthNames, weekdayLabels } from '../lib/calendar'
+import { imageUrl, preloadImage } from '../lib/cover'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
 import { Button } from './Button'
@@ -241,6 +242,7 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                     key={game.id}
                     type="button"
                     onClick={() => onSelectGame(game)}
+                    onPointerEnter={() => preloadImage(game.cover_image_url)}
                     title={game.title}
                     className={`flex w-full items-center truncate overflow-hidden rounded-[3px] text-left font-medium transition-colors duration-75 hover:brightness-95 ${
                       single ? 'flex-col text-center' : 'gap-1 py-0.5 pr-1 pl-0.5 text-[11px]'
@@ -254,8 +256,10 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                     {game.cover_image_url ? (
                       <span className={single ? 'relative block w-full shrink-0 overflow-hidden' : 'contents'}>
                         <img
-                          src={game.cover_image_url}
+                          src={imageUrl(game.cover_image_url, 'sm')}
                           alt=""
+                          loading="lazy"
+                          decoding="async"
                           className={`${single ? 'h-8 w-full object-cover xl:h-11 2xl:h-16' : 'size-3.5 shrink-0 rounded-[2px] object-cover'} ${unreleased ? UNRELEASED_IMAGE : ''}`}
                         />
                         {single && <CoverOverlay />}

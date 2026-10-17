@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import { useGames } from '../hooks/useGames'
-import { coverFocalStyle } from '../lib/cover'
+import { coverFocalStyle, imageUrl, preloadImage } from '../lib/cover'
 import { fuzzySearch } from '../lib/fuzzy'
 import { STATUS_DOT, STATUS_LABELS, type Game } from '../types/game'
 import { HighlightMatch } from './HighlightMatch'
@@ -145,6 +145,7 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => select(game)}
                 onMouseEnter={() => setActiveIndex(index)}
+                onPointerEnter={() => preloadImage(game.cover_image_url)}
                 className={[
                   'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm transition-colors duration-75',
                   index === safeIndex ? 'bg-hover text-ink' : 'text-ink-muted',
@@ -153,8 +154,10 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
                 {game.cover_image_url ? (
                   <div className="relative h-8 w-6 shrink-0 overflow-hidden rounded-[3px]">
                     <img
-                      src={game.cover_image_url}
+                      src={imageUrl(game.cover_image_url, 'sm')}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       className="size-full object-cover"
                       style={coverFocalStyle(game)}
                     />
