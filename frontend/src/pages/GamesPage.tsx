@@ -22,7 +22,7 @@ import { useGames } from '../hooks/useGames'
 import { useLookups } from '../hooks/useLookups'
 import { STATUS_LABELS, type Game } from '../types/game'
 import { dateRange, dateRangeSpan, formatDate, formatScore } from '../lib/format'
-import { imageUrl } from '../lib/cover'
+import { imageUrl, preloadImage } from '../lib/cover'
 import { foldCase, fuzzyMatch } from '../lib/fuzzy'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import { useFilterParams } from '../hooks/useFilterParams'
@@ -444,7 +444,12 @@ export function GamesPage() {
         {games.isError && <Notice tone="error">{errorMessage(games.error)}</Notice>}
         {games.isPending && <p className="text-[13px] text-ink-faint">Loading…</p>}
         {games.data && view === 'table' && (
-          <DataTable table={table} onRowClick={modal.openGame} emptyMessage="No games match these filters." />
+          <DataTable
+            table={table}
+            onRowClick={modal.openGame}
+            onRowPointerEnter={(game) => preloadImage(game.cover_image_url)}
+            emptyMessage="No games match these filters."
+          />
         )}
         {games.data && view === 'grid' && (
           <>

@@ -7,6 +7,9 @@ import { ChevronDownIcon, ChevronUpIcon } from './icons'
 interface DataTableProps<T> {
   table: Table<T>
   onRowClick?: (row: T) => void
+  /** Called as the pointer reaches a row, ahead of a click on it: the place
+   * to start loading whatever that click is going to show. */
+  onRowPointerEnter?: (row: T) => void
   emptyMessage?: string
 }
 
@@ -24,7 +27,7 @@ interface DataTableProps<T> {
  * this many columns a card view would need its own design per entity, and a
  * scrollable table stays usable with a thumb.
  */
-function DataTableInner<T>({ table, onRowClick, emptyMessage = 'Nothing here yet.' }: DataTableProps<T>) {
+function DataTableInner<T>({ table, onRowClick, onRowPointerEnter, emptyMessage = 'Nothing here yet.' }: DataTableProps<T>) {
   const rows = table.getRowModel().rows
 
   if (rows.length === 0) {
@@ -80,6 +83,7 @@ function DataTableInner<T>({ table, onRowClick, emptyMessage = 'Nothing here yet
             <tr
               key={row.id}
               onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+              onPointerEnter={onRowPointerEnter ? () => onRowPointerEnter(row.original) : undefined}
               data-tap-target={onRowClick ? '' : undefined}
               className={[
                 'border-b border-line',

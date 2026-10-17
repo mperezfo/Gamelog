@@ -3,7 +3,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { CalendarIcon } from './icons'
 import { useEdgeFade } from '../hooks/useEdgeFade'
 import { useDateFormat } from '../hooks/useSession'
-import { coverFocalStyle, imageUrl } from '../lib/cover'
+import { coverFocalStyle, imageUrl, preloadImage } from '../lib/cover'
 import { formatDate } from '../lib/format'
 import { daysUntilRelease, upcomingGames } from '../lib/upcoming'
 import type { Game } from '../types/game'
@@ -60,6 +60,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
         ref={setNextEl}
         type="button"
         onClick={() => onSelectGame(next)}
+        onPointerEnter={() => preloadImage(next.cover_image_url)}
         className="flex flex-1 items-center gap-4 rounded-control bg-sunken p-3 text-left transition-colors duration-75 hover:bg-hover sm:p-4"
       >
         <div className="relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-control bg-canvas sm:w-28">
@@ -102,6 +103,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
                 key={game.id}
                 type="button"
                 onClick={() => onSelectGame(game)}
+                onPointerEnter={() => preloadImage(game.cover_image_url)}
                 className="flex items-center gap-2 rounded-control px-1.5 py-1.5 text-left transition-colors duration-75 hover:bg-hover"
               >
                 {game.cover_image_url ? (
