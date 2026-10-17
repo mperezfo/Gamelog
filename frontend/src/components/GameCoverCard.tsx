@@ -1,4 +1,4 @@
-import { coverFocalStyle } from '../lib/cover'
+import { coverFocalStyle, imageUrl } from '../lib/cover'
 import { formatScore } from '../lib/format'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
@@ -25,8 +25,10 @@ export function GameCoverCard({ game, onClick, caption, className = 'w-32 shrink
       <div className={`relative aspect-[3/4] w-full overflow-hidden rounded-control bg-sunken ${unreleased ? UNRELEASED_RING : ''}`}>
         {game.cover_image_url ? (
           <img
-            src={game.cover_image_url}
+            src={imageUrl(game.cover_image_url, 'md')}
             alt=""
+            loading="lazy"
+            decoding="async"
             className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
             style={coverFocalStyle(game)}
           />

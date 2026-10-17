@@ -3,7 +3,7 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { CalendarIcon } from './icons'
 import { useEdgeFade } from '../hooks/useEdgeFade'
 import { useDateFormat } from '../hooks/useSession'
-import { coverFocalStyle } from '../lib/cover'
+import { coverFocalStyle, imageUrl } from '../lib/cover'
 import { formatDate } from '../lib/format'
 import { daysUntilRelease, upcomingGames } from '../lib/upcoming'
 import type { Game } from '../types/game'
@@ -65,8 +65,9 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
         <div className="relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-control bg-canvas sm:w-28">
           {next.cover_image_url ? (
             <img
-              src={next.cover_image_url}
+              src={imageUrl(next.cover_image_url, 'md')}
               alt=""
+              decoding="async"
               className="size-full object-cover"
               style={coverFocalStyle(next)}
             />
@@ -106,8 +107,10 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
                 {game.cover_image_url ? (
                   <div className="relative size-8 shrink-0 overflow-hidden rounded-[3px]">
                     <img
-                      src={game.cover_image_url}
+                      src={imageUrl(game.cover_image_url, 'sm')}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       className="size-full object-cover"
                       style={coverFocalStyle(game)}
                     />

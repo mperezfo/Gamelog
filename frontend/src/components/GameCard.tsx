@@ -1,4 +1,4 @@
-import { coverFocalStyle } from '../lib/cover'
+import { coverFocalStyle, imageUrl } from '../lib/cover'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
 import { CoverOverlay } from './CoverOverlay'
@@ -38,8 +38,10 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
         {game.cover_image_url && (
           <div className="relative aspect-square size-7 shrink-0 overflow-hidden rounded-[3px] bg-canvas">
             <img
-              src={game.cover_image_url}
+              src={imageUrl(game.cover_image_url, 'sm')}
               alt=""
+              loading="lazy"
+              decoding="async"
               className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
               style={coverFocalStyle(game)}
             />
@@ -70,7 +72,13 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
       className={`flex w-full max-w-[420px] flex-col gap-2 rounded-control bg-sunken p-2 text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
     >
       <div className="relative aspect-video w-full overflow-hidden rounded-control bg-canvas">
-        <img src={game.cover_image_url} alt="" className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`} />
+        <img
+          src={imageUrl(game.cover_image_url, 'md')}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
+        />
         <CoverOverlay />
       </div>
 

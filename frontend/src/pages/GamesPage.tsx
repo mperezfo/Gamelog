@@ -22,6 +22,7 @@ import { useGames } from '../hooks/useGames'
 import { useLookups } from '../hooks/useLookups'
 import { STATUS_LABELS, type Game } from '../types/game'
 import { dateRange, dateRangeSpan, formatDate, formatScore } from '../lib/format'
+import { imageUrl } from '../lib/cover'
 import { foldCase, fuzzyMatch } from '../lib/fuzzy'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import { useFilterParams } from '../hooks/useFilterParams'
@@ -249,8 +250,10 @@ export function GamesPage() {
               {game.cover_image_url ? (
                 <span className={`relative h-9 w-7 shrink-0 overflow-hidden rounded-[3px] ${unreleased ? UNRELEASED_RING : ''}`}>
                   <img
-                    src={game.cover_image_url}
+                    src={imageUrl(game.cover_image_url, 'sm')}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
                     className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
                   />
                   <CoverOverlay />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import { useGames } from '../hooks/useGames'
-import { coverFocalStyle } from '../lib/cover'
+import { coverFocalStyle, imageUrl } from '../lib/cover'
 import { fuzzySearch } from '../lib/fuzzy'
 import { STATUS_DOT, STATUS_LABELS, type Game } from '../types/game'
 import { HighlightMatch } from './HighlightMatch'
@@ -153,8 +153,10 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
                 {game.cover_image_url ? (
                   <div className="relative h-8 w-6 shrink-0 overflow-hidden rounded-[3px]">
                     <img
-                      src={game.cover_image_url}
+                      src={imageUrl(game.cover_image_url, 'sm')}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       className="size-full object-cover"
                       style={coverFocalStyle(game)}
                     />
