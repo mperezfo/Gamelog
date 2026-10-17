@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mperezfo/gamelog/internal/imagefile"
 	"github.com/mperezfo/gamelog/internal/service"
 )
 
@@ -82,7 +83,7 @@ func referencedImages(document *service.Document, avatarURL *string) []string {
 			return
 		}
 		name, ok := strings.CutPrefix(*url, "/api/images/")
-		if !ok || !imageFilename.MatchString(name) {
+		if !ok || !imagefile.ValidName(name) {
 			return
 		}
 		if _, ok := seen[name]; ok {
@@ -134,7 +135,7 @@ func readBackupZip(data []byte) (service.ImportDocument, service.AccountEntry, m
 	images := map[string][]byte{}
 	for _, file := range archive.File {
 		name, ok := strings.CutPrefix(file.Name, "images/")
-		if !ok || name == "" || !imageFilename.MatchString(name) {
+		if !ok || name == "" || !imagefile.ValidName(name) {
 			continue
 		}
 
@@ -175,5 +176,5 @@ func restoreImage(dir, name string, data []byte) error {
 	if _, err := os.Stat(path); err == nil {
 		return nil
 	}
-	return writeImageFile(path, bytes.NewReader(data))
+	return imagefile.WriteFile(path, bytes.NewReader(data))
 }

@@ -1,40 +1,29 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/mperezfo/gamelog/internal/imagefile"
 )
 
 // maxImageSize caps an upload before it is even read into memory. Cover art,
 // not photo libraries: nothing legitimate needs more than this.
 const maxImageSize = 8 << 20 // 8 MiB
 
-// imageExtensions is the allowlist of cover image types, and what each is
-// stored as. Anything else is refused rather than guessed at.
-var imageExtensions = map[string]string{
-	"image/png":  ".png",
-	"image/jpeg": ".jpg",
-	"image/webp": ".webp",
-	"image/gif":  ".gif",
-}
-
-// imageFilename matches exactly what uploadImage produces: a sha256 hex digest
-// plus one of the extensions above. GET /api/images/{name} checks against it
-// before touching the filesystem, so a crafted name can never walk out of dir.
-var imageFilename = regexp.MustCompile(`^[0-9a-f]{64}\.(png|jpg|webp|gif)$`)
-
 type uploadImageInput struct {
 	RawBody huma.MultipartFormFiles[struct {
-		File huma.FormFile `form:"file" contentType:"image/png,image/jpeg,image/webp,image/gif" required:"true"`
+		// AVIF is accepted and converted (see imagefile.Normalize). The
+		// declared type only gets a file this far: what it really is comes
+		// from its bytes, since a browser takes it from the file name.
+		File huma.FormFile `form:"file" contentType:"image/png,image/jpeg,image/webp,image/gif,image/avif" required:"true"`
 	}]
 }
 
@@ -100,70 +89,41 @@ func registerImages(api huma.API, dir string) {
 
 func uploadImage(dir string, input *uploadImageInput) (*uploadImageOutput, error) {
 	file := input.RawBody.Data().File
-
-	ext, ok := imageExtensions[file.ContentType]
-	if !ok {
-		return nil, huma.Error422UnprocessableEntity(
-			"unsupported image type: only PNG, JPEG, WEBP and GIF are accepted")
-	}
 	if file.Size > maxImageSize {
 		return nil, huma.Error413RequestEntityTooLarge("images are capped at 8 MiB")
 	}
 
-	hash := sha256.New()
-	limited := io.LimitReader(file, maxImageSize+1)
-	if _, err := io.Copy(hash, limited); err != nil {
+	data, err := io.ReadAll(io.LimitReader(file, maxImageSize+1))
+	if err != nil {
 		return nil, fmt.Errorf("reading the uploaded image: %w", err)
 	}
+	if len(data) > maxImageSize {
+		return nil, huma.Error413RequestEntityTooLarge("images are capped at 8 MiB")
+	}
 
-	name := hex.EncodeToString(hash.Sum(nil)) + ext
-	path := filepath.Join(dir, name)
+	data, ext, err := imagefile.Normalize(data)
+	if err != nil {
+		return nil, huma.Error422UnprocessableEntity(
+			"unsupported image type: only PNG, JPEG, WEBP, GIF and AVIF are accepted")
+	}
 
 	// Content-addressed: identical bytes already on disk need no second write,
 	// and two uploads of the same cover image collapse onto the same URL.
+	name := imagefile.Name(data, ext)
+	path := filepath.Join(dir, name)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if _, err := file.Seek(0, io.SeekStart); err != nil {
-			return nil, fmt.Errorf("rewinding the uploaded image: %w", err)
-		}
-		if err := writeImageFile(path, file); err != nil {
+		if err := imagefile.WriteFile(path, bytes.NewReader(data)); err != nil {
 			return nil, err
 		}
 	}
 
 	out := &uploadImageOutput{}
-	out.Body.URL = "/api/images/" + name
+	out.Body.URL = imagefile.URLPrefix + name
 	return out, nil
 }
 
-// writeImageFile writes to a temporary name in the same directory and renames
-// it into place, so a request that fails partway through never leaves a
-// truncated file at the URL another request just handed out.
-func writeImageFile(path string, src io.Reader) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("creating the images directory: %w", err)
-	}
-
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".upload-*")
-	if err != nil {
-		return fmt.Errorf("creating a temporary file: %w", err)
-	}
-	defer os.Remove(tmp.Name())
-
-	if _, err := io.Copy(tmp, src); err != nil {
-		tmp.Close()
-		return fmt.Errorf("writing the image: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("closing the image: %w", err)
-	}
-	if err := os.Rename(tmp.Name(), path); err != nil {
-		return fmt.Errorf("finalising the image: %w", err)
-	}
-	return nil
-}
-
 func getImage(store *imageStore, input *getImageInput) (*getImageOutput, error) {
-	if !imageFilename.MatchString(input.Name) {
+	if !imagefile.ValidName(input.Name) {
 		return nil, huma.Error404NotFound("no image with that name")
 	}
 
@@ -187,16 +147,8 @@ func getImage(store *imageStore, input *getImageInput) (*getImageOutput, error) 
 		return nil, fmt.Errorf("reading %s: %w", input.Name, err)
 	}
 
-	contentType := "application/octet-stream"
-	for mimeType, ext := range imageExtensions {
-		if ext == filepath.Ext(path) {
-			contentType = mimeType
-			break
-		}
-	}
-
 	out := &getImageOutput{
-		ContentType:  contentType,
+		ContentType:  imagefile.ContentType(filepath.Ext(path)),
 		CacheControl: "private, max-age=31536000, immutable",
 		Body:         data,
 	}
