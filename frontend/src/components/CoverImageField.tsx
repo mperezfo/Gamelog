@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type P
 
 import { uploadImage } from '../api/images'
 import { errorMessage } from '../api/client'
-import { imageUrl } from '../lib/cover'
 import { Button } from './Button'
+import { CoverImage } from './CoverImage'
 import { ImageIcon, TrashIcon } from './icons'
 import { Notice } from './Notice'
 
@@ -124,6 +124,10 @@ export function CoverImageField({
   // thumbnail (usually already cached by the card that opened this panel)
   // stands in for it, so the cover never shows up as an empty box.
   const [loadedCover, setLoadedCover] = useState<string | null>(null)
+  // An original that could not be loaded (offline, and never kept on this
+  // device) is dropped rather than left as a broken image over its
+  // thumbnail.
+  const [failedCover, setFailedCover] = useState<string | null>(null)
 
   async function handleFile(file: File | undefined) {
     if (!file) return
@@ -361,24 +365,34 @@ export function CoverImageField({
           {value ? (
             <>
               {loadedCover !== value && (
+                <div className="absolute inset-0">
+                  <CoverImage
+                    url={value}
+                    size="md"
+                    className="size-full"
+                    imageClassName="object-top select-none"
+                    iconClassName="size-6"
+                    lazy={false}
+                    overlay={false}
+                  />
+                </div>
+              )}
+              {failedCover !== value && (
                 <img
-                  src={imageUrl(value, 'md')}
+                  key={value}
+                  src={value}
                   alt=""
                   draggable={false}
-                  className="absolute inset-0 size-full object-cover object-top select-none"
+                  onLoad={(event) => {
+                    setCoverNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })
+                    setLoadedCover(value)
+                  }}
+                  onError={() => setFailedCover(value)}
+                  // A pixel larger than the box on every side, as CoverImage
+                  // draws it: some covers carry a thin frame of their own.
+                  className="absolute -top-px -left-px h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none object-cover object-top select-none"
                 />
               )}
-              <img
-                key={value}
-                src={value}
-                alt=""
-                draggable={false}
-                onLoad={(event) => {
-                  setCoverNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })
-                  setLoadedCover(value)
-                }}
-                className="absolute inset-0 size-full object-cover object-top select-none"
-              />
               {coverNatural && (
                 <span className="pointer-events-none absolute right-2 bottom-2 rounded-[4px] bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100">
                   {coverNatural.w} × {coverNatural.h}

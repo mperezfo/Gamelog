@@ -1,9 +1,9 @@
-import { coverFocalStyle, imageUrl, preloadImage } from '../lib/cover'
+import { coverFocalStyle, preloadImage } from '../lib/cover'
 import { formatScore } from '../lib/format'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
+import { CoverImage } from './CoverImage'
 import { StarIcon } from './icons'
-import { CoverOverlay } from './CoverOverlay'
 
 interface GameCoverCardProps {
   game: Game
@@ -29,23 +29,14 @@ export function GameCoverCard({ game, onClick, caption, className = 'w-32 shrink
       onPointerEnter={() => preloadImage(game.cover_image_url)}
       className={`flex flex-col gap-1.5 text-left ${className}`}
     >
-      <div className={`relative aspect-[3/4] w-full overflow-hidden rounded-control bg-sunken ${unreleased ? UNRELEASED_RING : ''}`}>
-        {game.cover_image_url ? (
-          <img
-            src={imageUrl(game.cover_image_url, 'md')}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
-            style={coverFocalStyle(game)}
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center text-lg font-semibold text-ink-faint">
-            {game.title.slice(0, 1)}
-          </div>
-        )}
-        {game.cover_image_url && <CoverOverlay />}
-      </div>
+      <CoverImage
+        url={game.cover_image_url}
+        size="md"
+        className={`aspect-[3/4] w-full rounded-control bg-sunken ${unreleased ? UNRELEASED_RING : ''}`}
+        imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
+        style={coverFocalStyle(game)}
+        iconClassName="size-6"
+      />
 
       <div className="flex flex-col gap-0.5">
         <span className="truncate text-[13px] font-medium text-ink">{game.title}</span>

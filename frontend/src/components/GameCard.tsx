@@ -1,7 +1,7 @@
-import { coverFocalStyle, imageUrl, preloadImage } from '../lib/cover'
+import { coverFocalStyle, preloadImage } from '../lib/cover'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
-import { CoverOverlay } from './CoverOverlay'
+import { CoverImage } from './CoverImage'
 
 interface GameCardProps {
   game: Game
@@ -14,9 +14,10 @@ interface GameCardProps {
 }
 
 /**
- * The dashboard's Library unit: the cover is the main event when there is
- * one, with the title and the first genre underneath it — a plain row when
- * there isn't, rather than a card with an empty box on top of it.
+ * The dashboard's Library unit: the cover is the main event, with the title
+ * and the first genre underneath it. A game without one keeps the same
+ * shape, its slot showing that the cover is missing, so every card in a
+ * column reads the same way.
  *
  * Purely presentational: the board wraps it with drag-and-drop (see
  * SortableGameCard in Dashboard.tsx), which is what moves a game between
@@ -35,37 +36,17 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
         type="button"
         onClick={onClick}
         onPointerEnter={preload}
-        className={`flex w-full max-w-[420px] items-center gap-2 rounded-control bg-sunken text-left transition-colors duration-75 hover:bg-hover ${
-          game.cover_image_url ? 'py-1 pr-2.5 pl-1' : 'py-2 pr-2.5 pl-2.5'
-        } ${unreleased ? UNRELEASED_RING : ''}`}
+        className={`flex w-full max-w-[420px] items-center gap-2 rounded-control bg-sunken py-1 pr-2.5 pl-1 text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
       >
-        {game.cover_image_url && (
-          <div className="relative aspect-square size-7 shrink-0 overflow-hidden rounded-[3px] bg-canvas">
-            <img
-              src={imageUrl(game.cover_image_url, 'sm')}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
-              style={coverFocalStyle(game)}
-            />
-            <CoverOverlay />
-          </div>
-        )}
+        <CoverImage
+          url={game.cover_image_url}
+          size="sm"
+          className="aspect-square size-7 rounded-[3px] bg-canvas"
+          imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
+          style={coverFocalStyle(game)}
+          iconClassName="size-3.5"
+        />
         <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{game.title}</span>
-      </button>
-    )
-  }
-
-  if (!game.cover_image_url) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        onPointerEnter={preload}
-        className={`flex w-full max-w-[420px] items-center gap-2 rounded-control bg-sunken px-2.5 py-2.5 text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
-      >
-        <span className="min-w-0 flex-1 truncate text-sm text-ink">{game.title}</span>
       </button>
     )
   }
@@ -77,16 +58,13 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
       onPointerEnter={preload}
       className={`flex w-full max-w-[420px] flex-col gap-2 rounded-control bg-sunken p-2 text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
     >
-      <div className="relative aspect-video w-full overflow-hidden rounded-control bg-canvas">
-        <img
-          src={imageUrl(game.cover_image_url, 'md')}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
-        />
-        <CoverOverlay />
-      </div>
+      <CoverImage
+        url={game.cover_image_url}
+        size="md"
+        className="aspect-video w-full rounded-control bg-canvas"
+        imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
+        iconClassName="size-6"
+      />
 
       <div className="flex min-w-0 flex-col gap-0.5 px-0.5 pb-0.5">
         <span className="truncate text-sm font-medium text-ink">{game.title}</span>

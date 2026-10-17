@@ -4,7 +4,7 @@ import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type
 
 import { errorMessage } from '../api/client'
 import { Button } from '../components/Button'
-import { CoverOverlay } from '../components/CoverOverlay'
+import { CoverImage } from '../components/CoverImage'
 import { DataTable } from '../components/DataTable'
 import { Field } from '../components/Field'
 import { FilterBar, type FilterField } from '../components/FilterBar'
@@ -23,7 +23,7 @@ import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
 import { STATUS_LABELS, type Game } from '../types/game'
 import { dateRange, dateRangeSpan, formatDate, formatScore } from '../lib/format'
-import { imageUrl, preloadImage } from '../lib/cover'
+import { preloadImage } from '../lib/cover'
 import { foldCase, fuzzyMatch } from '../lib/fuzzy'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import { useFilterParams } from '../hooks/useFilterParams'
@@ -249,20 +249,13 @@ export function GamesPage() {
           const unreleased = isUnreleased(game)
           return (
             <span className="flex min-w-0 items-center gap-2.5">
-              {game.cover_image_url ? (
-                <span className={`relative h-9 w-7 shrink-0 overflow-hidden rounded-[3px] ${unreleased ? UNRELEASED_RING : ''}`}>
-                  <img
-                    src={imageUrl(game.cover_image_url, 'sm')}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
-                  />
-                  <CoverOverlay />
-                </span>
-              ) : (
-                <span className={`h-9 w-7 shrink-0 rounded-[3px] bg-sunken ${unreleased ? UNRELEASED_RING : ''}`} />
-              )}
+              <CoverImage
+                url={game.cover_image_url}
+                size="sm"
+                className={`h-9 w-7 rounded-[3px] bg-sunken ${unreleased ? UNRELEASED_RING : ''}`}
+                imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
+                iconClassName="size-3.5"
+              />
               <span className="truncate font-medium">{game.title}</span>
             </span>
           )
