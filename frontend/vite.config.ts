@@ -9,6 +9,11 @@ import { defineConfig, type Plugin, type ProxyOptions } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss(), serviceWorkerPlugin()],
+  define: {
+    // Identifies the build, so that the offline copy of the query cache an
+    // older one wrote can be told apart and dropped (src/lib/offlineCache.ts).
+    __BUILD_ID__: JSON.stringify(Date.now().toString(36)),
+  },
   server: {
     // The frontend always calls relative paths (`/api/...`). In development
     // Vite proxies them to the Go backend; in production the frontend is a

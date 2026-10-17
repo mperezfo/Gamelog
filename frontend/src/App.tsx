@@ -1,16 +1,19 @@
 import type { ReactNode } from 'react'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 import { errorMessage } from './api/client'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { useOfflineSync } from './hooks/useOfflineSync'
 import { useScrollbarFade } from './hooks/useScrollbarFade'
 import { useSession } from './hooks/useSession'
 import { useSetupStatus } from './hooks/useSetup'
 import { useTapFeedback } from './hooks/useTapFeedback'
 import { useTruncationTooltip } from './hooks/useTruncationTooltip'
+import { persistOptions } from './lib/offlineCache'
 import { Account } from './pages/Account'
 import { Admin } from './pages/Admin'
 import { Dashboard } from './pages/Dashboard'
@@ -39,13 +42,20 @@ export default function App() {
   useTapFeedback()
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={persistOptions}
+      // The copy restored from the device only stands in until the server
+      // answers. Even the session and setup queries, which never go stale on
+      // their own, are asked again.
+      onSuccess={() => queryClient.invalidateQueries()}
+    >
       <ThemeProvider>
         <BrowserRouter>
           <Gate />
         </BrowserRouter>
       </ThemeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   )
 }
 
@@ -101,6 +111,8 @@ function Gate() {
 
 /** The routes a regular account can reach: its library, and its own account. */
 function UserRoutes() {
+  useOfflineSync()
+
   return (
     <Routes>
       <Route path="/" element={<Dashboard />} />

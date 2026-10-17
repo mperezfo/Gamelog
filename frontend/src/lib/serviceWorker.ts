@@ -12,6 +12,11 @@ export function registerServiceWorker() {
     // An app that cannot register one works exactly as before, only without
     // the cache.
     navigator.serviceWorker.register('/sw.js').catch(() => {})
+    // A worker that takes over after the list was sent (the first visit, or
+    // the update that brings this very feature) never got it: send it again.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      navigator.serviceWorker.controller?.postMessage({ type: 'cache-images', urls: imagesToCache })
+    })
     // Without this a browser may clear the offline copy under storage
     // pressure, and Safari does after a week without a visit. It is only a
     // request: the browser is free to refuse it.
@@ -19,13 +24,18 @@ export function registerServiceWorker() {
   })
 }
 
+/** The last list passed to cacheImages. */
+let imagesToCache: string[] = []
+
 /** Asks the service worker to fetch and keep these stored images, so that
  * they are on the device before anything shows them. Anything already cached
  * is skipped, so repeating the same list is cheap. */
 export async function cacheImages(urls: string[]) {
-  if (!('serviceWorker' in navigator) || urls.length === 0) return
-  const registration = await navigator.serviceWorker.getRegistration()
-  registration?.active?.postMessage({ type: 'cache-images', urls })
+  imagesToCache = urls
+  if (!import.meta.env.PROD || !('serviceWorker' in navigator) || urls.length === 0) return
+  // On a first visit the worker is still installing; `ready` waits for it.
+  const registration = await navigator.serviceWorker.ready
+  registration.active?.postMessage({ type: 'cache-images', urls })
 }
 
 /** Drops the cached images, so the next account to sign in on this device
