@@ -67,6 +67,8 @@ Listing the games of a genre, a developer, a publisher or a platform is a filter
 
 A game is written with its relations as ids (`platform_id`, `genre_ids`, `developer_ids`, `publisher_ids`) and read back with them loaded, so saving a game can never create or rename a genre. `PUT` replaces the whole record: anything left out of the body is cleared.
 
+An uploaded image is stored as what its bytes say it is, whatever the file was called. `POST /api/images` accepts PNG, JPEG, WebP, GIF and AVIF, and converts AVIF to JPEG (or PNG, when it has transparency), so the URL it answers with can end in a different extension from the file sent.
+
 See [Import and export](import-export.md) for the export document and what the import accepts.
 
 ## Access

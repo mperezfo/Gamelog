@@ -3,11 +3,16 @@ package handlers_test
 import (
 	"bytes"
 	"encoding/json"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gen2brain/avif"
 
 	"github.com/mperezfo/gamelog/internal/testsupport"
 )
@@ -128,6 +133,66 @@ func TestImageUploadRejectsAnUnsupportedType(t *testing.T) {
 
 	rejected := uploadFile(t, handler, []byte("not an image"), "notes.txt", "text/plain")
 	expectStatus(t, rejected, http.StatusUnprocessableEntity, "uploading a non-image file")
+}
+
+// An upload is stored as what its bytes are, not as what its file was
+// called: a browser takes the type from the name.
+func TestImageUploadIsStoredAsWhatItReallyIs(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	cover := image.NewNRGBA(image.Rect(0, 0, 400, 300))
+	for y := range 300 {
+		for x := range 400 {
+			cover.SetNRGBA(x, y, color.NRGBA{R: 200, G: 40, B: 40, A: 255})
+		}
+	}
+
+	var avifData bytes.Buffer
+	if err := avif.Encode(&avifData, cover, avif.Options{Quality: 80, Speed: 10}); err != nil {
+		t.Fatalf("encoding the test AVIF: %v", err)
+	}
+	var jpegData bytes.Buffer
+	if err := jpeg.Encode(&jpegData, cover, nil); err != nil {
+		t.Fatalf("encoding the test JPEG: %v", err)
+	}
+
+	for _, tc := range []struct {
+		what, filename, contentType string
+		data                        []byte
+	}{
+		{"an AVIF", "cover.avif", "image/avif", avifData.Bytes()},
+		{"an AVIF saved as .png", "cover.png", "image/png", avifData.Bytes()},
+		{"a JPEG saved as .png", "cover.png", "image/png", jpegData.Bytes()},
+	} {
+		uploaded := uploadFile(t, handler, tc.data, tc.filename, tc.contentType)
+		expectStatus(t, uploaded, http.StatusCreated, "uploading "+tc.what)
+		var body struct {
+			URL string `json:"url"`
+		}
+		if err := json.Unmarshal(uploaded.Body.Bytes(), &body); err != nil {
+			t.Fatalf("response is not valid JSON: %v", err)
+		}
+		if !strings.HasSuffix(body.URL, ".jpg") {
+			t.Errorf("%s was stored as %s, want a .jpg", tc.what, body.URL)
+		}
+
+		fetched := request(t, handler, http.MethodGet, body.URL, nil)
+		expectStatus(t, fetched, http.StatusOK, "fetching "+tc.what)
+		if got := fetched.Header().Get("Content-Type"); got != "image/jpeg" {
+			t.Errorf("%s is served as %q, want image/jpeg", tc.what, got)
+		}
+
+		// A real thumbnail, not the original served in its place.
+		small := request(t, handler, http.MethodGet, body.URL+"?size=sm", nil)
+		expectStatus(t, small, http.StatusOK, "fetching a thumbnail of "+tc.what)
+		config, _, err := image.DecodeConfig(bytes.NewReader(small.Body.Bytes()))
+		if err != nil || config.Height != 160 {
+			t.Errorf("the thumbnail of %s is %dpx tall (err %v), want 160", tc.what, config.Height, err)
+		}
+	}
+
+	rejected := uploadFile(t, handler, []byte("not an image at all"), "cover.png", "image/png")
+	expectStatus(t, rejected, http.StatusUnprocessableEntity, "uploading text named as a PNG")
 }
 
 func TestGetImageRejectsAnUnknownOrCraftedName(t *testing.T) {

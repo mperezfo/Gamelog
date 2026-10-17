@@ -38,7 +38,7 @@ export function AvatarField({ value, onChange }: AvatarFieldProps) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/gif"
+        accept="image/png,image/jpeg,image/webp,image/gif,image/avif"
         className="hidden"
         onChange={(event) => void handleFile(event.target.files?.[0])}
       />

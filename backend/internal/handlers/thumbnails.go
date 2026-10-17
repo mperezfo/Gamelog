@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"image"
-	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"log/slog"
@@ -15,7 +14,10 @@ import (
 	"strings"
 
 	"golang.org/x/image/draw"
-	"golang.org/x/image/webp"
+
+	// image.DecodeConfig below knows every format imagefile can read,
+	// AVIF and WebP included, because importing it registers them.
+	"github.com/mperezfo/gamelog/internal/imagefile"
 )
 
 // thumbnailSizes is every size GET /api/images/{name}?size= accepts, as the
@@ -93,7 +95,7 @@ func (s *imageStore) thumbnailPath(name, size string) (string, error) {
 	}
 
 	path := filepath.Join(thumbDir, stem+ext)
-	if err := writeImageFile(path, bytes.NewReader(encoded)); err != nil {
+	if err := imagefile.WriteFile(path, bytes.NewReader(encoded)); err != nil {
 		return "", err
 	}
 	return path, nil
@@ -116,7 +118,7 @@ func existingThumbnail(thumbDir, stem string) (string, bool) {
 // under: JPEG for an opaque image, PNG for one with transparency to keep.
 // An animated GIF becomes its first frame.
 func makeThumbnail(data []byte, short int) ([]byte, string, error) {
-	src, err := decodeImage(data)
+	src, err := imagefile.Decode(data)
 	if err != nil {
 		return nil, "", err
 	}
@@ -144,24 +146,6 @@ func makeThumbnail(data []byte, short int) ([]byte, string, error) {
 		return nil, "", fmt.Errorf("encoding the thumbnail: %w", err)
 	}
 	return buf.Bytes(), ".png", nil
-}
-
-// decodeImage decodes any of the types uploadImage accepts. The decoder is
-// picked from the bytes themselves rather than the extension, the same way
-// image.Decode would if every format were registered with it.
-func decodeImage(data []byte) (image.Image, error) {
-	reader := bytes.NewReader(data)
-	switch {
-	case bytes.HasPrefix(data, []byte("\xff\xd8")):
-		return jpeg.Decode(reader)
-	case bytes.HasPrefix(data, []byte("\x89PNG")):
-		return png.Decode(reader)
-	case bytes.HasPrefix(data, []byte("GIF8")):
-		return gif.Decode(reader)
-	case len(data) >= 12 && string(data[:4]) == "RIFF" && string(data[8:12]) == "WEBP":
-		return webp.Decode(reader)
-	}
-	return nil, fmt.Errorf("not a PNG, JPEG, WEBP or GIF image")
 }
 
 // jpegOrientation reads the EXIF Orientation tag of a JPEG, 1 to 8, and
