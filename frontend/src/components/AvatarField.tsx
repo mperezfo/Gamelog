@@ -51,17 +51,17 @@ export function AvatarField({ value, onChange }: AvatarFieldProps) {
           aria-label={value ? 'Replace profile picture' : 'Add a profile picture'}
         >
           <Avatar avatarUrl={value} className="size-16" />
-          <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-75 group-hover:opacity-100">
+          <span className="absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 transition-opacity duration-75 group-enabled:group-hover:opacity-100">
             <CameraIcon className="size-5 text-white" />
           </span>
         </button>
 
         <div className="flex flex-col gap-1 text-xs">
-          <button type="button" onClick={() => inputRef.current?.click()} className="text-left font-medium text-accent hover:underline">
+          <button type="button" onClick={() => inputRef.current?.click()} className="text-left font-medium text-accent enabled:hover:underline disabled:opacity-50">
             {uploading ? 'Uploading…' : value ? 'Replace' : 'Upload a photo'}
           </button>
           {value && !uploading && (
-            <button type="button" onClick={() => onChange('')} className="text-left text-ink-faint hover:text-ink">
+            <button type="button" onClick={() => onChange('')} className="text-left text-ink-faint enabled:hover:text-ink disabled:opacity-50">
               Remove
             </button>
           )}

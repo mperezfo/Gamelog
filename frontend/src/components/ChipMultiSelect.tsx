@@ -41,8 +41,8 @@ export function ChipMultiSelect({
                 type="button"
                 onClick={() => toggle(option.id)}
                 className={[
-                  'inline-flex items-center gap-1 rounded-control px-2 py-1 text-xs font-medium transition-colors duration-75',
-                  active ? 'bg-accent text-accent-ink' : 'bg-sunken text-ink-muted hover:bg-hover hover:text-ink',
+                  'inline-flex items-center gap-1 rounded-control px-2 py-1 text-xs font-medium transition-colors duration-75 disabled:opacity-50',
+                  active ? 'bg-accent text-accent-ink' : 'bg-sunken text-ink-muted enabled:hover:bg-hover enabled:hover:text-ink',
                 ].join(' ')}
               >
                 {option.icon && <span aria-hidden="true">{option.icon}</span>}

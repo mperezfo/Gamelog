@@ -159,6 +159,12 @@
     cursor: pointer;
   }
 
+  /* A control that is there but cannot be used right now (offline, most of
+     the time) says so under the pointer. */
+  :is(button, input, select, textarea):disabled {
+    cursor: not-allowed;
+  }
+
   /* Tap feedback. Tailwind only applies `hover:` where a real pointer can
    * hover, so on a phone a tap would otherwise change nothing. useTapFeedback
    * marks the pressed element with data-tap and sets where it was touched

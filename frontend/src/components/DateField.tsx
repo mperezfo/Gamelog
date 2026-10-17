@@ -228,7 +228,7 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
                 onBlur={(event) => handleSegmentBlur(kind, event)}
                 className={[
                   WIDTH[kind],
-                  'bg-transparent text-center text-sm text-ink outline-none placeholder:text-ink-faint',
+                  'bg-transparent text-center text-sm text-ink outline-none placeholder:text-ink-faint disabled:opacity-50',
                 ].join(' ')}
               />
             )}
@@ -238,7 +238,7 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
         <button
           type="button"
           onClick={() => pickerRef.current?.showPicker?.()}
-          className="absolute top-1/2 right-2.5 -translate-y-1/2 text-ink-faint transition-colors duration-75 hover:text-ink-muted"
+          className="absolute top-1/2 right-2.5 -translate-y-1/2 text-ink-faint transition-colors duration-75 enabled:hover:text-ink-muted disabled:opacity-50"
           aria-label={`Open the date picker for ${label}`}
         >
           <CalendarIcon className="size-3.5" />

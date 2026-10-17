@@ -7,10 +7,10 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
  * reads as a button because of its weight and its hover, not its decoration.
  */
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-accent text-accent-ink hover:bg-accent-strong',
-  secondary: 'bg-sunken text-ink hover:bg-hover',
-  ghost: 'text-ink-muted hover:bg-hover hover:text-ink',
-  danger: 'text-danger hover:bg-danger-soft',
+  primary: 'bg-accent text-accent-ink enabled:hover:bg-accent-strong',
+  secondary: 'bg-sunken text-ink enabled:hover:bg-hover',
+  ghost: 'text-ink-muted enabled:hover:bg-hover enabled:hover:text-ink',
+  danger: 'text-danger enabled:hover:bg-danger-soft',
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -33,7 +33,9 @@ export function Button({
         'inline-flex h-8 items-center justify-center gap-1.5 rounded-control px-3',
         'text-sm font-medium transition-colors duration-75',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-        'disabled:pointer-events-none disabled:opacity-45',
+        // Still under the pointer when disabled, so that the not-allowed
+        // cursor (index.css) shows, but without the hover.
+        'disabled:opacity-45',
         VARIANTS[variant],
         block ? 'w-full' : '',
         className,
