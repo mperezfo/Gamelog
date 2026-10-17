@@ -1,6 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, useQueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
@@ -14,7 +14,8 @@ import { useSession } from './hooks/useSession'
 import { useSetupStatus } from './hooks/useSetup'
 import { useTapFeedback } from './hooks/useTapFeedback'
 import { useTruncationTooltip } from './hooks/useTruncationTooltip'
-import { persistOptions } from './lib/offlineCache'
+import { clearOfflineCache, persistOptions } from './lib/offlineCache'
+import { clearImageCache } from './lib/serviceWorker'
 import { Account } from './pages/Account'
 import { Admin } from './pages/Admin'
 import { Dashboard } from './pages/Dashboard'
@@ -63,6 +64,9 @@ export default function App() {
   )
 }
 
+/** The queries Gate itself keeps observing whoever is signed in. */
+const GATE_QUERIES = new Set(['session', 'setup', 'health'])
+
 /**
  * Decides which of the four screens the application is showing.
  *
@@ -73,7 +77,19 @@ export default function App() {
 function Gate() {
   const setup = useSetupStatus()
   const session = useSession()
+  const queryClient = useQueryClient()
   useReconnect()
+
+  // A session the server ended on its own (it expired, or the password was
+  // changed elsewhere) would otherwise leave the account's library behind,
+  // in memory and in the copy on the device, for whoever signs in next.
+  // Signing out deliberately clears it already (see useLogout).
+  useEffect(() => {
+    if (session.data !== null) return
+    queryClient.removeQueries({ predicate: (query) => !GATE_QUERIES.has(String(query.queryKey[0])) })
+    void clearOfflineCache()
+    void clearImageCache()
+  }, [session.data, queryClient])
 
   if (setup.isPending || session.isPending) {
     return <Centred>Loading…</Centred>
