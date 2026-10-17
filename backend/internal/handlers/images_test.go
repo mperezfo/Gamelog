@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/mperezfo/gamelog/internal/testsupport"
@@ -91,6 +92,35 @@ func TestImageUploadAndRetrieval(t *testing.T) {
 	if bodyAgain.URL != body.URL {
 		t.Errorf("re-uploading the same bytes got %q, want the same URL %q", bodyAgain.URL, body.URL)
 	}
+}
+
+func TestImageThumbnails(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	uploaded := uploadFile(t, handler, onePixelPNG, "cover.png", "image/png")
+	expectStatus(t, uploaded, http.StatusCreated, "uploading a cover image")
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal(uploaded.Body.Bytes(), &body); err != nil {
+		t.Fatalf("response is not valid JSON: %v", err)
+	}
+
+	// Already smaller than any thumbnail: served as it is.
+	small := request(t, handler, http.MethodGet, body.URL+"?size=sm", nil)
+	expectStatus(t, small, http.StatusOK, "fetching a thumbnail")
+	if !bytes.Equal(small.Body.Bytes(), onePixelPNG) {
+		t.Error("a thumbnail of an image smaller than the size was not the original")
+	}
+	if got := small.Header().Get("Cache-Control"); got != "private, max-age=31536000, immutable" {
+		t.Errorf("Cache-Control = %q, want the image cached privately for a year", got)
+	}
+
+	unknown := request(t, handler, http.MethodGet, body.URL+"?size=huge", nil)
+	expectStatus(t, unknown, http.StatusUnprocessableEntity, "fetching a size that does not exist")
+
+	missing := request(t, handler, http.MethodGet, "/api/images/"+strings.Repeat("0", 64)+".png?size=md", nil)
+	expectStatus(t, missing, http.StatusNotFound, "fetching a thumbnail of a missing image")
 }
 
 func TestImageUploadRejectsAnUnsupportedType(t *testing.T) {

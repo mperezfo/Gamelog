@@ -48,12 +48,14 @@ type uploadImageOutput struct {
 
 type getImageInput struct {
 	Name string `path:"name" doc:"Filename returned by the upload." example:"3f2504e....jpg"`
+	Size string `query:"size" enum:"sm,md" doc:"A smaller copy whose shorter side is 160 (sm) or 640 (md) pixels long, made on the first request for it. Left out, the original is served. An original that is already smaller is served as it is."`
 }
 
 type getImageOutput struct {
 	ContentType string `header:"Content-Type"`
 	// A year: the filename is content-addressed, so the same name never
 	// points at different bytes and can be cached as if it never changes.
+	// Private, as only a signed-in account can fetch it.
 	CacheControl string `header:"Cache-Control"`
 	Body         []byte
 }
@@ -64,6 +66,8 @@ type getImageOutput struct {
 // cover_image_url only ever points at a file this deployment has a copy of,
 // so the library survives the day the original hosting page does not.
 func registerImages(api huma.API, dir string) {
+	store := newImageStore(dir)
+
 	huma.Register(api, huma.Operation{
 		OperationID: "upload-image",
 		Method:      http.MethodPost,
@@ -83,13 +87,14 @@ func registerImages(api huma.API, dir string) {
 		Method:      http.MethodGet,
 		Path:        "/api/images/{name}",
 		Summary:     "Get a stored cover image",
+		Description: "Serves an uploaded image, or with `size` a thumbnail of it for the views that show it small.",
 		Tags:        []string{"Images"},
 		// No Metadata: the default is AccessUser, same as everything else
 		// about a library. The admin owns no games and has no reason to see
 		// their covers either.
-		Errors: []int{http.StatusUnauthorized, http.StatusNotFound},
+		Errors: []int{http.StatusUnauthorized, http.StatusNotFound, http.StatusUnprocessableEntity},
 	}, func(ctx context.Context, input *getImageInput) (*getImageOutput, error) {
-		return getImage(dir, input)
+		return getImage(store, input)
 	})
 }
 
@@ -157,12 +162,24 @@ func writeImageFile(path string, src io.Reader) error {
 	return nil
 }
 
-func getImage(dir string, input *getImageInput) (*getImageOutput, error) {
+func getImage(store *imageStore, input *getImageInput) (*getImageOutput, error) {
 	if !imageFilename.MatchString(input.Name) {
 		return nil, huma.Error404NotFound("no image with that name")
 	}
 
-	data, err := os.ReadFile(filepath.Join(dir, input.Name))
+	path := filepath.Join(store.dir, input.Name)
+	if input.Size != "" {
+		thumbnail, err := store.thumbnailPath(input.Name, input.Size)
+		if os.IsNotExist(err) {
+			return nil, huma.Error404NotFound("no image with that name")
+		}
+		if err != nil {
+			return nil, err
+		}
+		path = thumbnail
+	}
+
+	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, huma.Error404NotFound("no image with that name")
@@ -172,7 +189,7 @@ func getImage(dir string, input *getImageInput) (*getImageOutput, error) {
 
 	contentType := "application/octet-stream"
 	for mimeType, ext := range imageExtensions {
-		if ext == filepath.Ext(input.Name) {
+		if ext == filepath.Ext(path) {
 			contentType = mimeType
 			break
 		}
@@ -180,7 +197,7 @@ func getImage(dir string, input *getImageInput) (*getImageOutput, error) {
 
 	out := &getImageOutput{
 		ContentType:  contentType,
-		CacheControl: "public, max-age=31536000, immutable",
+		CacheControl: "private, max-age=31536000, immutable",
 		Body:         data,
 	}
 	return out, nil
