@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mperezfo/gamelog/internal/auth"
+	"github.com/mperezfo/gamelog/internal/imagefile"
 	"github.com/mperezfo/gamelog/internal/service"
 )
 
@@ -247,6 +249,22 @@ func registerPortability(api huma.API, db *gorm.DB, authentication *auth.Service
 		theme, dateFormat, gamesView := account.NormalisePreferences()
 		if err := authentication.RestoreAccount(ctx, user.ID, account.Name, account.AvatarURL, account.PasswordHash, theme, dateFormat, gamesView); err != nil {
 			return nil, apiError(err, "no such account")
+		}
+
+		// A backup made before uploads were normalised can carry images the
+		// backend cannot read (AVIF under a .png name). Converted only now,
+		// once the games and the account point at them, so that converting
+		// moves those references along.
+		names := make([]string, 0, len(images))
+		for name := range images {
+			names = append(names, name)
+		}
+		normalized, err := imagefile.NormalizeStored(ctx, db, imagesDir, names, false)
+		if err != nil {
+			return nil, err
+		}
+		for _, failure := range normalized.Failed {
+			slog.Warn("a restored image could not be read", "image", failure.Name, "error", failure.Err)
 		}
 
 		session, err := authentication.Open(ctx, user.ID)

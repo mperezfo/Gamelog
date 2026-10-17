@@ -216,7 +216,7 @@ To back up a whole deployment, back up both volumes: the database (`db-data`, or
 
 ## Stored images
 
-Covers and avatars are stored as JPEG, PNG, WebP or GIF, judged from the file's bytes rather than its name. An upload in any other format the backend can read, which in practice means AVIF (what many websites serve, even when the saved file ends in `.png`), is converted on the way in: to JPEG, or to PNG when it has transparency.
+Covers and avatars are stored as JPEG, PNG, WebP or GIF, judged from the file's bytes rather than its name. An upload in any other format the backend can read, which in practice means AVIF (what many websites serve, even when the saved file ends in `.png`), is converted on the way in: to JPEG, or to PNG when it has transparency. Restoring a backup converts the images it carries the same way.
 
 Images uploaded before that conversion existed can still be AVIF under another name. They get no thumbnails, so the full image is sent and decoded wherever the cover is shown, which is slow on a phone. To find and convert them, see what would change first, then run it:
 
