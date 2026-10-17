@@ -27,7 +27,9 @@ export function GameDetail() {
     )
   }
 
-  if (game.isError || !game.data) {
+  // A failed refresh still leaves the copy it had to show, which is the
+  // whole point while offline.
+  if (!game.data) {
     return (
       <PageContainer>
         <Notice tone="error">

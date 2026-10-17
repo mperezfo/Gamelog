@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import { useGames } from '../hooks/useGames'
-import { coverFocalStyle, imageUrl, preloadImage } from '../lib/cover'
+import { coverFocalStyle, preloadImage } from '../lib/cover'
 import { fuzzySearch } from '../lib/fuzzy'
 import { STATUS_DOT, STATUS_LABELS, type Game } from '../types/game'
 import { HighlightMatch } from './HighlightMatch'
 import { SearchIcon, XIcon } from './icons'
-import { CoverOverlay } from './CoverOverlay'
+import { CoverImage } from './CoverImage'
 
 interface GlobalSearchProps {
   onSelect: (game: Game) => void
@@ -151,21 +151,13 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
                   index === safeIndex ? 'bg-hover text-ink' : 'text-ink-muted',
                 ].join(' ')}
               >
-                {game.cover_image_url ? (
-                  <div className="relative h-8 w-6 shrink-0 overflow-hidden rounded-[3px]">
-                    <img
-                      src={imageUrl(game.cover_image_url, 'sm')}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="size-full object-cover"
-                      style={coverFocalStyle(game)}
-                    />
-                    <CoverOverlay />
-                  </div>
-                ) : (
-                  <span className="h-8 w-6 shrink-0 rounded-[3px] bg-sunken" />
-                )}
+                <CoverImage
+                  url={game.cover_image_url}
+                  size="sm"
+                  className="h-8 w-6 rounded-[3px] bg-sunken"
+                  style={coverFocalStyle(game)}
+                  iconClassName="size-3.5"
+                />
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate">
                     <HighlightMatch text={game.title} indices={match.indices} />

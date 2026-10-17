@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { monthGrid, monthLabel, monthNames, weekdayLabels } from '../lib/calendar'
-import { imageUrl, preloadImage } from '../lib/cover'
+import { preloadImage } from '../lib/cover'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import type { Game } from '../types/game'
 import { Button } from './Button'
 import { Dropdown } from './Dropdown'
 import { ChevronDownIcon, ChevronUpIcon } from './icons'
-import { CoverOverlay } from './CoverOverlay'
+import { CoverImage } from './CoverImage'
 
 type DateField = 'release_date' | 'logged_date'
 
@@ -253,20 +253,14 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                         : undefined
                     }
                   >
-                    {game.cover_image_url ? (
-                      <span className={single ? 'relative block w-full shrink-0 overflow-hidden' : 'contents'}>
-                        <img
-                          src={imageUrl(game.cover_image_url, 'sm')}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className={`${single ? 'h-8 w-full object-cover xl:h-11 2xl:h-16' : 'size-3.5 shrink-0 rounded-[2px] object-cover'} ${unreleased ? UNRELEASED_IMAGE : ''}`}
-                        />
-                        {single && <CoverOverlay />}
-                      </span>
-                    ) : (
-                      <span className={single ? 'h-8 w-full shrink-0 bg-black/10 xl:h-11 2xl:h-16' : 'size-3.5 shrink-0 rounded-[2px] bg-black/10'} />
-                    )}
+                    <CoverImage
+                      url={game.cover_image_url}
+                      size="sm"
+                      className={single ? 'h-8 w-full bg-black/10 xl:h-11 2xl:h-16' : 'size-3.5 rounded-[2px] bg-black/10'}
+                      imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
+                      iconClassName={single ? 'size-3.5' : 'size-2.5'}
+                      overlay={single}
+                    />
                     <span className={single ? 'w-full truncate px-1.5 py-0.5 text-[11px]' : 'truncate'}>{game.title}</span>
                   </button>
                 )

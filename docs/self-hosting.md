@@ -154,7 +154,18 @@ This only works over **HTTPS**. Browsers treat a plain `http://` page as insecur
 
 To try it on a phone against an `http://` instance, without setting up HTTPS yet, open `chrome://flags/#unsafely-treat-insecure-origin-as-secure` in Chrome, add the instance's origin (for example `http://192.168.1.10:9999`), enable the flag and relaunch the browser. Only do this for your own server.
 
-There is no offline mode: Gamelog needs its API for everything, so the app still needs a connection.
+## Offline mode
+
+When the server cannot be reached, Gamelog keeps working in **read-only** mode: the app opens from the copy kept on the device, with the library, the catalogues and the covers as they were the last time it reached the server. A strip at the top says so, and everything that would save a change (editing, creating, deleting, reordering, the account settings, signing out) stays disabled until the server answers again, which the app checks every few seconds. Nothing is queued to be sent later.
+
+This works in a regular browser tab as well as in the installed app, on a phone or a computer, with a few conditions:
+
+- It needs HTTPS (or `localhost`), like installing the app.
+- The copy is per device and per browser, and is only there after signing in on it at least once while online. Signing out deletes it.
+- Browsers may clear site data they consider unused. Gamelog asks for persistent storage, which an installed app usually gets; Safari in particular clears the data of a site that was not opened for a week otherwise.
+- Private browsing windows keep nothing.
+
+"Offline" means the server, not the device: a phone with a working connection that cannot reach a server running at home is offline too. An admin account has no library, so it gets nothing to read offline.
 
 ## Configuration
 

@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom'
 import { errorMessage } from '../api/client'
 import { useHealth } from '../hooks/useHealth'
 import { useMediaQuery } from '../hooks/useMediaQuery'
+import { useOffline } from '../hooks/useOffline'
 import { useLogout } from '../hooks/useSession'
 import type { User } from '../types/auth'
 import type { Game } from '../types/game'
@@ -347,6 +348,9 @@ function SidebarFooter({
   onNavClick: (event: MouseEvent<HTMLElement>) => void
 }) {
   const signOut = useLogout()
+  // Signing out needs the server to end the session, so it waits for it
+  // like any other change.
+  const offline = useOffline()
 
   return (
     <div className="flex shrink-0 flex-col gap-1 border-t border-line px-3 py-3">
@@ -391,7 +395,7 @@ function SidebarFooter({
             title="Sign out"
             aria-label="Sign out"
             onClick={() => signOut.mutate()}
-            disabled={signOut.isPending}
+            disabled={signOut.isPending || offline}
           >
             <SignOutIcon className="size-4" />
           </Button>

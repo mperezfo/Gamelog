@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type P
 
 import { uploadImage } from '../api/images'
 import { errorMessage } from '../api/client'
-import { imageUrl } from '../lib/cover'
 import { Button } from './Button'
+import { CoverImage } from './CoverImage'
 import { ImageIcon, TrashIcon } from './icons'
 import { Notice } from './Notice'
 
@@ -20,6 +20,8 @@ interface CoverImageFieldProps {
    * Null means no zoom (1). */
   zoom: number | null
   onZoomChange: (zoom: number | null) => void
+  /** Shows the cover without any way to replace, crop or remove it. */
+  readOnly?: boolean
 }
 
 const MIN_ZOOM = 1
@@ -76,6 +78,7 @@ export function CoverImageField({
   onFocalChange,
   zoom,
   onZoomChange,
+  readOnly = false,
 }: CoverImageFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -121,6 +124,10 @@ export function CoverImageField({
   // thumbnail (usually already cached by the card that opened this panel)
   // stands in for it, so the cover never shows up as an empty box.
   const [loadedCover, setLoadedCover] = useState<string | null>(null)
+  // An original that could not be loaded (offline, and never kept on this
+  // device) is dropped rather than left as a broken image over its
+  // thumbnail.
+  const [failedCover, setFailedCover] = useState<string | null>(null)
 
   async function handleFile(file: File | undefined) {
     if (!file) return
@@ -347,97 +354,112 @@ export function CoverImageField({
         <div
           ref={coverBoxRef}
           className="group relative h-96 w-full overflow-hidden rounded-control bg-sunken"
-          onClick={() => value && setShowOverlay((shown) => !shown)}
+          onClick={() => value && !readOnly && setShowOverlay((shown) => !shown)}
           onMouseLeave={() => setShowOverlay(false)}
-          onDragEnter={handleDragEnter}
-          onDragLeave={handleDragLeave}
-          onDragOver={handleDragOver}
-          onDrop={handleDrop}
+          // Without these the box is simply not a drop target.
+          onDragEnter={readOnly ? undefined : handleDragEnter}
+          onDragLeave={readOnly ? undefined : handleDragLeave}
+          onDragOver={readOnly ? undefined : handleDragOver}
+          onDrop={readOnly ? undefined : handleDrop}
         >
           {value ? (
             <>
               {loadedCover !== value && (
+                <div className="absolute inset-0">
+                  <CoverImage
+                    url={value}
+                    size="md"
+                    className="size-full"
+                    imageClassName="object-top select-none"
+                    iconClassName="size-6"
+                    lazy={false}
+                    overlay={false}
+                  />
+                </div>
+              )}
+              {failedCover !== value && (
                 <img
-                  src={imageUrl(value, 'md')}
+                  key={value}
+                  src={value}
                   alt=""
                   draggable={false}
-                  className="absolute inset-0 size-full object-cover object-top select-none"
+                  onLoad={(event) => {
+                    setCoverNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })
+                    setLoadedCover(value)
+                  }}
+                  onError={() => setFailedCover(value)}
+                  // A pixel larger than the box on every side, as CoverImage
+                  // draws it: some covers carry a thin frame of their own.
+                  className="absolute -top-px -left-px h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none object-cover object-top select-none"
                 />
               )}
-              <img
-                key={value}
-                src={value}
-                alt=""
-                draggable={false}
-                onLoad={(event) => {
-                  setCoverNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })
-                  setLoadedCover(value)
-                }}
-                className="absolute inset-0 size-full object-cover object-top select-none"
-              />
               {coverNatural && (
                 <span className="pointer-events-none absolute right-2 bottom-2 rounded-[4px] bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100">
                   {coverNatural.w} × {coverNatural.h}
                 </span>
               )}
-              <div
-                className={[
-                  'absolute inset-0 flex items-center justify-center gap-2 bg-black/45 transition-opacity duration-75',
-                  showOverlay
-                    ? 'pointer-events-auto opacity-100'
-                    : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100',
-                ].join(' ')}
-              >
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={uploading}
-                  className="bg-surface/90 hover:bg-surface"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    inputRef.current?.click()
-                  }}
+              {!readOnly && (
+                <div
+                  className={[
+                    'absolute inset-0 flex items-center justify-center gap-2 bg-black/45 transition-opacity duration-75',
+                    showOverlay
+                      ? 'pointer-events-auto opacity-100'
+                      : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100',
+                  ].join(' ')}
                 >
-                  {uploading ? 'Uploading…' : 'Replace'}
-                </Button>
-                {!uploading && (
                   <Button
                     type="button"
                     variant="secondary"
+                    disabled={uploading}
                     className="bg-surface/90 hover:bg-surface"
                     onClick={(event) => {
                       event.stopPropagation()
-                      startCropping()
+                      inputRef.current?.click()
                     }}
                   >
-                    Set portrait crop
+                    {uploading ? 'Uploading…' : 'Replace'}
                   </Button>
-                )}
-                {!uploading && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="bg-surface/90 px-2 hover:bg-surface"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      onChange('')
-                      onFocalChange(null, null)
-                      onZoomChange(null)
-                      setShowOverlay(false)
-                    }}
-                    aria-label="Remove cover"
-                  >
-                    <TrashIcon className="size-3.5" />
-                  </Button>
-                )}
-              </div>
+                  {!uploading && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="bg-surface/90 hover:bg-surface"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        startCropping()
+                      }}
+                    >
+                      Set portrait crop
+                    </Button>
+                  )}
+                  {!uploading && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="bg-surface/90 px-2 hover:bg-surface"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        onChange('')
+                        onFocalChange(null, null)
+                        onZoomChange(null)
+                        setShowOverlay(false)
+                      }}
+                      aria-label="Remove cover"
+                    >
+                      <TrashIcon className="size-3.5" />
+                    </Button>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <div className="flex size-full flex-col items-center justify-center gap-2">
               <ImageIcon className="size-5 text-ink-faint" />
-              <Button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}>
-                {uploading ? 'Uploading…' : 'Add a cover'}
-              </Button>
+              {!readOnly && (
+                <Button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}>
+                  {uploading ? 'Uploading…' : 'Add a cover'}
+                </Button>
+              )}
             </div>
           )}
 

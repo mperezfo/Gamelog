@@ -4,7 +4,7 @@ import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type
 
 import { errorMessage } from '../api/client'
 import { Button } from '../components/Button'
-import { CoverOverlay } from '../components/CoverOverlay'
+import { CoverImage } from '../components/CoverImage'
 import { DataTable } from '../components/DataTable'
 import { Field } from '../components/Field'
 import { FilterBar, type FilterField } from '../components/FilterBar'
@@ -19,10 +19,11 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useGameModal } from '../hooks/useGameModal'
 import { useDateFormat, useDefaultGamesView } from '../hooks/useSession'
 import { useGames } from '../hooks/useGames'
+import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
 import { STATUS_LABELS, type Game } from '../types/game'
 import { dateRange, dateRangeSpan, formatDate, formatScore } from '../lib/format'
-import { imageUrl, preloadImage } from '../lib/cover'
+import { preloadImage } from '../lib/cover'
 import { foldCase, fuzzyMatch } from '../lib/fuzzy'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import { useFilterParams } from '../hooks/useFilterParams'
@@ -130,6 +131,7 @@ export function GamesPage() {
   )
 
   const modal = useGameModal()
+  const offline = useOffline()
 
   // The search box is local state, not `filters.q` directly: a value bound
   // straight to the URL snaps back to it on every re-render, and a fast
@@ -247,20 +249,13 @@ export function GamesPage() {
           const unreleased = isUnreleased(game)
           return (
             <span className="flex min-w-0 items-center gap-2.5">
-              {game.cover_image_url ? (
-                <span className={`relative h-9 w-7 shrink-0 overflow-hidden rounded-[3px] ${unreleased ? UNRELEASED_RING : ''}`}>
-                  <img
-                    src={imageUrl(game.cover_image_url, 'sm')}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className={`size-full object-cover ${unreleased ? UNRELEASED_IMAGE : ''}`}
-                  />
-                  <CoverOverlay />
-                </span>
-              ) : (
-                <span className={`h-9 w-7 shrink-0 rounded-[3px] bg-sunken ${unreleased ? UNRELEASED_RING : ''}`} />
-              )}
+              <CoverImage
+                url={game.cover_image_url}
+                size="sm"
+                className={`h-9 w-7 rounded-[3px] bg-sunken ${unreleased ? UNRELEASED_RING : ''}`}
+                imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
+                iconClassName="size-3.5"
+              />
               <span className="truncate font-medium">{game.title}</span>
             </span>
           )
@@ -434,14 +429,14 @@ export function GamesPage() {
           </button>
         </div>
 
-        <Button variant="primary" className="order-6 sm:order-none" onClick={modal.openNew}>
+        <Button variant="primary" className="order-6 sm:order-none" onClick={modal.openNew} disabled={offline}>
           <PlusIcon className="size-4" />
           New game
         </Button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-persistent px-4 py-3 sm:px-6">
-        {games.isError && <Notice tone="error">{errorMessage(games.error)}</Notice>}
+        {games.isError && !offline && <Notice tone="error">{errorMessage(games.error)}</Notice>}
         {games.isPending && <p className="text-[13px] text-ink-faint">Loading…</p>}
         {games.data && view === 'table' && (
           <DataTable

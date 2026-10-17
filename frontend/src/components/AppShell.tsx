@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 
 import { useGameModal } from '../hooks/useGameModal'
+import { useOffline } from '../hooks/useOffline'
 import { useSidebarPinned } from '../hooks/useSidebarPinned'
 import { useLogout } from '../hooks/useSession'
 import { useThemeChoice } from '../theme/themeContext'
@@ -8,6 +9,7 @@ import type { User } from '../types/auth'
 import { Button } from './Button'
 import { GamePanel } from './GamePanel'
 import { MenuIcon } from './icons'
+import { OfflineBanner } from './OfflineBanner'
 import { Sidebar } from './Sidebar'
 import { ThemeSwitch } from './ThemeSwitch'
 
@@ -72,6 +74,8 @@ function LibraryShell({ user, children }: AppShellProps) {
           </div>
         </div>
 
+        <OfflineBanner />
+
         {/* min-h-0 is what lets a flex item actually shrink to this bounded
             height instead of growing to fit its content — without it, a tall
             page silently pushes main past the viewport instead of scrolling
@@ -88,6 +92,7 @@ function LibraryShell({ user, children }: AppShellProps) {
 function AdminShell({ user, children }: AppShellProps) {
   const { theme, setTheme } = useThemeChoice()
   const signOut = useLogout()
+  const offline = useOffline()
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden">
@@ -100,12 +105,14 @@ function AdminShell({ user, children }: AppShellProps) {
 
           <div className="flex items-center gap-1.5">
             <ThemeSwitch theme={theme} onChange={setTheme} />
-            <Button variant="ghost" onClick={() => signOut.mutate()} disabled={signOut.isPending}>
+            <Button variant="ghost" onClick={() => signOut.mutate()} disabled={signOut.isPending || offline}>
               Sign out
             </Button>
           </div>
         </div>
       </header>
+
+      <OfflineBanner />
 
       <main className="pad-bottom-safe min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-persistent">{children}</main>
     </div>

@@ -17,12 +17,25 @@ export function useGameStats(filter: GameFilter = {}) {
   return useQuery({ queryKey: statsKey(filter), queryFn: () => gameStats(filter) })
 }
 
-/** ref is a game's numeric id or its slug. */
+/** ref is a game's numeric id or its slug.
+ *
+ * The library list already holds every game in the same shape, so a game
+ * starts from its copy there: it opens at once, and also when the server
+ * cannot be reached and the game was never opened on this device. */
 export function useGame(ref: number | string | undefined) {
+  const queryClient = useQueryClient()
+
   return useQuery({
     queryKey: gameKey(ref ?? ''),
     queryFn: () => getGame(ref as number | string),
     enabled: ref !== undefined,
+    initialData: () =>
+      queryClient
+        .getQueryData<Game[]>(gamesKey())
+        ?.find((game) => game.slug === ref || String(game.id) === String(ref)),
+    // As old as the list it came from, so it is refetched as soon as that
+    // would have been.
+    initialDataUpdatedAt: () => queryClient.getQueryState(gamesKey())?.dataUpdatedAt,
   })
 }
 

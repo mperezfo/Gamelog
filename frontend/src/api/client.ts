@@ -9,7 +9,12 @@
  * to attach here and nothing to keep in storage. Being the same origin is what
  * makes that work, and is why it is a rule of the project rather than a
  * convenience.
+ *
+ * Every request also reports whether it reached the server, which is what
+ * switches the app to its read-only offline mode (see lib/connectivity.ts).
  */
+
+import { isOfflineSimulated, setServerReachable } from '../lib/connectivity'
 
 /** Error for a response with an HTTP status outside the 2xx range. */
 export class ApiError extends Error {
@@ -27,6 +32,63 @@ export class ApiError extends Error {
   get unauthorised(): boolean {
     return this.status === 401
   }
+}
+
+/** Error for a request the API never answered: no network, the server
+ * down, or the backend behind it down (the proxy then answers 502). */
+export class UnreachableError extends Error {
+  readonly path: string
+
+  constructor(path: string) {
+    super('The server cannot be reached.')
+    this.name = 'UnreachableError'
+    this.path = path
+  }
+}
+
+/** What a proxy answers when what it fronts is not there, and what the API
+ * itself answers when its database is not: nothing can be read or saved
+ * either way. */
+const UNAVAILABLE_STATUSES = new Set([502, 503, 504])
+
+/** How long a request waits for the server to start answering. An
+ * unreachable host often does not fail outright, it just never answers, and
+ * the app should switch to offline before the person gives up on it. */
+const RESPONSE_TIMEOUT_MS = 10_000
+
+/** Performs a request, telling an unreachable server apart from any answer
+ * it gave. */
+async function send(path: string, init: RequestInit): Promise<Response> {
+  if (import.meta.env.DEV && isOfflineSimulated()) {
+    throw new UnreachableError(path)
+  }
+
+  // A timer cleared once the server answers, rather than
+  // AbortSignal.timeout: aborting after that would cut off a long download.
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), RESPONSE_TIMEOUT_MS)
+  let response: Response
+  try {
+    response = await fetch(`/api${path}`, {
+      ...init,
+      // The default for a same-origin request, spelled out because the whole
+      // session depends on it.
+      credentials: 'same-origin',
+      signal: controller.signal,
+    })
+  } catch {
+    setServerReachable(false)
+    throw new UnreachableError(path)
+  } finally {
+    clearTimeout(timer)
+  }
+
+  if (UNAVAILABLE_STATUSES.has(response.status)) {
+    setServerReachable(false)
+    throw new UnreachableError(path)
+  }
+  setServerReachable(true)
+  return response
 }
 
 /**
@@ -49,11 +111,8 @@ async function readError(response: Response, path: string): Promise<ApiError> {
 
 /** Performs a request and returns the typed JSON body. */
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const response = await send(path, {
     ...init,
-    // The default for a same-origin request, spelled out because the whole
-    // session depends on it.
-    credentials: 'same-origin',
     headers: { Accept: 'application/json', ...init?.headers },
   })
 
@@ -72,11 +131,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 /** Performs a request and returns the raw response body, for a binary
  * download such as a backup .zip. */
 export async function apiBlob(path: string, init?: RequestInit): Promise<Blob> {
-  const response = await fetch(`/api${path}`, {
-    ...init,
-    credentials: 'same-origin',
-    headers: { ...init?.headers },
-  })
+  const response = await send(path, { ...init })
 
   if (!response.ok) {
     throw await readError(response, path)

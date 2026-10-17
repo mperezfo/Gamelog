@@ -47,10 +47,10 @@ export function ThemeSwitch({ theme, onChange }: ThemeSwitchProps) {
             onClick={() => onChange(option)}
             className={[
               'flex size-8 items-center justify-center rounded-[3px] transition-colors duration-75',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50',
               selected
                 ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(15_15_15/0.08)]'
-                : 'text-ink-faint hover:text-ink-muted',
+                : 'text-ink-faint enabled:hover:text-ink-muted',
             ].join(' ')}
           >
             <Glyph className="size-4" />

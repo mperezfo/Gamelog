@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { useOffline } from '../hooks/useOffline'
 import type { Game } from '../types/game'
 import { Button } from './Button'
 import { GameForm } from './GameForm'
@@ -30,6 +31,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   const [visible, setVisible] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [confirmingClose, setConfirmingClose] = useState(false)
+  const offline = useOffline()
 
   // Starts off-screen and slides in on the next frame — starting `visible`
   // true would skip the transition, since there would be nothing to animate
@@ -94,7 +96,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
         <div className="mb-4 flex items-center justify-between gap-2">
           <div className="flex items-baseline gap-2">
             <h2 className="text-base font-semibold tracking-tight text-ink">
-              {game ? 'Edit game' : 'New game'}
+              {game ? (offline ? 'Game' : 'Edit game') : 'New game'}
             </h2>
             {game && (
               <Link

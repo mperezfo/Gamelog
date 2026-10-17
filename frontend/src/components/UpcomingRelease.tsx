@@ -3,11 +3,11 @@ import { useEffect, useState, type CSSProperties } from 'react'
 import { CalendarIcon } from './icons'
 import { useEdgeFade } from '../hooks/useEdgeFade'
 import { useDateFormat } from '../hooks/useSession'
-import { coverFocalStyle, imageUrl, preloadImage } from '../lib/cover'
+import { coverFocalStyle, preloadImage } from '../lib/cover'
 import { formatDate } from '../lib/format'
 import { daysUntilRelease, upcomingGames } from '../lib/upcoming'
 import type { Game } from '../types/game'
-import { CoverOverlay } from './CoverOverlay'
+import { CoverImage } from './CoverImage'
 
 interface UpcomingReleaseProps {
   games: Game[]
@@ -63,22 +63,14 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
         onPointerEnter={() => preloadImage(next.cover_image_url)}
         className="flex flex-1 items-center gap-4 rounded-control bg-sunken p-3 text-left transition-colors duration-75 hover:bg-hover sm:p-4"
       >
-        <div className="relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-control bg-canvas sm:w-28">
-          {next.cover_image_url ? (
-            <img
-              src={imageUrl(next.cover_image_url, 'md')}
-              alt=""
-              decoding="async"
-              className="size-full object-cover"
-              style={coverFocalStyle(next)}
-            />
-          ) : (
-            <div className="flex size-full items-center justify-center text-lg font-semibold text-ink-faint">
-              {next.title.slice(0, 1)}
-            </div>
-          )}
-          {next.cover_image_url && <CoverOverlay />}
-        </div>
+        <CoverImage
+          url={next.cover_image_url}
+          size="md"
+          className="aspect-[3/4] w-20 rounded-control bg-canvas sm:w-28"
+          style={coverFocalStyle(next)}
+          iconClassName="size-6"
+          lazy={false}
+        />
 
         <div className="flex min-w-0 max-w-[16rem] flex-col gap-0.5 sm:max-w-xs">
           <span className="flex items-center gap-1 text-xs font-medium text-accent">
@@ -106,21 +98,13 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
                 onPointerEnter={() => preloadImage(game.cover_image_url)}
                 className="flex items-center gap-2 rounded-control px-1.5 py-1.5 text-left transition-colors duration-75 hover:bg-hover"
               >
-                {game.cover_image_url ? (
-                  <div className="relative size-8 shrink-0 overflow-hidden rounded-[3px]">
-                    <img
-                      src={imageUrl(game.cover_image_url, 'sm')}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      className="size-full object-cover"
-                      style={coverFocalStyle(game)}
-                    />
-                    <CoverOverlay />
-                  </div>
-                ) : (
-                  <span className="size-8 shrink-0 rounded-[3px] bg-canvas" />
-                )}
+                <CoverImage
+                  url={game.cover_image_url}
+                  size="sm"
+                  className="size-8 rounded-[3px] bg-canvas"
+                  style={coverFocalStyle(game)}
+                  iconClassName="size-3.5"
+                />
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate text-[13px] font-medium text-ink">{game.title}</span>
                   <span className="truncate text-[11px] text-ink-faint">{formatDate(game.release_date, dateFormat)}</span>
