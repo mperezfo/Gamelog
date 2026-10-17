@@ -91,8 +91,14 @@ function Gate() {
     void clearImageCache()
   }, [session.data, queryClient])
 
+  // Restoring the copy on the device takes a moment on every page load,
+  // too short to be worth a word: the canvas stays empty unless it drags on.
   if (setup.isPending || session.isPending) {
-    return <Centred>Loading…</Centred>
+    return (
+      <Centred>
+        <span className="appear-late block">Loading…</span>
+      </Centred>
+    )
   }
 
   // If even the setup check failed, the API is not answering at all: nothing

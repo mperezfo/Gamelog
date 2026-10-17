@@ -126,6 +126,15 @@
   initial-value: 0px;
 }
 
+@keyframes gl-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes gl-tap-grow {
   from {
     --gl-tap-r: 0px;
@@ -157,6 +166,13 @@
      should not animate just because it can. */
   button {
     cursor: pointer;
+  }
+
+  /* For a loading indicator: it only fades in once the wait has lasted
+     long enough to notice, so a fast load (restoring the copy on the
+     device, an image from the cache) never flashes it at all. */
+  .appear-late {
+    animation: gl-appear 150ms ease-out 500ms both;
   }
 
   /* A control that is there but cannot be used right now (offline, most of

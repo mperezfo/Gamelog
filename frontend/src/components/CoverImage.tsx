@@ -54,7 +54,9 @@ export function CoverImage({
 
   return (
     <span className={`relative flex shrink-0 items-center justify-center overflow-hidden text-ink-faint ${className}`}>
-      {!loaded && <ImageIcon className={iconClassName} />}
+      {/* While the image is on its way the glyph only fades in late, so a
+          cover coming from the cache does not flash it on every load. */}
+      {!loaded && <ImageIcon className={`${iconClassName} ${src && !failed ? 'appear-late' : ''}`} />}
       {src && !failed && (
         <img
           key={src}
