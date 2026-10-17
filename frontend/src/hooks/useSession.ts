@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { changePassword, getCurrentUser, login, logout, updatePreferences, updateProfile } from '../api/auth'
+import { clearImageCache } from '../lib/serviceWorker'
 import type { DateFormat, GamesView, Theme, User } from '../types/auth'
 
 /** Query key of the current session, so that logging in and out can reset it. */
@@ -58,6 +59,7 @@ export function useLogout() {
       // to unmount, which is what made logging out look like it needed a
       // reload to take effect.
       queryClient.setQueryData(sessionKey, null)
+      void clearImageCache()
       setTimeout(() => {
         queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== 'session' })
       }, 0)
