@@ -61,7 +61,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
         type="button"
         onClick={() => onSelectGame(next)}
         onPointerEnter={() => preloadImage(next.cover_image_url)}
-        className="flex flex-1 items-center gap-4 rounded-control bg-sunken p-3 text-left transition-colors duration-75 hover:bg-hover sm:p-4"
+        className="flex min-w-0 flex-1 items-center gap-4 rounded-control bg-sunken p-3 text-left transition-colors duration-75 hover:bg-hover sm:p-4"
       >
         <CoverImage
           url={next.cover_image_url}
@@ -72,7 +72,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
           lazy={false}
         />
 
-        <div className="flex min-w-0 max-w-[16rem] flex-col gap-0.5 sm:max-w-xs">
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex items-center gap-1 text-xs font-medium text-accent">
             <CalendarIcon className="size-3.5" />
             Next up
