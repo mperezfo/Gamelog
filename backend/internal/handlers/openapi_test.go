@@ -58,6 +58,7 @@ func TestOpenAPIDocumentDescribesEveryOperation(t *testing.T) {
 		"/api/publishers", "/api/publishers/{id}",
 		"/api/platforms", "/api/platforms/{id}",
 		"/api/export", "/api/import",
+		"/api/metadata/capabilities", "/api/metadata/games",
 	}
 	for _, path := range want {
 		if _, ok := paths[path]; !ok {

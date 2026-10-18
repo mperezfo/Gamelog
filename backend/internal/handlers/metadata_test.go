@@ -1,0 +1,311 @@
+package handlers_test
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
+	"github.com/go-chi/chi/v5"
+	"gorm.io/gorm"
+
+	"github.com/mperezfo/gamelog/internal/handlers"
+	"github.com/mperezfo/gamelog/internal/igdb"
+	"github.com/mperezfo/gamelog/internal/models"
+	"github.com/mperezfo/gamelog/internal/testsupport"
+)
+
+// fakeSearcher stands in for IGDB, answering every search the same way.
+type fakeSearcher struct {
+	games []igdb.Game
+	err   error
+}
+
+func (f *fakeSearcher) Search(context.Context, string) ([]igdb.Game, error) {
+	return f.games, f.err
+}
+
+// newMetadataRouter builds the API around games, which router.New would
+// otherwise build from real IGDB credentials. A nil games is a deployment
+// without them.
+func newMetadataRouter(db *gorm.DB, games handlers.GameSearcher) http.Handler {
+	r := chi.NewRouter()
+	api := humachi.New(r, huma.DefaultConfig("Gamelog API", "test"))
+	handlers.Register(api, db, newAuthService(db), os.TempDir(), "test", games)
+	return r
+}
+
+// sameSession wraps handler in the session another wrapped handler carries,
+// so that one account can be served by two differently built routers.
+func sameSession(handler, signedInHandler http.Handler) http.Handler {
+	return sessionHandler{handler: handler, cookie: signedInHandler.(sessionHandler).cookie}
+}
+
+type candidateResponse struct {
+	Candidates []struct {
+		IGDBID      uint64     `json:"igdb_id"`
+		Name        string     `json:"name"`
+		ReleaseDate *time.Time `json:"release_date"`
+		Developers  []companyMatchResponse
+		Publishers  []companyMatchResponse
+	} `json:"candidates"`
+}
+
+type companyMatchResponse struct {
+	IGDBCompanyID uint64 `json:"igdb_company_id"`
+	Name          string `json:"name"`
+	Match         *struct {
+		ID     uint64 `json:"id"`
+		Name   string `json:"name"`
+		Reason string `json:"reason"`
+	} `json:"match"`
+}
+
+// searchMetadata looks a title up and returns the first candidate's
+// developers and publishers.
+func searchMetadata(t *testing.T, handler http.Handler) candidateResponse {
+	t.Helper()
+
+	rec := request(t, handler, http.MethodGet, "/api/metadata/games?title=Resident%20Evil%204", nil)
+	expectStatus(t, rec, http.StatusOK, "searching IGDB")
+
+	var response candidateResponse
+	decode(t, rec, &response)
+	if len(response.Candidates) == 0 {
+		t.Fatal("the search returned no candidates")
+	}
+	return response
+}
+
+// expectMatch checks which record a company was matched to, and how. A zero
+// wantID means no match at all.
+func expectMatch(t *testing.T, company companyMatchResponse, wantID uint64, wantReason string) {
+	t.Helper()
+
+	if wantID == 0 {
+		if company.Match != nil {
+			t.Errorf("%s matched %q (%s), want no match", company.Name, company.Match.Name, company.Match.Reason)
+		}
+		return
+	}
+	if company.Match == nil {
+		t.Errorf("%s matched nothing, want %d (%s)", company.Name, wantID, wantReason)
+		return
+	}
+	if company.Match.ID != wantID || company.Match.Reason != wantReason {
+		t.Errorf("%s matched %d %q (%s), want %d (%s)",
+			company.Name, company.Match.ID, company.Match.Name, company.Match.Reason, wantID, wantReason)
+	}
+}
+
+func TestMetadataWithoutIGDB(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	handler := signedIn(t, newMetadataRouter(db, nil), db, "player", false)
+
+	rec := request(t, handler, http.MethodGet, "/api/metadata/capabilities", nil)
+	expectStatus(t, rec, http.StatusOK, "reading the capabilities")
+	var capabilities struct {
+		Identify bool `json:"identify"`
+	}
+	decode(t, rec, &capabilities)
+	if capabilities.Identify {
+		t.Error("identify = true on a deployment without IGDB credentials")
+	}
+
+	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/games?title=Celeste", nil),
+		http.StatusServiceUnavailable, "searching without IGDB credentials")
+}
+
+func TestMetadataSearchMatchesCompanies(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+
+	released := time.Date(2023, 3, 24, 0, 0, 0, 0, time.UTC)
+	searcher := &fakeSearcher{games: []igdb.Game{{
+		ID:          26192,
+		Name:        "Resident Evil 4",
+		ReleaseDate: &released,
+		Platforms:   []string{"PlayStation 5"},
+		Developers:  []igdb.Company{{ID: 37, Name: "Capcom"}, {ID: 900, Name: "Insomniac Games"}},
+		Publishers:  []igdb.Company{{ID: 10100, Name: "Sony Interactive Entertainment"}},
+	}}}
+	handler := signedIn(t, newMetadataRouter(db, searcher), db, "player", false)
+
+	rec := request(t, handler, http.MethodGet, "/api/metadata/capabilities", nil)
+	expectStatus(t, rec, http.StatusOK, "reading the capabilities")
+	var capabilities struct {
+		Identify bool `json:"identify"`
+	}
+	decode(t, rec, &capabilities)
+	if !capabilities.Identify {
+		t.Error("identify = false on a deployment with IGDB credentials")
+	}
+
+	capcom := createLookup(t, handler, "/api/developers", "CAPCOM")
+	sony := createLookup(t, handler, "/api/publishers", "Sony")
+
+	// Guesses from the name alone.
+	found := searchMetadata(t, handler).Candidates[0]
+	if found.IGDBID != 26192 || found.ReleaseDate == nil || !found.ReleaseDate.Equal(released) {
+		t.Errorf("candidate = %d released %v", found.IGDBID, found.ReleaseDate)
+	}
+	expectMatch(t, found.Developers[0], capcom, "name")
+	expectMatch(t, found.Developers[1], 0, "")
+	expectMatch(t, found.Publishers[0], sony, "normalized")
+
+	// Saving a game with those choices links them, and the next search
+	// recognises them outright.
+	rec = request(t, handler, http.MethodPost, "/api/games", map[string]any{
+		"title":           "Resident Evil 4",
+		"status":          models.StatusPlaying,
+		"position":        1,
+		"developer_ids":   []uint64{capcom},
+		"developer_links": []map[string]any{{"id": capcom, "igdb_company_id": 37}},
+		"new_developers":  []map[string]any{{"name": "Insomniac Games", "igdb_company_id": 900}},
+		"publisher_ids":   []uint64{sony},
+		"publisher_links": []map[string]any{{"id": sony, "igdb_company_id": 10100}},
+	})
+	expectStatus(t, rec, http.StatusCreated, "saving the identified game")
+	var game models.Game
+	decode(t, rec, &game)
+	if len(game.Developers) != 2 || len(game.Publishers) != 1 {
+		t.Fatalf("game has %d developers and %d publishers, want 2 and 1", len(game.Developers), len(game.Publishers))
+	}
+	var insomniac uint64
+	for _, developer := range game.Developers {
+		if developer.Name == "Insomniac Games" {
+			insomniac = developer.ID
+		}
+	}
+	if insomniac == 0 {
+		t.Fatalf("developers = %+v, want Insomniac Games created", game.Developers)
+	}
+
+	found = searchMetadata(t, handler).Candidates[0]
+	expectMatch(t, found.Developers[0], capcom, "linked")
+	expectMatch(t, found.Developers[1], insomniac, "linked")
+	expectMatch(t, found.Publishers[0], sony, "linked")
+
+	// IGDB failing is a 502, not a 500.
+	searcher.err = errors.New("connection refused")
+	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/games?title=Celeste", nil),
+		http.StatusBadGateway, "searching while IGDB is down")
+}
+
+func TestGameWriteCreatesAndLinksCompanies(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	searcher := &fakeSearcher{games: []igdb.Game{{
+		ID:         1,
+		Name:       "Resident Evil 4",
+		Developers: []igdb.Company{{ID: 1, Name: "Team Cherry"}},
+		Publishers: []igdb.Company{{ID: 10100, Name: "Sony Interactive Entertainment"}},
+	}}}
+	bare := newMetadataRouter(db, searcher)
+	alice := signedIn(t, bare, db, "alice", false)
+	bob := signedIn(t, bare, db, "bob", false)
+
+	listNames := func(handler http.Handler, collection string) []string {
+		t.Helper()
+		rec := request(t, handler, http.MethodGet, collection, nil)
+		expectStatus(t, rec, http.StatusOK, "listing "+collection)
+		var records []struct {
+			Name string `json:"name"`
+		}
+		decode(t, rec, &records)
+		names := make([]string, 0, len(records))
+		for _, record := range records {
+			names = append(names, record.Name)
+		}
+		return names
+	}
+
+	// A new developer is created with the game, and a second game naming it
+	// again, spelled differently, attaches the same record.
+	for i, name := range []string{"Team Cherry", "team cherry"} {
+		rec := request(t, alice, http.MethodPost, "/api/games", map[string]any{
+			"title":          []string{"Hollow Knight", "Silksong"}[i],
+			"status":         models.StatusPlayed,
+			"position":       1,
+			"new_developers": []map[string]any{{"name": name, "igdb_company_id": 1}},
+		})
+		expectStatus(t, rec, http.StatusCreated, "creating a game with a new developer spelled "+name)
+	}
+	if names := listNames(alice, "/api/developers"); len(names) != 1 || names[0] != "Team Cherry" {
+		t.Errorf("developers = %v, want just Team Cherry", names)
+	}
+
+	// A write that fails leaves nothing behind: the developer it would have
+	// created goes with it.
+	rec := request(t, alice, http.MethodPost, "/api/games", map[string]any{
+		"title":          "Ghost Game",
+		"status":         models.StatusPending,
+		"position":       1,
+		"genre_ids":      []uint64{999999},
+		"new_developers": []map[string]any{{"name": "Ghost Studio", "igdb_company_id": 5}},
+	})
+	expectStatus(t, rec, http.StatusUnprocessableEntity, "creating a game with a missing genre")
+	if names := listNames(alice, "/api/developers"); len(names) != 1 {
+		t.Errorf("developers = %v after a failed write, want it to have created nothing", names)
+	}
+
+	// Linking an IGDB company to a second record moves the link.
+	sony := createLookup(t, alice, "/api/publishers", "Sony")
+	sie := createLookup(t, alice, "/api/publishers", "SIE")
+	for _, publisher := range []uint64{sony, sie} {
+		rec := request(t, alice, http.MethodPut, "/api/games/hollow-knight", map[string]any{
+			"title":           "Hollow Knight",
+			"status":          models.StatusPlayed,
+			"position":        1,
+			"publisher_ids":   []uint64{publisher},
+			"publisher_links": []map[string]any{{"id": publisher, "igdb_company_id": 10100}},
+		})
+		expectStatus(t, rec, http.StatusOK, "linking IGDB company 10100")
+	}
+	found := searchMetadata(t, alice).Candidates[0]
+	expectMatch(t, found.Publishers[0], sie, "linked")
+
+	// Another account's record cannot be linked.
+	rec = request(t, bob, http.MethodPost, "/api/games", map[string]any{
+		"title":           "Hollow Knight",
+		"status":          models.StatusPlayed,
+		"position":        1,
+		"publisher_links": []map[string]any{{"id": sony, "igdb_company_id": 777}},
+	})
+	expectStatus(t, rec, http.StatusUnprocessableEntity, "bob linking alice's publisher")
+
+	// The links travel with an export, and come back with an import.
+	document := exportLibrary(t, alice)
+	links := map[string][]uint64{}
+	for _, entry := range append(document.Developers, document.Publishers...) {
+		links[entry.Name] = entry.IGDBCompanyIDs
+	}
+	if got := links["Team Cherry"]; len(got) != 1 || got[0] != 1 {
+		t.Errorf("Team Cherry exported with igdb_company_ids %v, want [1]", got)
+	}
+	if got := links["SIE"]; len(got) != 1 || got[0] != 10100 {
+		t.Errorf("SIE exported with igdb_company_ids %v, want [10100]", got)
+	}
+	if got := links["Sony"]; len(got) != 0 {
+		t.Errorf("Sony exported with igdb_company_ids %v, want none", got)
+	}
+
+	importLibrary(t, bob, "/api/import", document)
+	found = searchMetadata(t, bob).Candidates[0]
+	if found.Developers[0].Match == nil || found.Developers[0].Match.Reason != "linked" ||
+		found.Publishers[0].Match == nil || found.Publishers[0].Match.Name != "SIE" ||
+		found.Publishers[0].Match.Reason != "linked" {
+		t.Errorf("after importing alice's library, bob's matches = %+v and %+v, want both linked",
+			found.Developers[0].Match, found.Publishers[0].Match)
+	}
+
+	// Only developers and publishers can be linked.
+	report := importLibrary(t, bob, "/api/import", map[string]any{
+		"genres": []map[string]any{{"name": "Metroidvania", "igdb_company_ids": []uint64{1}}},
+	})
+	if len(report.Warnings) != 1 || report.Warnings[0].Section != "genres" {
+		t.Errorf("warnings = %+v, want one about the genre's igdb_company_ids", report.Warnings)
+	}
+}
