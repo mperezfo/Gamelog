@@ -1,4 +1,4 @@
-import type { GameCandidate, MetadataCapabilities } from '../types/metadata'
+import type { GameCandidate, IgdbCompany, MetadataCapabilities } from '../types/metadata'
 import { apiFetch } from './client'
 
 export function getMetadataCapabilities(): Promise<MetadataCapabilities> {
@@ -9,6 +9,13 @@ export function getMetadataCapabilities(): Promise<MetadataCapabilities> {
  * IGDB addresses its pages by name rather than by id. */
 export function igdbCompanyPage(id: number): string {
   return `/api/metadata/companies/${id}/page`
+}
+
+/** The names IGDB gives companies, in the order of `ids`. The library only
+ * keeps the ids it is linked to. */
+export async function listIgdbCompanies(ids: number[]): Promise<IgdbCompany[]> {
+  const { companies } = await apiFetch<{ companies: IgdbCompany[] }>(`/metadata/companies?ids=${ids.join(',')}`)
+  return companies
 }
 
 /** The IGDB games a title may refer to, most relevant first. */

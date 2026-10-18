@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
@@ -12,7 +12,7 @@ import { PlatformBadge } from '../components/PlatformBadge'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFilterParams } from '../hooks/useFilterParams'
 import { useGames } from '../hooks/useGames'
-import { useMetadataCapabilities } from '../hooks/useMetadata'
+import { useIgdbCompanies, useMetadataCapabilities } from '../hooks/useMetadata'
 import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '../hooks/useLookups'
 import { useOffline } from '../hooks/useOffline'
 import type { Game } from '../types/game'
@@ -62,6 +62,76 @@ function IgdbLink({ id, className = '', children }: { id: number; className?: st
     >
       {content}
     </a>
+  )
+}
+
+/**
+ * The IGDB link of a row in the list. A record linked to a single IGDB
+ * company opens its page straight away; one standing for several (Nintendo
+ * and its EPD groups, say) asks which, in a small menu naming them as IGDB
+ * does, since the library keeps nothing but their ids.
+ */
+function IgdbLinks({ ids }: { ids: number[] }) {
+  const capabilities = useMetadataCapabilities()
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLSpanElement>(null)
+  const companies = useIgdbCompanies(ids, open)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false)
+    }
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  if (ids.length === 1 || !capabilities.data?.identify) {
+    return <IgdbLink id={ids[0]} className="shrink-0 text-ink-faint" />
+  }
+
+  // Named as IGDB does once the names are in; by id until then, or if IGDB
+  // cannot be reached.
+  const names = new Map((companies.data ?? []).map((company) => [company.id, company.name]))
+
+  return (
+    <span ref={containerRef} className="relative inline-flex shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        title={`Linked to ${ids.length} IGDB companies`}
+        aria-expanded={open}
+        className="inline-flex text-ink-faint transition-colors duration-75 hover:text-ink"
+      >
+        <ExternalLinkIcon className="size-3" />
+      </button>
+      {open && (
+        <span className="absolute top-full left-0 z-10 mt-1.5 flex w-max max-w-[min(20rem,70vw)] animate-[gl-appear_100ms_ease-out] flex-col rounded-control bg-surface p-1 shadow-[0_8px_24px_rgba(0,0,0,0.18)] motion-reduce:animate-none">
+          {ids.map((id) => (
+            <a
+              key={id}
+              href={igdbCompanyPage(id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-between gap-3 rounded-control px-2 py-1.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
+            >
+              <span className="truncate" title={names.get(id)}>
+                {names.get(id) ?? `Company ${id}`}
+              </span>
+              <ExternalLinkIcon className="size-3 shrink-0 text-ink-faint" />
+            </a>
+          ))}
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -233,12 +303,11 @@ function LookupRow({
               {item.icon && <span aria-hidden="true">{item.icon}</span>}
               {/* The link to IGDB hangs off the name itself, the way an
                   external link is usually marked, rather than trailing the
-                  count. The first one only: a record standing for several
-                  IGDB companies is rare, and editing it lists them all. */}
+                  count. */}
               <span className="flex min-w-0 items-center gap-1">
                 <span className="truncate">{item.name}</span>
                 {item.igdb_company_ids && item.igdb_company_ids.length > 0 && (
-                  <IgdbLink id={item.igdb_company_ids[0]} className="shrink-0 text-ink-faint" />
+                  <IgdbLinks ids={item.igdb_company_ids} />
                 )}
               </span>
             </span>

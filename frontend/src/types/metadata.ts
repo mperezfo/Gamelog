@@ -18,6 +18,12 @@ export interface CompanyMatch {
   match: { id: number; name: string; reason: MatchReason } | null
 }
 
+/** A company as IGDB names it. */
+export interface IgdbCompany {
+  id: number
+  name: string
+}
+
 /** One IGDB game a title may refer to. */
 export interface GameCandidate {
   igdb_id: number
