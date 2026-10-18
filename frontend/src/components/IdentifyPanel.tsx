@@ -101,7 +101,10 @@ export function IdentifyPanel({ title, current, developers, publishers, onApply,
             onCancel={onClose}
           />
         ) : candidates.isPending ? (
-          <p className="text-sm text-ink-faint">Searching IGDB…</p>
+          <p className="text-sm text-ink-faint">
+            Searching IGDB
+            <Dots />
+          </p>
         ) : candidates.isError ? (
           <Notice tone="error">{errorMessage(candidates.error)}</Notice>
         ) : candidates.data.length === 0 ? (
@@ -117,6 +120,23 @@ export function IdentifyPanel({ title, current, developers, publishers, onApply,
         )}
       </div>
     </div>
+  )
+}
+
+/** An ellipsis whose dots bob in turn, to show the search is under way. */
+function Dots() {
+  return (
+    <span aria-hidden="true">
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          className="inline-block animate-[gl-bob_1.2s_ease-in-out_infinite] motion-reduce:animate-none"
+          style={{ animationDelay: `${delay}ms` }}
+        >
+          .
+        </span>
+      ))}
+    </span>
   )
 }
 

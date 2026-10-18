@@ -135,6 +135,19 @@
   }
 }
 
+/* A dot of a waiting ellipsis (IdentifyPanel): a small lift and back, then
+   a rest, so that three of them in turn read as a gentle wave. */
+@keyframes gl-bob {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-2px);
+  }
+}
+
 @keyframes gl-tap-grow {
   from {
     --gl-tap-r: 0px;
