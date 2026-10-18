@@ -1,4 +1,4 @@
-# Gamelog
+# <img src="docs/images/logo.svg" alt="" width="36" height="36" align="top"> Gamelog
 
 A self-hosted tracker for the video games I play: what I want to play, what I'm playing and what I've finished, with a score, a few notes, the platform, genres, developers, publishers and a cover for each one.
 
