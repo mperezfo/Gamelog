@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import { useDefaultCalendarView } from '../hooks/useSession'
 import { monthGrid, monthLabel, monthNames, weekdayLabels } from '../lib/calendar'
 import { preloadImage } from '../lib/cover'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
+import type { CalendarView } from '../types/auth'
 import type { Game } from '../types/game'
 import { Button } from './Button'
 import { Dropdown } from './Dropdown'
@@ -14,6 +16,12 @@ type DateField = 'release_date' | 'logged_date'
 const FIELD_LABELS: Record<DateField, string> = {
   release_date: 'Release dates',
   logged_date: 'Logged dates',
+}
+
+/** The date each of the account's calendar view preferences opens on. */
+const VIEW_FIELDS: Record<CalendarView, DateField> = {
+  release: 'release_date',
+  logged: 'logged_date',
 }
 
 interface GameCalendarProps {
@@ -42,7 +50,10 @@ function isValidYear(value: string): boolean {
  * it. Built by hand: a calendar is arithmetic on a handful of integers, not
  * worth a library for one view. */
 export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
-  const [field, setField] = useState<DateField>('release_date')
+  const defaultView = useDefaultCalendarView()
+  // Only where the calendar starts: toggling it on the dashboard is for the
+  // moment, and leaves the account's preference as it was.
+  const [field, setField] = useState<DateField>(VIEW_FIELDS[defaultView])
   const [month, setMonth] = useState(startOfThisMonth)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [yearDraft, setYearDraft] = useState(String(month.getFullYear()))

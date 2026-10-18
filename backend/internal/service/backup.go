@@ -22,17 +22,19 @@ type AccountEntry struct {
 	// it is what sets MustChangePassword on the account, so holding an old
 	// backup is never enough to keep using it.
 	PasswordHash string `json:"password_hash" doc:"Bcrypt hash of the account password, as it was when the backup was made."`
-	// Theme, DateFormat and GamesView default to "system", "long" and
-	// "table" when a backup predates them, rather than failing to restore
+	// Theme, DateFormat, GamesView and CalendarView default to "system",
+	// "long", "table" and "release" when a backup predates them, rather than failing to restore
 	// over a display preference.
-	Theme      string `json:"theme" doc:"Theme the application renders in: light, dark or system."`
-	DateFormat string `json:"date_format" doc:"How a date is written out: long, ymd, dmy or mdy."`
-	GamesView  string `json:"games_view" doc:"Which layout the Games page opens in by default: table or grid."`
+	Theme        string `json:"theme" doc:"Theme the application renders in: light, dark or system."`
+	DateFormat   string `json:"date_format" doc:"How a date is written out: long, ymd, dmy or mdy."`
+	GamesView    string `json:"games_view" doc:"Which layout the Games page opens in by default: table or grid."`
+	CalendarView string `json:"calendar_view" doc:"Which dates the dashboard calendar opens on by default: release or logged."`
 }
 
-// NormalisePreferences fills in Theme, DateFormat and GamesView when a
-// backup predates them, or carries a value this build no longer recognises.
-func (a AccountEntry) NormalisePreferences() (theme, dateFormat, gamesView string) {
+// NormalisePreferences fills in Theme, DateFormat, GamesView and CalendarView
+// when a backup predates them, or carries a value this build no longer
+// recognises.
+func (a AccountEntry) NormalisePreferences() (theme, dateFormat, gamesView, calendarView string) {
 	theme = a.Theme
 	if theme != "light" && theme != "dark" && theme != "system" {
 		theme = "system"
@@ -47,7 +49,11 @@ func (a AccountEntry) NormalisePreferences() (theme, dateFormat, gamesView strin
 	if gamesView != "table" && gamesView != "grid" {
 		gamesView = "table"
 	}
-	return theme, dateFormat, gamesView
+	calendarView = a.CalendarView
+	if calendarView != "release" && calendarView != "logged" {
+		calendarView = "release"
+	}
+	return theme, dateFormat, gamesView, calendarView
 }
 
 // BackupDocument is a Document plus its account section, written to

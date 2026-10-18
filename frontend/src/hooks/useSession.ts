@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { changePassword, getCurrentUser, login, logout, updatePreferences, updateProfile } from '../api/auth'
 import { clearOfflineCache } from '../lib/offlineCache'
 import { clearImageCache } from '../lib/serviceWorker'
-import type { DateFormat, GamesView, Theme, User } from '../types/auth'
+import type { CalendarView, DateFormat, GamesView, Preferences, User } from '../types/auth'
 
 /** Query key of the current session, so that logging in and out can reset it. */
 export const sessionKey = ['session'] as const
@@ -83,16 +83,27 @@ export function useDefaultGamesView(): GamesView {
   return session.data?.games_view ?? 'table'
 }
 
-/** Changes the theme, date format and/or default games view the application
- * is shown in. All three travel with the account, so this is what keeps
- * them in sync across devices and lets them ride along with the rest of a
- * backup. */
+/** The signed-in account's default calendar view, or 'release' while it is
+ * still loading or nobody is signed in. */
+export function useDefaultCalendarView(): CalendarView {
+  const session = useSession()
+  return session.data?.calendar_view ?? 'release'
+}
+
+/** Changes any of the display preferences (theme, date format, default games
+ * and calendar views), keeping the rest as the account has them. They all
+ * travel with the account, so this is what keeps them in sync across devices
+ * and lets them ride along with the rest of a backup. */
 export function useUpdatePreferences() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ theme, dateFormat, gamesView }: { theme: Theme; dateFormat: DateFormat; gamesView: GamesView }) =>
-      updatePreferences(theme, dateFormat, gamesView),
+    mutationFn: (changes: Partial<Preferences>) => {
+      const user = queryClient.getQueryData<User | null>(sessionKey)
+      if (!user) throw new Error('Not signed in.')
+      const { theme, date_format, games_view, calendar_view } = user
+      return updatePreferences({ theme, date_format, games_view, calendar_view, ...changes })
+    },
     onSuccess: (user) => queryClient.setQueryData(sessionKey, user),
   })
 }

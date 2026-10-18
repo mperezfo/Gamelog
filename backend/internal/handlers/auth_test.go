@@ -425,11 +425,15 @@ func TestPreferencesDefaultAndCanBeChanged(t *testing.T) {
 	if before.GamesView != "table" {
 		t.Errorf("games_view = %q, want it to default to %q", before.GamesView, "table")
 	}
+	if before.CalendarView != "release" {
+		t.Errorf("calendar_view = %q, want it to default to %q", before.CalendarView, "release")
+	}
 
 	updated := request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{
-		"theme":       "dark",
-		"date_format": "ymd",
-		"games_view":  "grid",
+		"theme":         "dark",
+		"date_format":   "ymd",
+		"games_view":    "grid",
+		"calendar_view": "logged",
 	})
 	expectStatus(t, updated, http.StatusOK, "updating your own preferences")
 
@@ -444,12 +448,16 @@ func TestPreferencesDefaultAndCanBeChanged(t *testing.T) {
 	if after.GamesView != "grid" {
 		t.Errorf("games_view = %q, want %q", after.GamesView, "grid")
 	}
+	if after.CalendarView != "logged" {
+		t.Errorf("calendar_view = %q, want %q", after.CalendarView, "logged")
+	}
 
 	// The change is durable, not just echoed back in the same response.
 	again := request(t, handler, http.MethodGet, "/api/auth/me", nil)
 	var reread models.User
 	decode(t, again, &reread)
-	if reread.Theme != "dark" || reread.DateFormat != "ymd" || reread.GamesView != "grid" {
-		t.Errorf("preferences did not persist: theme = %q, date_format = %q, games_view = %q", reread.Theme, reread.DateFormat, reread.GamesView)
+	if reread.Theme != "dark" || reread.DateFormat != "ymd" || reread.GamesView != "grid" || reread.CalendarView != "logged" {
+		t.Errorf("preferences did not persist: theme = %q, date_format = %q, games_view = %q, calendar_view = %q",
+			reread.Theme, reread.DateFormat, reread.GamesView, reread.CalendarView)
 	}
 }
