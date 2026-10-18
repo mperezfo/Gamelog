@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 
 import { errorMessage } from '../api/client'
 import { useGameModal } from '../hooks/useGameModal'
@@ -150,12 +150,35 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     ],
   }
 
+  // What Apply chose, held until the panel has finished closing: changing
+  // the fields below it while it is still shrinking makes the whole form
+  // jump under it, where closing first and then filling in reads as one
+  // calm step, the same as Cancel.
+  const identifiedRef = useRef<IdentifyResult | null>(null)
+
   function openIdentify() {
+    // Reopened before the last Apply finished closing: its values go in now
+    // rather than never.
+    flushIdentified()
     setIdentifyTitle(title.trim())
     setIdentifyOpen(true)
   }
 
   function applyIdentified(result: IdentifyResult) {
+    identifiedRef.current = result
+    setIdentifyOpen(false)
+  }
+
+  function closedIdentify() {
+    setIdentifyTitle(null)
+    flushIdentified()
+  }
+
+  function flushIdentified() {
+    const result = identifiedRef.current
+    identifiedRef.current = null
+    if (!result) return
+
     if (result.releaseDate) setReleaseDate(result.releaseDate)
     if (result.developers) {
       setDeveloperIds(result.developers.ids)
@@ -167,7 +190,6 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
       setPublisherLinks(result.publishers.links)
       setPendingPublishers(result.publishers.pending)
     }
-    setIdentifyOpen(false)
   }
 
   // Titles must be unique — matched the same case/accent-insensitive way the
@@ -277,6 +299,13 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Untitled"
+            // Enter looks the title up, where Identify is available: it is
+            // the one thing worth doing straight from the title. The form
+            // itself never saves on Enter (see guardEnter).
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+              if (capabilities.data?.identify && title.trim()) openIdentify()
+            }}
             required
             aria-invalid={duplicateGame ? true : undefined}
             className={[
@@ -304,7 +333,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
           // The form's gap goes inside the animated height, so that closing
           // ends exactly where the next field starts.
           <div className="-mt-5">
-            <Reveal open={identifyOpen} onClosed={() => setIdentifyTitle(null)}>
+            <Reveal open={identifyOpen} onClosed={closedIdentify}>
               <div className="pt-5">
                 <IdentifyPanel
                   key={identifyTitle}
