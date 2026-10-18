@@ -241,3 +241,30 @@ func TestCompanyURL(t *testing.T) {
 		t.Error("CompanyURL(66) followed a URL outside igdb.com")
 	}
 }
+
+func TestCompanies(t *testing.T) {
+	fake := newFakeIGDB(t, `[]`)
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /token", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"access_token":"t","expires_in":5000000}`)
+	})
+	var query string
+	mux.HandleFunc("POST /v4/companies", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		query = string(body)
+		// IGDB answers in an order of its own.
+		_, _ = io.WriteString(w, `[{"id":37,"name":"Capcom"},{"id":70,"name":"Nintendo"}]`)
+	})
+	fake.server.Config.Handler = mux
+
+	companies, err := fake.client().Companies(context.Background(), []uint64{70, 1, 37})
+	if err != nil {
+		t.Fatalf("Companies: %v", err)
+	}
+	if !strings.Contains(query, "where id = (70,1,37);") {
+		t.Errorf("query = %q, want the three ids", query)
+	}
+	if len(companies) != 2 || companies[0] != (Company{70, "Nintendo"}) || companies[1] != (Company{37, "Capcom"}) {
+		t.Errorf("companies = %v, want Nintendo then Capcom, in the order asked for", companies)
+	}
+}

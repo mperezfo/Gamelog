@@ -29,6 +29,21 @@ func (f *fakeSearcher) Search(context.Context, string) ([]igdb.Game, error) {
 	return f.games, f.err
 }
 
+// Companies knows Capcom (37) and Nintendo (70), and nothing else.
+func (f *fakeSearcher) Companies(_ context.Context, ids []uint64) ([]igdb.Company, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	known := map[uint64]string{37: "Capcom", 70: "Nintendo"}
+	companies := []igdb.Company{}
+	for _, id := range ids {
+		if name, ok := known[id]; ok {
+			companies = append(companies, igdb.Company{ID: id, Name: name})
+		}
+	}
+	return companies, nil
+}
+
 // CompanyURL knows Capcom (37) and nothing else.
 func (f *fakeSearcher) CompanyURL(_ context.Context, id uint64) (string, error) {
 	if f.err != nil {
@@ -210,6 +225,20 @@ func TestMetadataSearchMatchesCompanies(t *testing.T) {
 	}
 	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/companies/1/page", nil),
 		http.StatusNotFound, "opening a company IGDB does not have")
+
+	// Companies are named in the order asked for, and unknown ones left out.
+	rec = request(t, handler, http.MethodGet, "/api/metadata/companies?ids=70,1,37", nil)
+	expectStatus(t, rec, http.StatusOK, "naming companies")
+	var named struct {
+		Companies []struct {
+			ID   uint64 `json:"id"`
+			Name string `json:"name"`
+		} `json:"companies"`
+	}
+	decode(t, rec, &named)
+	if len(named.Companies) != 2 || named.Companies[0].Name != "Nintendo" || named.Companies[1].Name != "Capcom" {
+		t.Errorf("companies = %+v, want Nintendo then Capcom", named.Companies)
+	}
 
 	// IGDB failing is a 424: not a 500, since nothing is wrong here, and not
 	// a 502, which the frontend would take for the whole server being down.

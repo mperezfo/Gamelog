@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -115,6 +116,46 @@ func (c *Client) Search(ctx context.Context, title string) ([]Game, error) {
 		games = append(games, result.game())
 	}
 	return games, nil
+}
+
+// maxCompanies caps one lookup of companies by id, which IGDB answers in a
+// single page of at most this many results.
+const maxCompanies = 50
+
+// Companies returns the companies with the given ids, in the order asked
+// for. An id IGDB does not know is left out.
+func (c *Client) Companies(ctx context.Context, ids []uint64) ([]Company, error) {
+	if len(ids) == 0 {
+		return []Company{}, nil
+	}
+	if len(ids) > maxCompanies {
+		ids = ids[:maxCompanies]
+	}
+
+	list := make([]string, 0, len(ids))
+	for _, id := range ids {
+		list = append(list, strconv.FormatUint(id, 10))
+	}
+	var results []struct {
+		ID   uint64 `json:"id"`
+		Name string `json:"name"`
+	}
+	query := fmt.Sprintf("fields name; where id = (%s); limit %d;", strings.Join(list, ","), maxCompanies)
+	if err := c.query(ctx, "companies", query, &results); err != nil {
+		return nil, err
+	}
+
+	names := make(map[uint64]string, len(results))
+	for _, result := range results {
+		names[result.ID] = result.Name
+	}
+	companies := make([]Company, 0, len(ids))
+	for _, id := range ids {
+		if name, ok := names[id]; ok {
+			companies = append(companies, Company{ID: id, Name: name})
+		}
+	}
+	return companies, nil
 }
 
 // ErrNotFound is returned when IGDB has no record with the id asked for.

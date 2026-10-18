@@ -22,6 +22,7 @@ import (
 type IGDB interface {
 	Search(ctx context.Context, title string) ([]igdb.Game, error)
 	CompanyURL(ctx context.Context, id uint64) (string, error)
+	Companies(ctx context.Context, ids []uint64) ([]igdb.Company, error)
 }
 
 type metadataCapabilitiesOutput struct {
@@ -68,6 +69,21 @@ type gameCandidate struct {
 	CoverURL    *string        `json:"cover_url" doc:"Small cover hosted by IGDB, to tell candidates apart. Not meant to be stored: see the Images tag." example:"https://images.igdb.com/igdb/image/upload/t_cover_small/co6bo0.jpg"`
 	Developers  []companyMatch `json:"developers" doc:"Developers, each with the developer of the library it most likely is."`
 	Publishers  []companyMatch `json:"publishers" doc:"Publishers, each with the publisher of the library it most likely is."`
+}
+
+type listIGDBCompaniesInput struct {
+	IDs []uint64 `query:"ids" required:"true" minItems:"1" maxItems:"50" doc:"IGDB's ids for the companies, comma-separated." example:"[70,1234]"`
+}
+
+type igdbCompany struct {
+	ID   uint64 `json:"id" doc:"IGDB's id for the company." example:"70"`
+	Name string `json:"name" doc:"Its name on IGDB." example:"Nintendo"`
+}
+
+type listIGDBCompaniesOutput struct {
+	Body struct {
+		Companies []igdbCompany `json:"companies" doc:"The companies, in the order asked for. An id IGDB does not know is left out."`
+	}
 }
 
 type companyPageInput struct {
@@ -162,6 +178,36 @@ func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
 				Developers:  developers.matchAll(result.Developers),
 				Publishers:  publishers.matchAll(result.Publishers),
 			})
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "list-igdb-companies",
+		Method:      http.MethodGet,
+		Path:        "/api/metadata/companies",
+		Summary:     "Name IGDB companies",
+		Description: "Returns the names of IGDB companies by id, such as those a developer or publisher " +
+			"is linked to (see its igdb_company_ids), which the library itself does not keep.",
+		Tags: []string{"Metadata"},
+		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusFailedDependency,
+			http.StatusNotImplemented},
+	}, func(ctx context.Context, input *listIGDBCompaniesInput) (*listIGDBCompaniesOutput, error) {
+		if source == nil {
+			return nil, errIGDBNotConfigured()
+		}
+		lookupCtx, cancel := context.WithTimeout(ctx, searchTimeout)
+		defer cancel()
+		companies, err := source.Companies(lookupCtx, input.IDs)
+		if err != nil {
+			slog.Warn("naming IGDB companies failed", "error", err)
+			return nil, errIGDBFailed()
+		}
+
+		out := &listIGDBCompaniesOutput{}
+		out.Body.Companies = make([]igdbCompany, 0, len(companies))
+		for _, company := range companies {
+			out.Body.Companies = append(out.Body.Companies, igdbCompany{ID: company.ID, Name: company.Name})
 		}
 		return out, nil
 	})
