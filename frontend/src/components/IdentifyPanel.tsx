@@ -134,7 +134,9 @@ export function IdentifyPanel({ title, current, developers, publishers, onApply,
 /** An ellipsis whose dots bob in turn, to show the search is under way. */
 function Dots() {
   return (
-    <span aria-hidden="true">
+    // A little apart from the word and from each other: set as tight as a
+    // typed ellipsis, the moving dots read as crowding the text.
+    <span aria-hidden="true" className="ml-0.5 inline-flex gap-px">
       {[0, 150, 300].map((delay) => (
         <span
           key={delay}
@@ -567,7 +569,7 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
           // the name's capitals instead.
           <span
             title="Linked to this IGDB company when the game is saved"
-            className="relative -top-[1.5px] shrink-0 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase"
+            className="relative -top-[1px] shrink-0 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase"
           >
             link
           </span>
