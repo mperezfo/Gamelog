@@ -40,8 +40,9 @@ function withoutFailures(client: PersistedClient): PersistedClient {
 }
 
 /** Queries that make no sense to show from an old copy: the API's live
- * health, and the admin's account list, which stays behind a connection. */
-const NOT_KEPT = new Set(['health', 'users'])
+ * health, the admin's account list, which stays behind a connection, and
+ * IGDB lookups, which offline could not be acted on anyway. */
+const NOT_KEPT = new Set(['health', 'users', 'metadata'])
 
 /** Anything with data to show, including a query whose last refresh failed:
  * while offline every refresh does, and the copy must outlive that. */

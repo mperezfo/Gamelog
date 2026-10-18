@@ -284,3 +284,13 @@ export function SidebarIcon(props: IconProps) {
     </Icon>
   )
 }
+
+/** Identify, on the game form: filling fields in on its own. */
+export function SparklesIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M11 3.5 12.9 9 18.5 11l-5.6 2-1.9 5.5L9.1 13 3.5 11l5.6-2z" />
+      <path d="M19 3v4M17 5h4M18 17v4M16 19h4" />
+    </Icon>
+  )
+}

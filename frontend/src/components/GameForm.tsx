@@ -4,16 +4,18 @@ import { errorMessage } from '../api/client'
 import { useGameModal } from '../hooks/useGameModal'
 import { useCreateGame, useDeleteGame, useGames, useUpdateGame } from '../hooks/useGames'
 import { useLookups } from '../hooks/useLookups'
+import { useMetadataCapabilities } from '../hooks/useMetadata'
 import { useOffline } from '../hooks/useOffline'
 import { foldCase } from '../lib/fuzzy'
-import type { Game, GameInput, GameStatus, NewLookup } from '../types/game'
+import type { CompanyLink, Game, GameInput, GameStatus, NewLookup } from '../types/game'
 import { GAME_STATUSES, STATUS_LABELS } from '../types/game'
 import { Button } from './Button'
 import { ChipMultiSelect } from './ChipMultiSelect'
 import { CoverImageField } from './CoverImageField'
 import { DateField } from './DateField'
 import { Field } from './Field'
-import { TrashIcon } from './icons'
+import { SparklesIcon, TrashIcon } from './icons'
+import { IdentifyPanel, type IdentifyResult } from './IdentifyPanel'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
 import { Notice } from './Notice'
 import { Select } from './Select'
@@ -64,6 +66,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const platforms = useLookups('platforms')
   const games = useGames()
   const modal = useGameModal()
+  const capabilities = useMetadataCapabilities()
   const offline = useOffline()
 
   const [title, setTitle] = useState(game?.title ?? '')
@@ -81,11 +84,15 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const [genreIds, setGenreIds] = useState((game?.genres ?? []).map((g) => g.id))
   const [developerIds, setDeveloperIds] = useState((game?.developers ?? []).map((d) => d.id))
   const [publisherIds, setPublisherIds] = useState((game?.publishers ?? []).map((p) => p.id))
-  // Developers and publishers to create when the game is saved: never
-  // before, so that abandoning the form leaves nothing behind. A game never
-  // starts with any.
+  // Developers and publishers to create, and links to IGDB to write, when the
+  // game is saved: never before, so that abandoning the form leaves nothing
+  // behind. A game never starts with any.
   const [pendingDevelopers, setPendingDevelopers] = useState<NewLookup[]>([])
   const [pendingPublishers, setPendingPublishers] = useState<NewLookup[]>([])
+  const [developerLinks, setDeveloperLinks] = useState<CompanyLink[]>([])
+  const [publisherLinks, setPublisherLinks] = useState<CompanyLink[]>([])
+  // The title Identify is looking up, or null while its panel is closed.
+  const [identifyTitle, setIdentifyTitle] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const [initial] = useState(() => ({
@@ -123,7 +130,32 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     !sameIds(developerIds, initial.developerIds) ||
     !sameIds(publisherIds, initial.publisherIds) ||
     pendingDevelopers.length > 0 ||
-    pendingPublishers.length > 0
+    pendingPublishers.length > 0 ||
+    developerLinks.length > 0 ||
+    publisherLinks.length > 0
+
+  // Identify only fills what is empty, never what was already set.
+  const identifyFill = {
+    releaseDate: releaseDate === '',
+    developers: developerIds.length === 0 && pendingDevelopers.length === 0,
+    publishers: publisherIds.length === 0 && pendingPublishers.length === 0,
+  }
+  const nothingToIdentify = !identifyFill.releaseDate && !identifyFill.developers && !identifyFill.publishers
+
+  function applyIdentified(result: IdentifyResult) {
+    if (result.releaseDate) setReleaseDate(result.releaseDate)
+    if (result.developers) {
+      setDeveloperIds(result.developers.ids)
+      setDeveloperLinks(result.developers.links)
+      setPendingDevelopers(result.developers.pending)
+    }
+    if (result.publishers) {
+      setPublisherIds(result.publishers.ids)
+      setPublisherLinks(result.publishers.links)
+      setPendingPublishers(result.publishers.pending)
+    }
+    setIdentifyTitle(null)
+  }
 
   // Titles must be unique — matched the same case/accent-insensitive way the
   // database's own collation would, so this can't flag something the backend
@@ -183,6 +215,10 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
       publisher_ids: publisherIds,
       new_developers: pendingDevelopers,
       new_publishers: pendingPublishers,
+      // A link only matters while its record is still on the game: one
+      // deselected after Identify is dropped along with it.
+      developer_links: developerLinks.filter((link) => developerIds.includes(link.id)),
+      publisher_links: publisherLinks.filter((link) => publisherIds.includes(link.id)),
     }
 
     if (game) {
@@ -223,17 +259,49 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
           onZoomChange={setCoverZoom}
         />
 
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Untitled"
-          required
-          aria-invalid={duplicateGame ? true : undefined}
-          className={[
-            'w-full bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:text-ink-faint',
-            duplicateGame ? 'text-danger' : 'text-ink',
-          ].join(' ')}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Untitled"
+            required
+            aria-invalid={duplicateGame ? true : undefined}
+            className={[
+              'min-w-0 flex-1 bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:text-ink-faint',
+              duplicateGame ? 'text-danger' : 'text-ink',
+            ].join(' ')}
+          />
+          {/* Only on a deployment with IGDB credentials: without them there is
+              nothing for the button to look games up in. */}
+          {capabilities.data?.identify && (
+            <Button
+              variant="ghost"
+              className="shrink-0 px-2"
+              title={
+                nothingToIdentify
+                  ? 'Release date, developers and publishers are already set'
+                  : 'Fill in the release date, developers and publishers from IGDB'
+              }
+              disabled={!title.trim() || nothingToIdentify}
+              onClick={() => setIdentifyTitle(title.trim())}
+            >
+              <SparklesIcon />
+              Identify
+            </Button>
+          )}
+        </div>
+
+        {identifyTitle !== null && (
+          <IdentifyPanel
+            key={identifyTitle}
+            title={identifyTitle}
+            fill={identifyFill}
+            developers={developers.data ?? []}
+            publishers={publishers.data ?? []}
+            onApply={applyIdentified}
+            onClose={() => setIdentifyTitle(null)}
+          />
+        )}
 
         {duplicateGame && (
           <Notice tone="error">
