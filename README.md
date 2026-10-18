@@ -6,6 +6,12 @@ Gamelog is a personal project. I built it to track my own games, and it is tailo
 
 I open sourced it in case it is useful to someone else too.
 
+<p align="center">
+  <img src="docs/screenshots/hero-dark.png" alt="The Gamelog dashboard on a desktop browser, with the games grid open on a phone next to it">
+</p>
+
+Here are [more screenshots](docs/screenshots.md), in desktop and phone formats.
+
 ## Features
 
 - **Board**: Games are grouped into four columns by status (Wishlist, Pending, Playing and Played) and can be moved between them by dragging.
