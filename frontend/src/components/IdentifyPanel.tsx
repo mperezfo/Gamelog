@@ -562,9 +562,12 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
       <span className="flex min-w-0 items-baseline gap-1.5">
         <span className="truncate">{records.find((r) => r.id === choice.id)?.name ?? company.match?.name}</span>
         {linking && (
+          // On the baseline its capitals are shorter than the name's and
+          // read as sitting low; lifted by 1.5px (measured), they centre on
+          // the name's capitals instead.
           <span
             title="Linked to this IGDB company when the game is saved"
-            className="shrink-0 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase"
+            className="relative -top-[1.5px] shrink-0 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase"
           >
             link
           </span>
