@@ -197,7 +197,7 @@ The game form's **Identify** button looks the title up on [IGDB](https://www.igd
 IGDB is run by Twitch and authenticates through a Twitch application:
 
 1. Sign in to the [Twitch developer console](https://dev.twitch.tv/console) with a Twitch account. Twitch asks for two-factor authentication to be turned on first.
-2. Register an application. Any name will do; `http://localhost` is fine as the OAuth redirect URL, since it is never used; pick the *Confidential* client type.
+2. Register an application. Any name will do; `http://localhost` is fine as the OAuth redirect URL, since it is never used; pick the _Confidential_ client type.
 3. Copy its **Client ID**, generate a **Client Secret**, and set them as `GAMELOG_IGDB_CLIENT_ID` and `GAMELOG_IGDB_CLIENT_SECRET`.
 
 The backend exchanges them for an access token on its own and renews it when it runs out, so there is nothing else to maintain. One application serves every account of the deployment, and the server needs outbound access to `id.twitch.tv` and `api.igdb.com`. The covers shown next to each result are loaded by the browser straight from `images.igdb.com`, only to tell the results apart: nothing from IGDB is stored but the fields you apply.

@@ -10,8 +10,12 @@
     { "name": "Nintendo Switch", "icon": "🎮", "color": "#e60012" }
   ],
   "genres": [{ "name": "Metroidvania", "icon": "🗺️" }],
-  "developers": [{ "name": "Team Cherry", "icon": null, "igdb_company_ids": [9346] }],
-  "publishers": [{ "name": "Team Cherry", "icon": null, "igdb_company_ids": [9346] }],
+  "developers": [
+    { "name": "Team Cherry", "icon": null, "igdb_company_ids": [9346] }
+  ],
+  "publishers": [
+    { "name": "Team Cherry", "icon": null, "igdb_company_ids": [9346] }
+  ],
   "games": [
     {
       "title": "Hollow Knight",
