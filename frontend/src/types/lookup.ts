@@ -8,6 +8,9 @@ export interface Lookup {
   icon: string | null
   /** Hex color. Only ever set for platforms. */
   color: string | null
+  /** The IGDB companies a developer or publisher has been linked to through
+   * Identify. Left out when there are none, and always for the other two. */
+  igdb_company_ids?: number[]
 }
 
 /** What creating or renaming one of them sends. */

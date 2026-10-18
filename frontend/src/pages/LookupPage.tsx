@@ -29,6 +29,12 @@ const FILTER_PARAM: Record<LookupKind, string> = {
 
 type SortMode = 'count' | 'name'
 
+/** "company 37", or "companies 37, 9001" when one record stands for several
+ * of IGDB's (see the backend's migration 00016). */
+function igdbCompanies(ids: number[]): string {
+  return `${ids.length === 1 ? 'company' : 'companies'} ${ids.join(', ')}`
+}
+
 interface LookupPageProps {
   kind: LookupKind
   title: string
@@ -186,7 +192,10 @@ function LookupRow({
   return (
     <li className="group border-b border-line last:border-0">
       <div className="flex items-center justify-between gap-3 py-2.5">
-        <span className="flex min-w-0 items-center gap-2">
+        {/* On the baseline, so that the count and the IGDB mark, smaller
+            than the name, line up with its letters rather than its box. A
+            platform's badge is a box of its own, centred instead. */}
+        <span className={['flex min-w-0 gap-2', kind === 'platforms' ? 'items-center' : 'items-baseline'].join(' ')}>
           {kind === 'platforms' ? (
             <PlatformBadge platform={item} />
           ) : (
@@ -204,6 +213,14 @@ function LookupRow({
             </Link>
           ) : (
             <span className="shrink-0 text-xs text-ink-faint">{count}</span>
+          )}
+          {item.igdb_company_ids && item.igdb_company_ids.length > 0 && (
+            <span
+              title={`Linked to IGDB (${igdbCompanies(item.igdb_company_ids)})`}
+              className="shrink-0 text-[10px] font-semibold tracking-wide text-ink-faint/70 uppercase select-none"
+            >
+              IGDB
+            </span>
           )}
         </span>
 
@@ -309,6 +326,14 @@ function LookupForm({
           />
         )}
       </div>
+      {item && (kind === 'developers' || kind === 'publishers') && (
+        // Read-only: a link is made, or moved, from a game's Identify.
+        <p className="text-xs text-ink-faint">
+          {item.igdb_company_ids && item.igdb_company_ids.length > 0
+            ? `Linked to IGDB as ${igdbCompanies(item.igdb_company_ids)}`
+            : 'Not linked to IGDB'}
+        </p>
+      )}
       {error && <Notice tone="error">{errorMessage(error)}</Notice>}
       <div className="flex gap-2">
         <Button type="submit" variant="primary" disabled={saving || offline}>
