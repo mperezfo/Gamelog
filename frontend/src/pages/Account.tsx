@@ -102,17 +102,19 @@ export function Account() {
           </Section>
         </fieldset>
 
-        <div className="flex items-center gap-4 border-t border-line pt-4">
-          <ApiStatus />
+        <div className="flex flex-col items-start gap-3 border-t border-line pt-4">
+          <div className="flex items-center gap-4">
+            <ApiStatus />
+            <a
+              href="/api/docs"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-accent hover:underline"
+            >
+              API docs
+            </a>
+          </div>
           {import.meta.env.DEV && <SimulateOffline />}
-          <a
-            href="/api/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-accent hover:underline"
-          >
-            API docs
-          </a>
         </div>
       </div>
     </PageContainer>
