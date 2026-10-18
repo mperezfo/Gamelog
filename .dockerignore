@@ -1,4 +1,5 @@
 .git
+**/.env
 .direnv
 result
 frontend/node_modules

@@ -79,64 +79,90 @@ func (c Config) DSN() string {
 
 // Load reads the configuration from the environment, applying defaults meant
 // for local development (the same ones compose.override.yaml exposes).
-func Load() (Config, error) {
-	port, err := envInt("GAMELOG_PORT", 8080)
+//
+// A variable the environment leaves unset, or sets empty, is also looked up in
+// the .env file at dotEnvPath, when there is one, so that a development setup
+// can keep its settings in a file instead of exporting them in every terminal
+// (see dotenv.go). The environment always wins over the file.
+func Load(dotEnvPath string) (Config, error) {
+	file, err := readDotEnv(dotEnvPath)
+	if err != nil {
+		return Config{}, err
+	}
+	src := source{file: file}
+	port, err := src.integer("GAMELOG_PORT", 8080)
 	if err != nil {
 		return Config{}, err
 	}
 
-	dbPort, err := envInt("GAMELOG_DB_PORT", 3306)
+	dbPort, err := src.integer("GAMELOG_DB_PORT", 3306)
 	if err != nil {
 		return Config{}, err
 	}
 
-	runMigrations, err := envBool("GAMELOG_MIGRATE", true)
+	runMigrations, err := src.boolean("GAMELOG_MIGRATE", true)
 	if err != nil {
 		return Config{}, err
 	}
 
-	docsEnabled, err := envBool("GAMELOG_DOCS", true)
+	docsEnabled, err := src.boolean("GAMELOG_DOCS", true)
 	if err != nil {
 		return Config{}, err
 	}
 
-	sessionLifetime, err := envDuration("GAMELOG_SESSION_LIFETIME", 365*24*time.Hour)
+	sessionLifetime, err := src.duration("GAMELOG_SESSION_LIFETIME", 365*24*time.Hour)
 	if err != nil {
 		return Config{}, err
 	}
 
-	secureCookie, err := envBool("GAMELOG_SECURE_COOKIE", false)
+	secureCookie, err := src.boolean("GAMELOG_SECURE_COOKIE", false)
 	if err != nil {
 		return Config{}, err
 	}
 
 	return Config{
 		Port:            port,
-		DBHost:          env("GAMELOG_DB_HOST", "127.0.0.1"),
+		DBHost:          src.text("GAMELOG_DB_HOST", "127.0.0.1"),
 		DBPort:          dbPort,
-		DBUser:          env("GAMELOG_DB_USER", "gamelog"),
-		DBPassword:      env("GAMELOG_DB_PASSWORD", "gamelog"),
-		DBName:          env("GAMELOG_DB_NAME", "gamelog"),
+		DBUser:          src.text("GAMELOG_DB_USER", "gamelog"),
+		DBPassword:      src.text("GAMELOG_DB_PASSWORD", "gamelog"),
+		DBName:          src.text("GAMELOG_DB_NAME", "gamelog"),
 		DocsEnabled:     docsEnabled,
 		RunMigrations:   runMigrations,
 		SessionLifetime: sessionLifetime,
 		SecureCookie:    secureCookie,
-		AdminPassword:   env("GAMELOG_ADMIN_PASSWORD", ""),
+		AdminPassword:   src.text("GAMELOG_ADMIN_PASSWORD", ""),
 		ShutdownTimeout: 10 * time.Second,
-		ImagesDir:       env("GAMELOG_IMAGES_DIR", "./data/images"),
+		ImagesDir:       src.text("GAMELOG_IMAGES_DIR", "./data/images"),
 	}, nil
 }
 
-func env(key, fallback string) string {
-	if v, ok := os.LookupEnv(key); ok && v != "" {
+// source is where a variable's value comes from: the environment first, then
+// the .env file.
+type source struct {
+	file map[string]string
+}
+
+// lookup returns the variable's value, or "" when neither the environment nor
+// the file sets it. An empty value counts as unset, the same as everywhere
+// else in this package.
+func (s source) lookup(key string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return s.file[key]
+}
+
+func (s source) text(key, fallback string) string {
+	if v := s.lookup(key); v != "" {
 		return v
 	}
 	return fallback
 }
 
-func envInt(key string, fallback int) (int, error) {
-	raw, ok := os.LookupEnv(key)
-	if !ok || raw == "" {
+func (s source) integer(key string, fallback int) (int, error) {
+	raw := s.lookup(key)
+	if raw == "" {
 		return fallback, nil
 	}
 	v, err := strconv.Atoi(raw)
@@ -146,9 +172,9 @@ func envInt(key string, fallback int) (int, error) {
 	return v, nil
 }
 
-func envDuration(key string, fallback time.Duration) (time.Duration, error) {
-	raw, ok := os.LookupEnv(key)
-	if !ok || raw == "" {
+func (s source) duration(key string, fallback time.Duration) (time.Duration, error) {
+	raw := s.lookup(key)
+	if raw == "" {
 		return fallback, nil
 	}
 	v, err := time.ParseDuration(raw)
@@ -161,9 +187,9 @@ func envDuration(key string, fallback time.Duration) (time.Duration, error) {
 	return v, nil
 }
 
-func envBool(key string, fallback bool) (bool, error) {
-	raw, ok := os.LookupEnv(key)
-	if !ok || raw == "" {
+func (s source) boolean(key string, fallback bool) (bool, error) {
+	raw := s.lookup(key)
+	if raw == "" {
 		return fallback, nil
 	}
 	v, err := strconv.ParseBool(raw)
