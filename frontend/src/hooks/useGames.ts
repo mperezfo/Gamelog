@@ -44,6 +44,14 @@ function invalidateGames(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: ['games'] })
 }
 
+/** After a save, which may have created developers or publishers along
+ * with the game (see GameInput's new_developers), and linked them to IGDB. */
+function invalidateSavedGame(queryClient: ReturnType<typeof useQueryClient>) {
+  invalidateGames(queryClient)
+  void queryClient.invalidateQueries({ queryKey: ['developers'] })
+  void queryClient.invalidateQueries({ queryKey: ['publishers'] })
+}
+
 /** The fields `Game` and `GameInput` share by name and type. A PUT always
  * replaces every one of them (see `position` above), so patching all of
  * them here from `input` exactly mirrors what the server is about to save —
@@ -81,7 +89,7 @@ export function useCreateGame() {
 
   return useMutation({
     mutationFn: (input: GameInput) => createGame(input),
-    onSuccess: () => invalidateGames(queryClient),
+    onSuccess: () => invalidateSavedGame(queryClient),
   })
 }
 
@@ -114,7 +122,7 @@ export function useUpdateGame() {
     onError: (_err, _vars, context) => {
       context?.previous.forEach(([queryKey, games]) => queryClient.setQueryData(queryKey, games))
     },
-    onSuccess: () => invalidateGames(queryClient),
+    onSuccess: () => invalidateSavedGame(queryClient),
   })
 }
 

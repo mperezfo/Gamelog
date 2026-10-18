@@ -106,9 +106,10 @@ type ImportLookup struct {
 type ImportName struct {
 	_ struct{} `additionalProperties:"true"`
 
-	Name  *string `json:"name,omitempty" nullable:"true" doc:"Name of the record. An existing record is found by this name, ignoring case and accents." example:"Metroidvania"`
-	Icon  *string `json:"icon,omitempty" nullable:"true" doc:"Emoji or short icon. Left out, an existing icon is kept; sent empty, it is cleared." example:"🗺️"`
-	Color *string `json:"color,omitempty" nullable:"true" doc:"Hex colour (\"#3b82f6\"). Only applied to a platform; ignored for the other three, the same way an icon they cannot have would be. Left out, an existing colour is kept; sent empty, it is cleared." example:"#3b82f6"`
+	Name           *string  `json:"name,omitempty" nullable:"true" doc:"Name of the record. An existing record is found by this name, ignoring case and accents." example:"Metroidvania"`
+	Icon           *string  `json:"icon,omitempty" nullable:"true" doc:"Emoji or short icon. Left out, an existing icon is kept; sent empty, it is cleared." example:"🗺️"`
+	Color          *string  `json:"color,omitempty" nullable:"true" doc:"Hex colour (\"#3b82f6\"). Only applied to a platform; ignored for the other three, the same way an icon they cannot have would be. Left out, an existing colour is kept; sent empty, it is cleared." example:"#3b82f6"`
+	IGDBCompanyIDs []uint64 `json:"igdb_company_ids,omitempty" nullable:"true" doc:"IGDB companies the record stands for, linked on top of any it already has. Only applied to a developer or a publisher; ignored, with a warning, for the other two." example:"[9346]"`
 }
 
 // UnmarshalJSON reads the bare name as well as the object.
@@ -223,6 +224,8 @@ var lookupFields = map[string]string{
 	"color": "color", "colour": "color", "hex": "color",
 	"colorcode": "color", "colourcode": "color", "hexcolor": "color",
 	"codigodecolor": "color",
+
+	"igdbcompanyids": "igdb_company_ids", "igdbids": "igdb_company_ids",
 }
 
 // gameFields are the accepted names of the fields of a game. The keys are

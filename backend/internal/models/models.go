@@ -86,6 +86,10 @@ type Developer struct {
 	Name   string  `gorm:"column:name" json:"name"`
 	Slug   string  `gorm:"column:slug" json:"slug"`
 	Icon   *string `gorm:"column:icon" json:"icon"`
+	// IGDBCompanyIDs are the IGDB companies the developer stands for. They
+	// live in a table of their own (see migration 00016) and are filled in
+	// by LookupRepository's List and Get only, never written through here.
+	IGDBCompanyIDs []uint64 `gorm:"-" json:"igdb_company_ids,omitempty"`
 }
 
 // Publisher is a game publisher.
@@ -95,6 +99,8 @@ type Publisher struct {
 	Name   string  `gorm:"column:name" json:"name"`
 	Slug   string  `gorm:"column:slug" json:"slug"`
 	Icon   *string `gorm:"column:icon" json:"icon"`
+	// IGDBCompanyIDs: see Developer.IGDBCompanyIDs.
+	IGDBCompanyIDs []uint64 `gorm:"-" json:"igdb_company_ids,omitempty"`
 }
 
 // Platform is a system a game was played.

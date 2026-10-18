@@ -1,20 +1,23 @@
-import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 
 import { errorMessage } from '../api/client'
 import { useGameModal } from '../hooks/useGameModal'
 import { useCreateGame, useDeleteGame, useGames, useUpdateGame } from '../hooks/useGames'
-import { useCreateLookup, useLookups } from '../hooks/useLookups'
+import { useLookups } from '../hooks/useLookups'
+import { useMetadataCapabilities } from '../hooks/useMetadata'
 import { useOffline } from '../hooks/useOffline'
 import { foldCase } from '../lib/fuzzy'
-import type { Game, GameInput, GameStatus } from '../types/game'
+import type { CompanyLink, Game, GameInput, GameStatus, NewLookup } from '../types/game'
 import { GAME_STATUSES, STATUS_LABELS } from '../types/game'
 import { Button } from './Button'
 import { ChipMultiSelect } from './ChipMultiSelect'
 import { CoverImageField } from './CoverImageField'
 import { DateField } from './DateField'
 import { Field } from './Field'
-import { TrashIcon } from './icons'
+import { SearchIcon, TrashIcon } from './icons'
+import { IdentifyPanel, type IdentifyCurrent, type IdentifyResult } from './IdentifyPanel'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
+import { Reveal } from './Reveal'
 import { Notice } from './Notice'
 import { Select } from './Select'
 import { Textarea } from './Textarea'
@@ -64,8 +67,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const platforms = useLookups('platforms')
   const games = useGames()
   const modal = useGameModal()
-  const createDeveloper = useCreateLookup('developers')
-  const createPublisher = useCreateLookup('publishers')
+  const capabilities = useMetadataCapabilities()
   const offline = useOffline()
 
   const [title, setTitle] = useState(game?.title ?? '')
@@ -83,6 +85,17 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const [genreIds, setGenreIds] = useState((game?.genres ?? []).map((g) => g.id))
   const [developerIds, setDeveloperIds] = useState((game?.developers ?? []).map((d) => d.id))
   const [publisherIds, setPublisherIds] = useState((game?.publishers ?? []).map((p) => p.id))
+  // Developers and publishers to create, and links to IGDB to write, when the
+  // game is saved: never before, so that abandoning the form leaves nothing
+  // behind. A game never starts with any.
+  const [pendingDevelopers, setPendingDevelopers] = useState<NewLookup[]>([])
+  const [pendingPublishers, setPendingPublishers] = useState<NewLookup[]>([])
+  const [developerLinks, setDeveloperLinks] = useState<CompanyLink[]>([])
+  const [publisherLinks, setPublisherLinks] = useState<CompanyLink[]>([])
+  // The title Identify is looking up, or null while its panel is not
+  // there. It outlives identifyOpen by the length of the closing animation.
+  const [identifyTitle, setIdentifyTitle] = useState<string | null>(null)
+  const [identifyOpen, setIdentifyOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const [initial] = useState(() => ({
@@ -118,7 +131,68 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     platformId !== initial.platformId ||
     !sameIds(genreIds, initial.genreIds) ||
     !sameIds(developerIds, initial.developerIds) ||
-    !sameIds(publisherIds, initial.publisherIds)
+    !sameIds(publisherIds, initial.publisherIds) ||
+    pendingDevelopers.length > 0 ||
+    pendingPublishers.length > 0 ||
+    developerLinks.length > 0 ||
+    publisherLinks.length > 0
+
+  // What Identify shows as about to be kept or replaced.
+  const identifyCurrent: IdentifyCurrent = {
+    title,
+    releaseDate,
+    developers: [
+      ...(developers.data ?? []).filter((d) => developerIds.includes(d.id)).map((d) => d.name),
+      ...pendingDevelopers.map((d) => d.name),
+    ],
+    publishers: [
+      ...(publishers.data ?? []).filter((p) => publisherIds.includes(p.id)).map((p) => p.name),
+      ...pendingPublishers.map((p) => p.name),
+    ],
+  }
+
+  // What Apply chose, held until the panel has finished closing: changing
+  // the fields below it while it is still shrinking makes the whole form
+  // jump under it, where closing first and then filling in reads as one
+  // calm step, the same as Cancel.
+  const identifiedRef = useRef<IdentifyResult | null>(null)
+
+  function openIdentify() {
+    // Reopened before the last Apply finished closing: its values go in now
+    // rather than never.
+    flushIdentified()
+    setIdentifyTitle(title.trim())
+    setIdentifyOpen(true)
+  }
+
+  function applyIdentified(result: IdentifyResult) {
+    identifiedRef.current = result
+    setIdentifyOpen(false)
+  }
+
+  function closedIdentify() {
+    setIdentifyTitle(null)
+    flushIdentified()
+  }
+
+  function flushIdentified() {
+    const result = identifiedRef.current
+    identifiedRef.current = null
+    if (!result) return
+
+    if (result.title) setTitle(result.title)
+    if (result.releaseDate) setReleaseDate(result.releaseDate)
+    if (result.developers) {
+      setDeveloperIds(result.developers.ids)
+      setDeveloperLinks(result.developers.links)
+      setPendingDevelopers(result.developers.pending)
+    }
+    if (result.publishers) {
+      setPublisherIds(result.publishers.ids)
+      setPublisherLinks(result.publishers.links)
+      setPendingPublishers(result.publishers.pending)
+    }
+  }
 
   // Titles must be unique — matched the same case/accent-insensitive way the
   // database's own collation would, so this can't flag something the backend
@@ -176,6 +250,12 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
       genre_ids: genreIds,
       developer_ids: developerIds,
       publisher_ids: publisherIds,
+      new_developers: pendingDevelopers,
+      new_publishers: pendingPublishers,
+      // A link only matters while its record is still on the game: one
+      // deselected after Identify is dropped along with it.
+      developer_links: developerLinks.filter((link) => developerIds.includes(link.id)),
+      publisher_links: publisherLinks.filter((link) => publisherIds.includes(link.id)),
     }
 
     if (game) {
@@ -216,17 +296,60 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
           onZoomChange={setCoverZoom}
         />
 
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          placeholder="Untitled"
-          required
-          aria-invalid={duplicateGame ? true : undefined}
-          className={[
-            'w-full bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:text-ink-faint',
-            duplicateGame ? 'text-danger' : 'text-ink',
-          ].join(' ')}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Untitled"
+            // Enter looks the title up, where Identify is available: it is
+            // the one thing worth doing straight from the title. The form
+            // itself never saves on Enter (see guardEnter).
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+              if (capabilities.data?.identify && title.trim()) openIdentify()
+            }}
+            required
+            aria-invalid={duplicateGame ? true : undefined}
+            className={[
+              'min-w-0 flex-1 bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:text-ink-faint',
+              duplicateGame ? 'text-danger' : 'text-ink',
+            ].join(' ')}
+          />
+          {/* Only on a deployment with IGDB credentials: without them there is
+              nothing for the button to look games up in. */}
+          {capabilities.data?.identify && (
+            <Button
+              variant="ghost"
+              className="shrink-0 px-2"
+              title="Fill in the title, release date, developers and publishers from IGDB"
+              disabled={!title.trim()}
+              onClick={openIdentify}
+            >
+              <SearchIcon />
+              Identify
+            </Button>
+          )}
+        </div>
+
+        {identifyTitle !== null && (
+          // The form's gap goes inside the animated height, so that closing
+          // ends exactly where the next field starts.
+          <div className="-mt-5">
+            <Reveal open={identifyOpen} onClosed={closedIdentify}>
+              <div className="pt-5">
+                <IdentifyPanel
+                  key={identifyTitle}
+                  title={identifyTitle}
+                  current={identifyCurrent}
+                  developers={developers.data ?? []}
+                  publishers={publishers.data ?? []}
+                  onApply={applyIdentified}
+                  onClose={() => setIdentifyOpen(false)}
+                />
+              </div>
+            </Reveal>
+          </div>
+        )}
 
         {duplicateGame && (
           <Notice tone="error">
@@ -297,7 +420,8 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             selectedIds={developerIds}
             onChange={setDeveloperIds}
             placeholder="Select developers…"
-            onCreate={(name) => createDeveloper.mutateAsync({ name, icon: null, color: null })}
+            pending={pendingDevelopers}
+            onPendingChange={setPendingDevelopers}
           />
           <MultiSelectDropdown
             label="Publishers"
@@ -305,7 +429,8 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             selectedIds={publisherIds}
             onChange={setPublisherIds}
             placeholder="Select publishers…"
-            onCreate={(name) => createPublisher.mutateAsync({ name, icon: null, color: null })}
+            pending={pendingPublishers}
+            onPendingChange={setPendingPublishers}
           />
         </div>
 

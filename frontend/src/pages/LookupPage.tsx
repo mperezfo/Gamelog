@@ -1,16 +1,18 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
+import { igdbCompanyPage } from '../api/metadata'
 import { Button } from '../components/Button'
 import { Field } from '../components/Field'
-import { PencilIcon, PlusIcon, TrashIcon } from '../components/icons'
+import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { PlatformBadge } from '../components/PlatformBadge'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFilterParams } from '../hooks/useFilterParams'
 import { useGames } from '../hooks/useGames'
+import { useIgdbCompanies, useMetadataCapabilities } from '../hooks/useMetadata'
 import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '../hooks/useLookups'
 import { useOffline } from '../hooks/useOffline'
 import type { Game } from '../types/game'
@@ -28,6 +30,110 @@ const FILTER_PARAM: Record<LookupKind, string> = {
 }
 
 type SortMode = 'count' | 'name'
+
+/**
+ * A developer's or publisher's link to IGDB: the external-link glyph, which
+ * opens the company's page there in a new tab. Without IGDB credentials the
+ * API cannot find that page, so the glyph only says the link exists.
+ */
+function IgdbLink({ id, className = '', children }: { id: number; className?: string; children?: ReactNode }) {
+  const capabilities = useMetadataCapabilities()
+  const content = (
+    <>
+      {children}
+      <ExternalLinkIcon className="size-3 shrink-0" />
+    </>
+  )
+
+  if (!capabilities.data?.identify) {
+    return (
+      <span title="Linked to IGDB" className={`inline-flex items-center gap-1 ${className}`}>
+        {content}
+      </span>
+    )
+  }
+  return (
+    <a
+      href={igdbCompanyPage(id)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="View on IGDB"
+      className={`inline-flex items-center gap-1 transition-colors duration-75 hover:text-ink ${className}`}
+    >
+      {content}
+    </a>
+  )
+}
+
+/**
+ * The IGDB link of a row in the list. A record linked to a single IGDB
+ * company opens its page straight away; one standing for several (Nintendo
+ * and its EPD groups, say) asks which, in a small menu naming them as IGDB
+ * does, since the library keeps nothing but their ids.
+ */
+function IgdbLinks({ ids }: { ids: number[] }) {
+  const capabilities = useMetadataCapabilities()
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLSpanElement>(null)
+  const companies = useIgdbCompanies(ids, open)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false)
+    }
+    function handleKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  if (ids.length === 1 || !capabilities.data?.identify) {
+    return <IgdbLink id={ids[0]} className="shrink-0 text-ink-faint" />
+  }
+
+  // Named as IGDB does once the names are in; by id until then, or if IGDB
+  // cannot be reached.
+  const names = new Map((companies.data ?? []).map((company) => [company.id, company.name]))
+
+  return (
+    <span ref={containerRef} className="relative inline-flex shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        title={`Linked to ${ids.length} IGDB companies`}
+        aria-expanded={open}
+        className="inline-flex text-ink-faint transition-colors duration-75 hover:text-ink"
+      >
+        <ExternalLinkIcon className="size-3" />
+      </button>
+      {open && (
+        <span className="absolute top-full left-0 z-10 mt-1.5 flex w-max max-w-[min(20rem,70vw)] animate-[gl-appear_100ms_ease-out] flex-col rounded-control bg-surface p-1 shadow-[0_8px_24px_rgba(0,0,0,0.18)] motion-reduce:animate-none">
+          {ids.map((id) => (
+            <a
+              key={id}
+              href={igdbCompanyPage(id)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-between gap-3 rounded-control px-2 py-1.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
+            >
+              <span className="truncate" title={names.get(id)}>
+                {names.get(id) ?? `Company ${id}`}
+              </span>
+              <ExternalLinkIcon className="size-3 shrink-0 text-ink-faint" />
+            </a>
+          ))}
+        </span>
+      )}
+    </span>
+  )
+}
 
 interface LookupPageProps {
   kind: LookupKind
@@ -186,13 +292,24 @@ function LookupRow({
   return (
     <li className="group border-b border-line last:border-0">
       <div className="flex items-center justify-between gap-3 py-2.5">
-        <span className="flex min-w-0 items-center gap-2">
+        {/* On the baseline, so that the count and the IGDB mark, smaller
+            than the name, line up with its letters rather than its box. A
+            platform's badge is a box of its own, centred instead. */}
+        <span className={['flex min-w-0 gap-2', kind === 'platforms' ? 'items-center' : 'items-baseline'].join(' ')}>
           {kind === 'platforms' ? (
             <PlatformBadge platform={item} />
           ) : (
             <span className="flex min-w-0 items-center gap-2 text-sm text-ink">
               {item.icon && <span aria-hidden="true">{item.icon}</span>}
-              <span className="truncate">{item.name}</span>
+              {/* The link to IGDB hangs off the name itself, the way an
+                  external link is usually marked, rather than trailing the
+                  count. */}
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="truncate">{item.name}</span>
+                {item.igdb_company_ids && item.igdb_company_ids.length > 0 && (
+                  <IgdbLinks ids={item.igdb_company_ids} />
+                )}
+              </span>
             </span>
           )}
           {count > 0 ? (
@@ -309,6 +426,23 @@ function LookupForm({
           />
         )}
       </div>
+      {item && (kind === 'developers' || kind === 'publishers') && (
+        // Read-only: a link is made, or moved, from a game's Identify.
+        <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
+          {item.igdb_company_ids && item.igdb_company_ids.length > 0 ? (
+            <>
+              Linked to IGDB as {item.igdb_company_ids.length === 1 ? 'company' : 'companies'}
+              {item.igdb_company_ids.map((id) => (
+                <IgdbLink key={id} id={id} className="tabular-nums underline decoration-line-strong underline-offset-2">
+                  {id}
+                </IgdbLink>
+              ))}
+            </>
+          ) : (
+            'Not linked to IGDB'
+          )}
+        </p>
+      )}
       {error && <Notice tone="error">{errorMessage(error)}</Notice>}
       <div className="flex gap-2">
         <Button type="submit" variant="primary" disabled={saving || offline}>

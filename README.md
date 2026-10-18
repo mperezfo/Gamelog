@@ -20,6 +20,8 @@ Here are [more screenshots](docs/screenshots.md), in desktop and phone formats.
 
 - **Image covers**: Each game can have an uploaded cover, with a portrait crop and zoom so it is framed well in portrait views across the app.
 
+- **Identify from IGDB**: With IGDB credentials configured, a game's title, release date, developers and publishers can be filled in from [IGDB](https://www.igdb.com), confirming how each company maps onto your own developers and publishers. See [Game metadata](docs/self-hosting.md#game-metadata-igdb).
+
 - **Search and filters**: A search box is available from every page, and the games list (as a table or a cover grid) can be filtered by status, platform, genre, developer, publisher, year, or by a field that is still empty, such as the score or the cover.
 
 - **Installable and offline**: It can be added to a phone's home screen as a PWA. When the server can't be reached it still opens in read-only mode, with the library and covers from the last visit.

@@ -53,6 +53,9 @@ type LookupEntry struct {
 	Name  string  `json:"name" doc:"Name of the record. Unique, compared ignoring case and accents." example:"Metroidvania"`
 	Icon  *string `json:"icon" doc:"Emoji or short icon shown next to the name." example:"🗺️"`
 	Color *string `json:"color,omitempty" doc:"Hex colour (\"#3b82f6\"). Only meaningful for a platform; always null for the other three." example:"#3b82f6"`
+	// IGDBCompanyIDs carries the links of migration 00016, so that a backup
+	// restores them too.
+	IGDBCompanyIDs []uint64 `json:"igdb_company_ids,omitempty" doc:"IGDB companies the record stands for. Only a developer or a publisher has any." example:"[9346]"`
 }
 
 // GameEntry is one game, with its platform and its genres, developers and

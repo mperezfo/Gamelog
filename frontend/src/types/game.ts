@@ -77,6 +77,27 @@ export interface GameInput {
   genre_ids?: number[]
   developer_ids?: number[]
   publisher_ids?: number[]
+  /** Created along with the game, in the same transaction, so a form that is
+   * abandoned or a save that fails leaves no unused record behind. A name the
+   * library already has is attached rather than created again. */
+  new_developers?: NewLookup[]
+  new_publishers?: NewLookup[]
+  /** Ties existing records to the IGDB company each stands for. */
+  developer_links?: CompanyLink[]
+  publisher_links?: CompanyLink[]
+}
+
+/** A developer or publisher to create when the game is saved. */
+export interface NewLookup {
+  name: string
+  /** The IGDB company to link it to, when it came from Identify. */
+  igdb_company_id?: number | null
+}
+
+/** An existing developer or publisher and the IGDB company it stands for. */
+export interface CompanyLink {
+  id: number
+  igdb_company_id: number
 }
 
 /** Filters GET /api/games and /api/games/stats both accept. */

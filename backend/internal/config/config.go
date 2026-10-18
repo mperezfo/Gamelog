@@ -2,6 +2,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -64,6 +65,18 @@ type Config struct {
 	// by the sha256 of their bytes. Local disk rather than object storage for
 	// now: S3-compatible storage is a later step, not a v1 requirement.
 	ImagesDir string
+
+	// IGDBClientID and IGDBClientSecret are the credentials of a Twitch
+	// application (dev.twitch.tv/console), which is what IGDB authenticates
+	// with. They are what the game form's Identify button looks games up
+	// with: left out, the feature is simply not offered. Set both or neither.
+	IGDBClientID     string
+	IGDBClientSecret string
+}
+
+// IGDBEnabled reports whether IGDB credentials are configured.
+func (c Config) IGDBEnabled() bool {
+	return c.IGDBClientID != "" && c.IGDBClientSecret != ""
 }
 
 // DSN returns the connection string for the MySQL/MariaDB driver.
@@ -120,6 +133,15 @@ func Load(dotEnvPath string) (Config, error) {
 		return Config{}, err
 	}
 
+	igdbClientID := src.text("GAMELOG_IGDB_CLIENT_ID", "")
+	igdbClientSecret := src.text("GAMELOG_IGDB_CLIENT_SECRET", "")
+	// One without the other is a deployment that meant to turn IGDB on and
+	// got it half right: failing here says so, where quietly leaving the
+	// feature off would only show as a missing button.
+	if (igdbClientID == "") != (igdbClientSecret == "") {
+		return Config{}, errors.New("GAMELOG_IGDB_CLIENT_ID and GAMELOG_IGDB_CLIENT_SECRET must be set together")
+	}
+
 	return Config{
 		Port:            port,
 		DBHost:          src.text("GAMELOG_DB_HOST", "127.0.0.1"),
@@ -134,6 +156,9 @@ func Load(dotEnvPath string) (Config, error) {
 		AdminPassword:   src.text("GAMELOG_ADMIN_PASSWORD", ""),
 		ShutdownTimeout: 10 * time.Second,
 		ImagesDir:       src.text("GAMELOG_IMAGES_DIR", "./data/images"),
+
+		IGDBClientID:     igdbClientID,
+		IGDBClientSecret: igdbClientSecret,
 	}, nil
 }
 

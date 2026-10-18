@@ -14,11 +14,12 @@ import (
 	"github.com/mperezfo/gamelog/internal/auth"
 	"github.com/mperezfo/gamelog/internal/config"
 	"github.com/mperezfo/gamelog/internal/handlers"
+	"github.com/mperezfo/gamelog/internal/igdb"
 )
 
 // Version is the version of the API reported in the OpenAPI document. It is
 // the contract's version, not the build's: bump it when the API changes.
-const Version = "0.2.0"
+const Version = "0.3.0"
 
 // Title names the API in the OpenAPI document and on the page that reads it.
 const Title = "Gamelog API"
@@ -57,7 +58,7 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	// against the OpenAPI description of the API, which is generated from the
 	// same Go types that validate the requests (see the handlers package).
 	api := humachi.New(r, openAPIConfig())
-	handlers.Register(api, db, authentication, cfg.ImagesDir, version)
+	handlers.Register(api, db, authentication, cfg.ImagesDir, version, igdbSource(cfg))
 
 	// Outside Huma, since the page is ours. Left out, the route simply does
 	// not exist: the documentation is what grants a stranger a console onto
@@ -67,6 +68,17 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	}
 
 	return r
+}
+
+// igdbSource builds the IGDB client when the deployment has credentials for
+// it, and returns nil otherwise. The nil is an untyped one on purpose: a nil
+// *igdb.Client inside the interface would not compare equal to nil, and the
+// handlers would take IGDB for configured.
+func igdbSource(cfg config.Config) handlers.IGDB {
+	if !cfg.IGDBEnabled() {
+		return nil
+	}
+	return igdb.New(cfg.IGDBClientID, cfg.IGDBClientSecret)
 }
 
 // openAPIConfig describes the API document itself.

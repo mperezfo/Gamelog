@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { foldCase } from '../lib/fuzzy'
+import type { NewLookup } from '../types/game'
 import type { Lookup } from '../types/lookup'
 import { CheckIcon, PlusIcon, XIcon } from './icons'
 
@@ -9,10 +11,14 @@ interface MultiSelectDropdownProps {
   selectedIds: number[]
   onChange: (ids: number[]) => void
   placeholder?: string
-  /** Lets the query itself become a new option when nothing matches it —
-   * e.g. a developer or publisher that doesn't exist yet. Created without an
-   * icon: this is a quick add, not the full lookup form. */
-  onCreate?: (name: string) => Promise<Lookup>
+  /** Records to create when the form is saved, shown as chips marked "new"
+   * next to the selected ones. */
+  pending?: NewLookup[]
+  /** Lets the query itself become a new option when nothing matches it (a
+   * developer or publisher that doesn't exist yet), added to `pending`.
+   * Nothing is created until the form is saved, so a form abandoned midway
+   * leaves no unused record behind. */
+  onPendingChange?: (pending: NewLookup[]) => void
 }
 
 /**
@@ -28,11 +34,11 @@ export function MultiSelectDropdown({
   selectedIds,
   onChange,
   placeholder = 'Select…',
-  onCreate,
+  pending = [],
+  onPendingChange,
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [creating, setCreating] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -48,9 +54,12 @@ export function MultiSelectDropdown({
 
   const selected = options.filter((o) => selectedIds.includes(o.id))
   const trimmedQuery = query.trim()
-  const filtered = options.filter((o) => o.name.toLowerCase().includes(trimmedQuery.toLowerCase()))
-  const exactMatch = options.some((o) => o.name.toLowerCase() === trimmedQuery.toLowerCase())
-  const canCreate = Boolean(onCreate) && trimmedQuery !== '' && !exactMatch
+  const foldedQuery = foldCase(trimmedQuery)
+  const filtered = options.filter((o) => foldCase(o.name).includes(foldedQuery))
+  // Compared the way the database compares names, ignoring case and accents:
+  // a name it would take for an existing record is never offered as new.
+  const exactMatch = [...options, ...pending].some((o) => foldCase(o.name) === foldedQuery)
+  const canCreate = Boolean(onPendingChange) && trimmedQuery !== '' && !exactMatch
 
   function select(id: number) {
     onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id])
@@ -65,17 +74,15 @@ export function MultiSelectDropdown({
     onChange(selectedIds.filter((x) => x !== id))
   }
 
-  async function create() {
-    if (!onCreate || !trimmedQuery) return
-    setCreating(true)
-    try {
-      const created = await onCreate(trimmedQuery)
-      onChange([...selectedIds, created.id])
-      setQuery('')
-      setOpen(false)
-    } finally {
-      setCreating(false)
-    }
+  function create() {
+    if (!onPendingChange || !trimmedQuery) return
+    onPendingChange([...pending, { name: trimmedQuery }])
+    setQuery('')
+    setOpen(false)
+  }
+
+  function removePending(name: string) {
+    onPendingChange?.(pending.filter((p) => p.name !== name))
   }
 
   return (
@@ -87,7 +94,9 @@ export function MultiSelectDropdown({
         onClick={() => setOpen((o) => !o)}
         className="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-control bg-sunken px-2 py-1.5 text-left disabled:opacity-50"
       >
-        {selected.length === 0 && <span className="px-0.5 text-sm text-ink-faint">{placeholder}</span>}
+        {selected.length === 0 && pending.length === 0 && (
+          <span className="px-0.5 text-sm text-ink-faint">{placeholder}</span>
+        )}
         {selected.map((option) => (
           <span
             key={option.id}
@@ -100,6 +109,32 @@ export function MultiSelectDropdown({
               onClick={(event) => {
                 event.stopPropagation()
                 remove(option.id)
+              }}
+              className="text-ink-faint hover:text-ink"
+            >
+              <XIcon className="size-3" />
+            </span>
+          </span>
+        ))}
+        {pending.map((item) => (
+          <span
+            key={`new-${item.name}`}
+            title="Created when the game is saved"
+            className="inline-flex items-center gap-1 rounded-[4px] bg-hover px-1.5 py-0.5 text-xs font-medium text-ink"
+          >
+            {/* Baseline rather than centre: small capitals centred on a line
+                of lower-case text sit visibly high, while on its baseline
+                they line up with the name's x-height. */}
+            <span className="inline-flex items-baseline gap-1">
+              {item.name}
+              <span className="text-[10px] leading-none font-semibold tracking-wide text-accent uppercase">new</span>
+            </span>
+            <span
+              role="button"
+              tabIndex={-1}
+              onClick={(event) => {
+                event.stopPropagation()
+                removePending(item.name)
               }}
               className="text-ink-faint hover:text-ink"
             >
@@ -140,14 +175,11 @@ export function MultiSelectDropdown({
             {canCreate && (
               <button
                 type="button"
-                disabled={creating}
-                onClick={() => void create()}
-                className="flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-sm text-accent transition-colors duration-75 hover:bg-hover disabled:opacity-50"
+                onClick={create}
+                className="flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-sm text-accent transition-colors duration-75 hover:bg-hover"
               >
                 <PlusIcon className="size-3.5 shrink-0" />
-                <span className="truncate">
-                  {creating ? 'Creating…' : `Create "${trimmedQuery}"`}
-                </span>
+                <span className="truncate">{`Create "${trimmedQuery}"`}</span>
               </button>
             )}
           </div>

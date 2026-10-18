@@ -191,16 +191,19 @@ type section struct {
 	entries []ImportLookup
 	created *int
 	updated *int
+	// linkable is whether the entity can be linked to IGDB companies: only
+	// developers and publishers can (see migration 00016).
+	linkable bool
 }
 
 // sections lists the four simple entities in the order they have to be
 // written: a game names them, so they exist before the games section runs.
 func (r *importRun) sections(document ImportDocument) []section {
 	return []section{
-		{"platforms", r.platforms, document.Platforms, &r.report.Created.Platforms, &r.report.Updated.Platforms},
-		{"genres", r.genres, document.Genres, &r.report.Created.Genres, &r.report.Updated.Genres},
-		{"developers", r.developers, document.Developers, &r.report.Created.Developers, &r.report.Updated.Developers},
-		{"publishers", r.publishers, document.Publishers, &r.report.Created.Publishers, &r.report.Updated.Publishers},
+		{"platforms", r.platforms, document.Platforms, &r.report.Created.Platforms, &r.report.Updated.Platforms, false},
+		{"genres", r.genres, document.Genres, &r.report.Created.Genres, &r.report.Updated.Genres, false},
+		{"developers", r.developers, document.Developers, &r.report.Created.Developers, &r.report.Updated.Developers, true},
+		{"publishers", r.publishers, document.Publishers, &r.report.Created.Publishers, &r.report.Updated.Publishers, true},
 	}
 }
 
@@ -254,7 +257,7 @@ func (r *importRun) importLookups(ctx context.Context, section section) error {
 			continue
 		}
 
-		created, err := section.port.apply(ctx, name, entry.Icon, entry.Color)
+		id, created, err := section.port.apply(ctx, name, entry.Icon, entry.Color)
 		if err != nil {
 			return err
 		}
@@ -262,6 +265,17 @@ func (r *importRun) importLookups(ctx context.Context, section section) error {
 			*section.created++
 		} else {
 			*section.updated++
+		}
+
+		if len(entry.IGDBCompanyIDs) > 0 {
+			if !section.linkable {
+				r.warn(section.name, index, name,
+					"only a developer or a publisher can be linked to IGDB companies, so its igdb_company_ids were left out")
+				continue
+			}
+			if err := section.port.link(ctx, id, entry.IGDBCompanyIDs); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -564,7 +578,10 @@ type lookupPort interface {
 	resolve(ctx context.Context, name string) (id uint64, created bool, err error)
 	// apply writes one entry of the section of the document devoted to the
 	// entity. color is only ever written for a platform.
-	apply(ctx context.Context, name string, icon, color *string) (created bool, err error)
+	apply(ctx context.Context, name string, icon, color *string) (id uint64, created bool, err error)
+	// link ties the record to the IGDB companies it stands for. Only a
+	// developer or a publisher can be linked; see section.linkable.
+	link(ctx context.Context, id uint64, igdbCompanyIDs []uint64) error
 }
 
 // lookupImporter implements lookupPort for one entity.
@@ -628,20 +645,20 @@ func (l *lookupImporter[T]) resolve(ctx context.Context, name string) (uint64, b
 // record whose stored spelling differs, and sets the icon and, for a
 // platform, the colour it brings. Either one left out is kept, and an empty
 // one is cleared.
-func (l *lookupImporter[T]) apply(ctx context.Context, name string, icon, color *string) (bool, error) {
+func (l *lookupImporter[T]) apply(ctx context.Context, name string, icon, color *string) (uint64, bool, error) {
 	record, err := l.repo.FindByName(ctx, name)
 	if err != nil && !errors.Is(err, repository.ErrNotFound) {
-		return false, err
+		return 0, false, err
 	}
 
 	if errors.Is(err, repository.ErrNotFound) {
 		created := l.build(0, name, cleanOptional(icon), cleanOptional(color))
 		if err := l.repo.Create(ctx, &created); err != nil {
-			return false, err
+			return 0, false, err
 		}
 		id, _, _ := l.inspect(&created)
 		l.cache[cacheKey(name)] = id
-		return true, nil
+		return id, true, nil
 	}
 
 	id, storedIcon, storedColor := l.inspect(record)
@@ -654,10 +671,20 @@ func (l *lookupImporter[T]) apply(ctx context.Context, name string, icon, color 
 
 	updated := l.build(id, name, cleanOptional(icon), cleanOptional(color))
 	if err := l.repo.Update(ctx, &updated); err != nil {
-		return false, err
+		return 0, false, err
 	}
 	l.cache[cacheKey(name)] = id
-	return false, nil
+	return id, false, nil
+}
+
+// link ties one record to the IGDB companies it stands for, on top of the
+// ones it already has.
+func (l *lookupImporter[T]) link(ctx context.Context, id uint64, igdbCompanyIDs []uint64) error {
+	links := make([]repository.CompanyLink, 0, len(igdbCompanyIDs))
+	for _, company := range igdbCompanyIDs {
+		links = append(links, repository.CompanyLink{ID: id, IGDBCompanyID: company})
+	}
+	return l.repo.LinkIGDBCompanies(ctx, links)
 }
 
 // cleanOptional turns an icon or a colour of nothing but spaces into none at
