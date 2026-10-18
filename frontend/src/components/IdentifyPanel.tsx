@@ -270,37 +270,23 @@ function IdentifyConfirm({ candidate, current, developers, publishers, onApply, 
 
   return (
     <div className="flex flex-col gap-4">
-      <ConfirmSection
+      <InlineSection
         label="Title"
         // Nothing to decide when it is the same title already.
         toggle={igdbTitle !== currentTitle ? { checked: applyTitle, onChange: setApplyTitle } : undefined}
-        kept={currentTitle}
-      >
-        <p className="flex min-w-0 items-baseline gap-2 text-sm text-ink">
-          {igdbTitle !== currentTitle && <Replaced>{currentTitle}</Replaced>}
-          <span className="min-w-0 truncate">{igdbTitle}</span>
-        </p>
-      </ConfirmSection>
+        current={currentTitle}
+        next={igdbTitle}
+      />
 
-      <ConfirmSection
+      <InlineSection
         label="Release date"
         // Nothing to decide when IGDB has no date, or the same one.
         toggle={
           igdbDate && igdbDate !== current.releaseDate ? { checked: applyDate, onChange: setApplyDate } : undefined
         }
-        kept={current.releaseDate ? date(current.releaseDate) : undefined}
-      >
-        {!igdbDate ? (
-          <Muted>Not on IGDB</Muted>
-        ) : (
-          <p className="flex min-w-0 items-baseline gap-2 text-sm text-ink">
-            {current.releaseDate && current.releaseDate !== igdbDate && (
-              <Replaced>{date(current.releaseDate)}</Replaced>
-            )}
-            <span>{date(igdbDate)}</span>
-          </p>
-        )}
-      </ConfirmSection>
+        current={current.releaseDate && date(current.releaseDate)}
+        next={igdbDate && date(igdbDate)}
+      />
 
       <CompanySection
         label="Developers"
@@ -375,13 +361,86 @@ function ConfirmSection({ label, toggle, kept, children }: ConfirmSectionProps) 
   )
 }
 
+interface InlineSectionProps {
+  label: string
+  toggle?: { checked: boolean; onChange: (checked: boolean) => void }
+  /** What the field holds now, already formatted; empty for nothing. */
+  current: string
+  /** IGDB's value, already formatted; empty when IGDB has none. */
+  next: string
+}
+
+/**
+ * A section whose value is a single line (the title, the release date): the
+ * value sits next to its label, the replaced one struck through before the
+ * new one, and only drops below the label when the two do not fit side by
+ * side. The switch stays put in the top corner either way.
+ */
+function InlineSection({ label, toggle, current, next }: InlineSectionProps) {
+  const replacing = toggle?.checked ?? false
+
+  let value: ReactNode
+  if (replacing) {
+    // Short of room, only the struck-through value gives way: what is about
+    // to go in matters more than what is about to go, which keeps just
+    // enough of itself (3ch, past the gap) to show that something goes.
+    value = (
+      <>
+        {current && <Replaced className="min-w-[3ch]">{current}</Replaced>}
+        <span
+          className={['truncate text-ink', current ? 'max-w-[calc(100%-3ch-0.5rem)] shrink-0' : 'min-w-0'].join(' ')}
+        >
+          {next}
+        </span>
+      </>
+    )
+  } else if (!next) {
+    value = (
+      <>
+        {current && <span className="min-w-0 truncate text-ink">{current}</span>}
+        <span className="shrink-0 text-ink-faint">Not on IGDB</span>
+      </>
+    )
+  } else {
+    value = current ? (
+      <span className="min-w-0 truncate text-ink">{current}</span>
+    ) : (
+      <span className="text-ink-faint">—</span>
+    )
+  }
+
+  return (
+    // Inline flow around a floated switch rather than flex: the switch only
+    // takes room from the first line, so a value that drops below the label
+    // gets the full width of the line it lands on.
+    <div className="leading-6">
+      {toggle && (
+        <span className="float-right ml-3 flex h-6 items-center">
+          <Switch checked={toggle.checked} onChange={toggle.onChange}>
+            <span className="sr-only">Use IGDB’s {label.toLowerCase()}</span>
+          </Switch>
+        </span>
+      )}
+      <span className="mr-3 text-[13px] font-medium text-ink-muted">{label}</span>
+      {/* Keyed by what it shows, so that switching fades the new value in
+          rather than swapping it in a single frame. */}
+      <span
+        key={replacing ? 'replacing' : 'keeping'}
+        className="inline-flex max-w-full min-w-0 animate-[gl-appear_150ms_ease-out] items-baseline gap-2 align-baseline text-sm motion-reduce:animate-none"
+      >
+        {value}
+      </span>
+    </div>
+  )
+}
+
 function Muted({ children }: { children: ReactNode }) {
   return <p className="text-sm text-ink-faint">{children}</p>
 }
 
 /** A value the section would replace. */
-function Replaced({ children }: { children: ReactNode }) {
-  return <s className="min-w-0 truncate text-ink-faint decoration-ink-faint">{children}</s>
+function Replaced({ children, className = 'min-w-0' }: { children: ReactNode; className?: string }) {
+  return <s className={`truncate text-ink-faint decoration-ink-faint ${className}`}>{children}</s>
 }
 
 interface CompanySectionProps {
