@@ -6,6 +6,24 @@ Gamelog is a personal project. I built it to track my own games, and it is tailo
 
 I open sourced it in case it is useful to someone else too.
 
+## Features
+
+- **Board**: Games are grouped into four columns by status (Wishlist, Pending, Playing and Played) and can be moved between them by dragging.
+
+- **Upcoming releases and calendar**: The dashboard lists the next games due out, and a monthly calendar shows either release dates or the dates each game was logged.
+
+- **Image covers**: Each game can have an uploaded cover, with a portrait crop and zoom so it is framed well in portrait views across the app.
+
+- **Search and filters**: A search box is available from every page, and the games list (as a table or a cover grid) can be filtered by status, platform, genre, developer, publisher, year, or by a field that is still empty, such as the score or the cover.
+
+- **Installable and offline**: It can be added to a phone's home screen as a PWA. When the server can't be reached it still opens in read-only mode, with the library and covers from the last visit.
+
+- **Export and backups**: Your whole library, account and settings can be downloaded from the Account page as a single `.zip` file, with every game in a plain JSON file and every image included. It can be restored into Gamelog, and keeps the data readable if you ever move to something else.
+
+- **Multiple accounts**: Each account has its own private library, theme, date format and default views.
+
+- **Self-hosted**: It runs as a single Docker image next to MariaDB, and has a documented REST API.
+
 ## Running it
 
 Gamelog ships as a single Docker image and needs a MariaDB database next to it:
