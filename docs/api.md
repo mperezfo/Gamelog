@@ -62,6 +62,7 @@ POST   /api/backup                          restores one
 
 GET    /api/metadata/capabilities           which metadata lookups this deployment offers
 GET    /api/metadata/games?title=           looks a game up on IGDB
+GET    /api/metadata/companies/{id}/page    redirects to a company's page on IGDB
 ```
 
 `/api/docs` is the authoritative list, with every parameter and schema.

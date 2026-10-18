@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -16,10 +17,11 @@ import (
 	"github.com/mperezfo/gamelog/internal/repository"
 )
 
-// GameSearcher looks games up by title on IGDB. *igdb.Client is the one in
-// use; tests pass a fake rather than a whole IGDB.
-type GameSearcher interface {
+// IGDB is what the metadata operations need from IGDB. *igdb.Client is the
+// one in use; tests pass a fake rather than a whole IGDB.
+type IGDB interface {
 	Search(ctx context.Context, title string) ([]igdb.Game, error)
+	CompanyURL(ctx context.Context, id uint64) (string, error)
 }
 
 type metadataCapabilitiesOutput struct {
@@ -68,6 +70,15 @@ type gameCandidate struct {
 	Publishers  []companyMatch `json:"publishers" doc:"Publishers, each with the publisher of the library it most likely is."`
 }
 
+type companyPageInput struct {
+	ID uint64 `path:"id" doc:"IGDB's id for the company." example:"37"`
+}
+
+type companyPageOutput struct {
+	Status   int
+	Location string `header:"Location" doc:"The company's page on igdb.com."`
+}
+
 type searchGameMetadataOutput struct {
 	Body struct {
 		Candidates []gameCandidate `json:"candidates" doc:"Games the title may refer to, most relevant first."`
@@ -80,13 +91,13 @@ type searchGameMetadataOutput struct {
 const searchTimeout = 8 * time.Second
 
 // registerMetadata registers the lookups of game metadata on IGDB, behind the
-// game form's Identify button. games is nil when the deployment has no IGDB
-// credentials, in which case the capabilities say so and a search answers 501.
+// game form's Identify button. source is nil when the deployment has no IGDB
+// credentials, in which case the capabilities say so and the rest answer 501.
 //
 // Neither failure answers 502 or 503, the statuses a gateway would use: the
 // frontend reads those, from any endpoint, as the server being unreachable
 // and switches to its offline mode, when only IGDB is.
-func registerMetadata(api huma.API, db *gorm.DB, games GameSearcher) {
+func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-metadata-capabilities",
 		Method:      http.MethodGet,
@@ -98,7 +109,7 @@ func registerMetadata(api huma.API, db *gorm.DB, games GameSearcher) {
 		Errors: []int{http.StatusUnauthorized},
 	}, func(ctx context.Context, _ *struct{}) (*metadataCapabilitiesOutput, error) {
 		out := &metadataCapabilitiesOutput{}
-		out.Body.Identify = games != nil
+		out.Body.Identify = source != nil
 		return out, nil
 	})
 
@@ -114,8 +125,8 @@ func registerMetadata(api huma.API, db *gorm.DB, games GameSearcher) {
 		Tags:   []string{"Metadata"},
 		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusFailedDependency, http.StatusNotImplemented},
 	}, func(ctx context.Context, input *searchGameMetadataInput) (*searchGameMetadataOutput, error) {
-		if games == nil {
-			return nil, huma.NewError(http.StatusNotImplemented, "IGDB is not configured on this deployment")
+		if source == nil {
+			return nil, errIGDBNotConfigured()
 		}
 		user, err := currentUser(ctx)
 		if err != nil {
@@ -124,10 +135,10 @@ func registerMetadata(api huma.API, db *gorm.DB, games GameSearcher) {
 
 		searchCtx, cancel := context.WithTimeout(ctx, searchTimeout)
 		defer cancel()
-		results, err := games.Search(searchCtx, strings.TrimSpace(input.Title))
+		results, err := source.Search(searchCtx, strings.TrimSpace(input.Title))
 		if err != nil {
 			slog.Warn("searching IGDB failed", "error", err)
-			return nil, huma.NewError(http.StatusFailedDependency, "IGDB could not be reached, or did not answer")
+			return nil, errIGDBFailed()
 		}
 
 		developers, err := newCompanyMatcher[models.Developer](ctx, db, user.ID)
@@ -154,6 +165,46 @@ func registerMetadata(api huma.API, db *gorm.DB, games GameSearcher) {
 		}
 		return out, nil
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "open-igdb-company",
+		Method:      http.MethodGet,
+		Path:        "/api/metadata/companies/{id}/page",
+		Summary:     "Open a company's page on IGDB",
+		Description: "Redirects to the page of an IGDB company, such as the one a developer or publisher " +
+			"is linked to (see its igdb_company_ids). IGDB addresses its pages by name rather than " +
+			"by id, so this is the way to reach one from an id alone.",
+		Tags:          []string{"Metadata"},
+		DefaultStatus: http.StatusFound,
+		Errors: []int{http.StatusUnauthorized, http.StatusNotFound, http.StatusFailedDependency,
+			http.StatusNotImplemented},
+	}, func(ctx context.Context, input *companyPageInput) (*companyPageOutput, error) {
+		if source == nil {
+			return nil, errIGDBNotConfigured()
+		}
+		lookupCtx, cancel := context.WithTimeout(ctx, searchTimeout)
+		defer cancel()
+		url, err := source.CompanyURL(lookupCtx, input.ID)
+		if errors.Is(err, igdb.ErrNotFound) {
+			return nil, huma.Error404NotFound("IGDB has no company with that id")
+		}
+		if err != nil {
+			slog.Warn("looking an IGDB company up failed", "id", input.ID, "error", err)
+			return nil, errIGDBFailed()
+		}
+		return &companyPageOutput{Status: http.StatusFound, Location: url}, nil
+	})
+}
+
+// errIGDBNotConfigured and errIGDBFailed are the two ways an operation that
+// needs IGDB fails through no fault of the request. See registerMetadata for
+// why neither is a 502 or a 503.
+func errIGDBNotConfigured() error {
+	return huma.NewError(http.StatusNotImplemented, "IGDB is not configured on this deployment")
+}
+
+func errIGDBFailed() error {
+	return huma.NewError(http.StatusFailedDependency, "IGDB could not be reached, or did not answer")
 }
 
 // companyMatcher pairs IGDB companies with the records of one library, read

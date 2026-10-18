@@ -2,6 +2,7 @@ package igdb
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -201,5 +202,42 @@ func TestSearchReportsAFailedResponse(t *testing.T) {
 	_, err := client.Search(context.Background(), "Celeste")
 	if err == nil || !strings.Contains(err.Error(), "status 429") {
 		t.Errorf("err = %v, want one naming status 429", err)
+	}
+}
+
+func TestCompanyURL(t *testing.T) {
+	fake := newFakeIGDB(t, `[]`)
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /token", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"access_token":"t","expires_in":5000000}`)
+	})
+	var query string
+	mux.HandleFunc("POST /v4/companies", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		query = string(body)
+		switch {
+		case strings.Contains(query, "where id = 37;"):
+			_, _ = io.WriteString(w, `[{"id":37,"url":"https://www.igdb.com/companies/capcom"}]`)
+		case strings.Contains(query, "where id = 66;"):
+			_, _ = io.WriteString(w, `[{"id":66,"url":"https://elsewhere.example/capcom"}]`)
+		default:
+			_, _ = io.WriteString(w, `[]`)
+		}
+	})
+	fake.server.Config.Handler = mux
+	client := fake.client()
+
+	url, err := client.CompanyURL(context.Background(), 37)
+	if err != nil || url != "https://www.igdb.com/companies/capcom" {
+		t.Errorf("CompanyURL(37) = %q, %v", url, err)
+	}
+	if !strings.Contains(query, "fields url;") {
+		t.Errorf("query = %q, want it to ask for the url", query)
+	}
+	if _, err := client.CompanyURL(context.Background(), 1); !errors.Is(err, ErrNotFound) {
+		t.Errorf("CompanyURL(1) err = %v, want ErrNotFound", err)
+	}
+	if _, err := client.CompanyURL(context.Background(), 66); err == nil {
+		t.Error("CompanyURL(66) followed a URL outside igdb.com")
 	}
 }

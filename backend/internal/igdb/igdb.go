@@ -117,6 +117,32 @@ func (c *Client) Search(ctx context.Context, title string) ([]Game, error) {
 	return games, nil
 }
 
+// ErrNotFound is returned when IGDB has no record with the id asked for.
+var ErrNotFound = errors.New("igdb: not found")
+
+// companyPagePrefix is where every company page on IGDB lives. A URL from
+// the API outside it is not followed: redirecting a browser is only safe to
+// a place known in advance.
+const companyPagePrefix = "https://www.igdb.com/companies/"
+
+// CompanyURL returns the page of a company on igdb.com. Pages are addressed
+// by a slug rather than the id, so the id alone is not enough to link to one.
+func (c *Client) CompanyURL(ctx context.Context, id uint64) (string, error) {
+	var results []struct {
+		URL string `json:"url"`
+	}
+	if err := c.query(ctx, "companies", fmt.Sprintf("fields url; where id = %d;", id), &results); err != nil {
+		return "", err
+	}
+	if len(results) == 0 {
+		return "", ErrNotFound
+	}
+	if !strings.HasPrefix(results[0].URL, companyPagePrefix) {
+		return "", fmt.Errorf("igdb: company %d has an unexpected URL %q", id, results[0].URL)
+	}
+	return results[0].URL, nil
+}
+
 // escape makes title safe to put between the double quotes of an Apicalypse
 // string.
 func escape(title string) string {

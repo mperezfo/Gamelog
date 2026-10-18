@@ -28,9 +28,9 @@ import (
 // mounted sub-router, and the OpenAPI document then describes the same paths
 // the frontend and the reverse proxy use.
 //
-// games looks games up on IGDB for the metadata operations, and is nil when
-// the deployment has no IGDB credentials.
-func Register(api huma.API, db *gorm.DB, authentication *auth.Service, imagesDir, version string, games GameSearcher) {
+// source is IGDB for the metadata operations, and is nil when the deployment
+// has no IGDB credentials.
+func Register(api huma.API, db *gorm.DB, authentication *auth.Service, imagesDir, version string, source IGDB) {
 	// Schema aliases have to be registered before the first operation, since
 	// Huma builds each schema as the operation using it is registered.
 	api.OpenAPI().Components.Schemas.RegisterTypeAlias(
@@ -54,7 +54,7 @@ func Register(api huma.API, db *gorm.DB, authentication *auth.Service, imagesDir
 	registerLookups(api, db)
 	registerPortability(api, db, authentication, imagesDir)
 	registerImages(api, imagesDir)
-	registerMetadata(api, db, games)
+	registerMetadata(api, db, source)
 }
 
 // statusSchema documents models.Status as an enum whose values come from

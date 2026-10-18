@@ -58,7 +58,7 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	// against the OpenAPI description of the API, which is generated from the
 	// same Go types that validate the requests (see the handlers package).
 	api := humachi.New(r, openAPIConfig())
-	handlers.Register(api, db, authentication, cfg.ImagesDir, version, gameSearcher(cfg))
+	handlers.Register(api, db, authentication, cfg.ImagesDir, version, igdbSource(cfg))
 
 	// Outside Huma, since the page is ours. Left out, the route simply does
 	// not exist: the documentation is what grants a stranger a console onto
@@ -70,11 +70,11 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	return r
 }
 
-// gameSearcher builds the IGDB client when the deployment has credentials for
+// igdbSource builds the IGDB client when the deployment has credentials for
 // it, and returns nil otherwise. The nil is an untyped one on purpose: a nil
 // *igdb.Client inside the interface would not compare equal to nil, and the
 // handlers would take IGDB for configured.
-func gameSearcher(cfg config.Config) handlers.GameSearcher {
+func igdbSource(cfg config.Config) handlers.IGDB {
 	if !cfg.IGDBEnabled() {
 		return nil
 	}

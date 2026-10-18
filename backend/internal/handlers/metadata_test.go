@@ -29,13 +29,24 @@ func (f *fakeSearcher) Search(context.Context, string) ([]igdb.Game, error) {
 	return f.games, f.err
 }
 
+// CompanyURL knows Capcom (37) and nothing else.
+func (f *fakeSearcher) CompanyURL(_ context.Context, id uint64) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	if id == 37 {
+		return "https://www.igdb.com/companies/capcom", nil
+	}
+	return "", igdb.ErrNotFound
+}
+
 // newMetadataRouter builds the API around games, which router.New would
 // otherwise build from real IGDB credentials. A nil games is a deployment
 // without them.
-func newMetadataRouter(db *gorm.DB, games handlers.GameSearcher) http.Handler {
+func newMetadataRouter(db *gorm.DB, source handlers.IGDB) http.Handler {
 	r := chi.NewRouter()
 	api := humachi.New(r, huma.DefaultConfig("Gamelog API", "test"))
-	handlers.Register(api, db, newAuthService(db), os.TempDir(), "test", games)
+	handlers.Register(api, db, newAuthService(db), os.TempDir(), "test", source)
 	return r
 }
 
@@ -118,6 +129,8 @@ func TestMetadataWithoutIGDB(t *testing.T) {
 
 	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/games?title=Celeste", nil),
 		http.StatusNotImplemented, "searching without IGDB credentials")
+	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/companies/37/page", nil),
+		http.StatusNotImplemented, "opening a company without IGDB credentials")
 }
 
 func TestMetadataSearchMatchesCompanies(t *testing.T) {
@@ -188,6 +201,15 @@ func TestMetadataSearchMatchesCompanies(t *testing.T) {
 	expectMatch(t, found.Developers[0], capcom, "linked")
 	expectMatch(t, found.Developers[1], insomniac, "linked")
 	expectMatch(t, found.Publishers[0], sony, "linked")
+
+	// A company's page is a redirect to igdb.com.
+	rec = request(t, handler, http.MethodGet, "/api/metadata/companies/37/page", nil)
+	expectStatus(t, rec, http.StatusFound, "opening Capcom's page")
+	if location := rec.Header().Get("Location"); location != "https://www.igdb.com/companies/capcom" {
+		t.Errorf("Location = %q, want Capcom's page", location)
+	}
+	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/companies/1/page", nil),
+		http.StatusNotFound, "opening a company IGDB does not have")
 
 	// IGDB failing is a 424: not a 500, since nothing is wrong here, and not
 	// a 502, which the frontend would take for the whole server being down.
