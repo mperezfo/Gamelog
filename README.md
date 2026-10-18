@@ -10,7 +10,7 @@ I open sourced it in case it is useful to someone else too.
   <img src="docs/screenshots/hero-dark.png" alt="The Gamelog dashboard on a desktop browser, with the games grid open on a phone next to it">
 </p>
 
-There are [more screenshots](docs/screenshots.md) of the main screens, on desktop and on a phone.
+Here are [more screenshots](docs/screenshots.md), on desktop and on a phone.
 
 ## Features
 
