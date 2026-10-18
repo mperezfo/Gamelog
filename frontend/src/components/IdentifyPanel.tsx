@@ -555,7 +555,22 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
   // only says where it goes.
   let label: ReactNode
   if (choice.kind === 'existing') {
-    label = <span className="truncate">{records.find((r) => r.id === choice.id)?.name ?? company.match?.name}</span>
+    // A record not yet linked to this IGDB company gets linked on save, which
+    // is worth saying; one already linked to it is simply the record.
+    const linking = !(company.match?.reason === 'linked' && company.match.id === choice.id)
+    label = (
+      <span className="flex min-w-0 items-baseline gap-1.5">
+        <span className="truncate">{records.find((r) => r.id === choice.id)?.name ?? company.match?.name}</span>
+        {linking && (
+          <span
+            title="Linked to this IGDB company when the game is saved"
+            className="shrink-0 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase"
+          >
+            link
+          </span>
+        )}
+      </span>
+    )
   } else if (choice.kind === 'create') {
     label = (
       <>
