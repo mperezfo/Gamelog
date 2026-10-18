@@ -73,7 +73,7 @@ func run(tasks maintenance) error {
 		return errors.New("-dry-run only applies to -normalize-images")
 	}
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(config.DotEnvFile)
 	if err != nil {
 		return fmt.Errorf("loading configuration: %w", err)
 	}

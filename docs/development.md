@@ -19,7 +19,10 @@ Backend and frontend run natively; only MariaDB runs in Docker. One process per 
 
 ```sh
 cp .env.example .env
+ln -s ../.env backend/.env
 ```
+
+Docker Compose reads the `.env` at the root, and the backend reads the `.env` in the directory it runs from (`backend/`, under `air` or `go run`), for every variable its environment leaves unset. The link makes them one file. A variable exported in the shell still wins over the file.
 
 **Terminal 1 — database**
 
