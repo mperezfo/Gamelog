@@ -3,10 +3,10 @@ import { useEffect, useMemo, useState, type FormEvent, type KeyboardEvent } from
 import { errorMessage } from '../api/client'
 import { useGameModal } from '../hooks/useGameModal'
 import { useCreateGame, useDeleteGame, useGames, useUpdateGame } from '../hooks/useGames'
-import { useCreateLookup, useLookups } from '../hooks/useLookups'
+import { useLookups } from '../hooks/useLookups'
 import { useOffline } from '../hooks/useOffline'
 import { foldCase } from '../lib/fuzzy'
-import type { Game, GameInput, GameStatus } from '../types/game'
+import type { Game, GameInput, GameStatus, NewLookup } from '../types/game'
 import { GAME_STATUSES, STATUS_LABELS } from '../types/game'
 import { Button } from './Button'
 import { ChipMultiSelect } from './ChipMultiSelect'
@@ -64,8 +64,6 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const platforms = useLookups('platforms')
   const games = useGames()
   const modal = useGameModal()
-  const createDeveloper = useCreateLookup('developers')
-  const createPublisher = useCreateLookup('publishers')
   const offline = useOffline()
 
   const [title, setTitle] = useState(game?.title ?? '')
@@ -83,6 +81,11 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const [genreIds, setGenreIds] = useState((game?.genres ?? []).map((g) => g.id))
   const [developerIds, setDeveloperIds] = useState((game?.developers ?? []).map((d) => d.id))
   const [publisherIds, setPublisherIds] = useState((game?.publishers ?? []).map((p) => p.id))
+  // Developers and publishers to create when the game is saved: never
+  // before, so that abandoning the form leaves nothing behind. A game never
+  // starts with any.
+  const [pendingDevelopers, setPendingDevelopers] = useState<NewLookup[]>([])
+  const [pendingPublishers, setPendingPublishers] = useState<NewLookup[]>([])
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const [initial] = useState(() => ({
@@ -118,7 +121,9 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     platformId !== initial.platformId ||
     !sameIds(genreIds, initial.genreIds) ||
     !sameIds(developerIds, initial.developerIds) ||
-    !sameIds(publisherIds, initial.publisherIds)
+    !sameIds(publisherIds, initial.publisherIds) ||
+    pendingDevelopers.length > 0 ||
+    pendingPublishers.length > 0
 
   // Titles must be unique — matched the same case/accent-insensitive way the
   // database's own collation would, so this can't flag something the backend
@@ -176,6 +181,8 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
       genre_ids: genreIds,
       developer_ids: developerIds,
       publisher_ids: publisherIds,
+      new_developers: pendingDevelopers,
+      new_publishers: pendingPublishers,
     }
 
     if (game) {
@@ -297,7 +304,8 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             selectedIds={developerIds}
             onChange={setDeveloperIds}
             placeholder="Select developers…"
-            onCreate={(name) => createDeveloper.mutateAsync({ name, icon: null, color: null })}
+            pending={pendingDevelopers}
+            onPendingChange={setPendingDevelopers}
           />
           <MultiSelectDropdown
             label="Publishers"
@@ -305,7 +313,8 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             selectedIds={publisherIds}
             onChange={setPublisherIds}
             placeholder="Select publishers…"
-            onCreate={(name) => createPublisher.mutateAsync({ name, icon: null, color: null })}
+            pending={pendingPublishers}
+            onPendingChange={setPendingPublishers}
           />
         </div>
 
