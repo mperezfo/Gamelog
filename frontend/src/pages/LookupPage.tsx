@@ -231,7 +231,16 @@ function LookupRow({
           ) : (
             <span className="flex min-w-0 items-center gap-2 text-sm text-ink">
               {item.icon && <span aria-hidden="true">{item.icon}</span>}
-              <span className="truncate">{item.name}</span>
+              {/* The link to IGDB hangs off the name itself, the way an
+                  external link is usually marked, rather than trailing the
+                  count. The first one only: a record standing for several
+                  IGDB companies is rare, and editing it lists them all. */}
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="truncate">{item.name}</span>
+                {item.igdb_company_ids && item.igdb_company_ids.length > 0 && (
+                  <IgdbLink id={item.igdb_company_ids[0]} className="shrink-0 text-ink-faint" />
+                )}
+              </span>
             </span>
           )}
           {count > 0 ? (
@@ -243,11 +252,6 @@ function LookupRow({
             </Link>
           ) : (
             <span className="shrink-0 text-xs text-ink-faint">{count}</span>
-          )}
-          {/* The first link only: one record standing for several IGDB
-              companies is rare, and editing it lists them all. */}
-          {item.igdb_company_ids && item.igdb_company_ids.length > 0 && (
-            <IgdbLink id={item.igdb_company_ids[0]} className="shrink-0 self-center text-ink-faint" />
           )}
         </span>
 
