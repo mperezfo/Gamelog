@@ -16,6 +16,7 @@ import { Notice } from '../components/Notice'
 import { Pill } from '../components/Pill'
 import { PlatformBadge } from '../components/PlatformBadge'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGameModal } from '../hooks/useGameModal'
 import { useDateFormat, useDefaultGamesView } from '../hooks/useSession'
 import { useGames } from '../hooks/useGames'
@@ -68,6 +69,7 @@ function uniqueYears(dates: (string | null)[]): string[] {
  * and filtered on columns rather than browsed by status or date.
  */
 export function GamesPage() {
+  useDocumentTitle('Games')
   const games = useGames()
   const genres = useLookups('genres')
   const developers = useLookups('developers')

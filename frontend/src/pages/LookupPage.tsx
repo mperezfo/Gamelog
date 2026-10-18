@@ -8,6 +8,7 @@ import { PencilIcon, PlusIcon, TrashIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { PlatformBadge } from '../components/PlatformBadge'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFilterParams } from '../hooks/useFilterParams'
 import { useGames } from '../hooks/useGames'
 import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '../hooks/useLookups'
@@ -55,6 +56,7 @@ function idsOf(kind: LookupKind, game: Game): number[] {
  * all four rather than four near-identical files.
  */
 export function LookupPage({ kind, title }: LookupPageProps) {
+  useDocumentTitle(title)
   const list = useLookups(kind)
   const games = useGames()
   const offline = useOffline()

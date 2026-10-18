@@ -5,6 +5,7 @@ import { AuthLayout } from '../components/AuthLayout'
 import { Button } from '../components/Button'
 import { Field } from '../components/Field'
 import { Notice } from '../components/Notice'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useRunSetup } from '../hooks/useSetup'
 
 interface SetupProps {
@@ -19,6 +20,7 @@ interface SetupProps {
  * whatever the backend says — so there is a single thing to decide here.
  */
 export function Setup({ adminUsername }: SetupProps) {
+  useDocumentTitle('Set up')
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
   const [mismatch, setMismatch] = useState(false)
