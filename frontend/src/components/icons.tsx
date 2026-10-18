@@ -285,12 +285,12 @@ export function SidebarIcon(props: IconProps) {
   )
 }
 
-/** Identify, on the game form: filling fields in on its own. */
-export function SparklesIcon(props: IconProps) {
+/** A link that leaves the app, such as a company's page on IGDB. */
+export function ExternalLinkIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M11 3.5 12.9 9 18.5 11l-5.6 2-1.9 5.5L9.1 13 3.5 11l5.6-2z" />
-      <path d="M19 3v4M17 5h4M18 17v4M16 19h4" />
+      <path d="M14 4h6v6M20 4l-9 9" />
+      <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
     </Icon>
   )
 }

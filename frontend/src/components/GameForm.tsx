@@ -14,7 +14,7 @@ import { ChipMultiSelect } from './ChipMultiSelect'
 import { CoverImageField } from './CoverImageField'
 import { DateField } from './DateField'
 import { Field } from './Field'
-import { SparklesIcon, TrashIcon } from './icons'
+import { SearchIcon, TrashIcon } from './icons'
 import { IdentifyPanel, type IdentifyCurrent, type IdentifyResult } from './IdentifyPanel'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
 import { Reveal } from './Reveal'
@@ -325,7 +325,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
               disabled={!title.trim()}
               onClick={openIdentify}
             >
-              <SparklesIcon />
+              <SearchIcon />
               Identify
             </Button>
           )}

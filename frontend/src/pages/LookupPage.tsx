@@ -1,16 +1,18 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
+import { igdbCompanyPage } from '../api/metadata'
 import { Button } from '../components/Button'
 import { Field } from '../components/Field'
-import { PencilIcon, PlusIcon, TrashIcon } from '../components/icons'
+import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { PlatformBadge } from '../components/PlatformBadge'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFilterParams } from '../hooks/useFilterParams'
 import { useGames } from '../hooks/useGames'
+import { useMetadataCapabilities } from '../hooks/useMetadata'
 import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '../hooks/useLookups'
 import { useOffline } from '../hooks/useOffline'
 import type { Game } from '../types/game'
@@ -29,10 +31,38 @@ const FILTER_PARAM: Record<LookupKind, string> = {
 
 type SortMode = 'count' | 'name'
 
-/** "company 37", or "companies 37, 9001" when one record stands for several
- * of IGDB's (see the backend's migration 00016). */
-function igdbCompanies(ids: number[]): string {
-  return `${ids.length === 1 ? 'company' : 'companies'} ${ids.join(', ')}`
+/**
+ * A developer's or publisher's link to IGDB: the external-link glyph, which
+ * opens the company's page there in a new tab. Without IGDB credentials the
+ * API cannot find that page, so the glyph only says the link exists.
+ */
+function IgdbLink({ id, className = '', children }: { id: number; className?: string; children?: ReactNode }) {
+  const capabilities = useMetadataCapabilities()
+  const content = (
+    <>
+      {children}
+      <ExternalLinkIcon className="size-3 shrink-0" />
+    </>
+  )
+
+  if (!capabilities.data?.identify) {
+    return (
+      <span title="Linked to IGDB" className={`inline-flex items-center gap-1 ${className}`}>
+        {content}
+      </span>
+    )
+  }
+  return (
+    <a
+      href={igdbCompanyPage(id)}
+      target="_blank"
+      rel="noopener noreferrer"
+      title="View on IGDB"
+      className={`inline-flex items-center gap-1 transition-colors duration-75 hover:text-ink ${className}`}
+    >
+      {content}
+    </a>
+  )
 }
 
 interface LookupPageProps {
@@ -214,13 +244,10 @@ function LookupRow({
           ) : (
             <span className="shrink-0 text-xs text-ink-faint">{count}</span>
           )}
+          {/* The first link only: one record standing for several IGDB
+              companies is rare, and editing it lists them all. */}
           {item.igdb_company_ids && item.igdb_company_ids.length > 0 && (
-            <span
-              title={`Linked to IGDB (${igdbCompanies(item.igdb_company_ids)})`}
-              className="shrink-0 text-[10px] font-semibold tracking-wide text-ink-faint/70 uppercase select-none"
-            >
-              IGDB
-            </span>
+            <IgdbLink id={item.igdb_company_ids[0]} className="shrink-0 self-center text-ink-faint" />
           )}
         </span>
 
@@ -328,10 +355,19 @@ function LookupForm({
       </div>
       {item && (kind === 'developers' || kind === 'publishers') && (
         // Read-only: a link is made, or moved, from a game's Identify.
-        <p className="text-xs text-ink-faint">
-          {item.igdb_company_ids && item.igdb_company_ids.length > 0
-            ? `Linked to IGDB as ${igdbCompanies(item.igdb_company_ids)}`
-            : 'Not linked to IGDB'}
+        <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
+          {item.igdb_company_ids && item.igdb_company_ids.length > 0 ? (
+            <>
+              Linked to IGDB as {item.igdb_company_ids.length === 1 ? 'company' : 'companies'}
+              {item.igdb_company_ids.map((id) => (
+                <IgdbLink key={id} id={id} className="tabular-nums underline decoration-line-strong underline-offset-2">
+                  {id}
+                </IgdbLink>
+              ))}
+            </>
+          ) : (
+            'Not linked to IGDB'
+          )}
         </p>
       )}
       {error && <Notice tone="error">{errorMessage(error)}</Notice>}
