@@ -18,14 +18,17 @@ type User struct {
 	// AvatarURL points at an uploaded image the same way a game's
 	// CoverImageURL does: the same upload endpoint, just a different owner.
 	AvatarURL *string `gorm:"column:avatar_url" json:"avatar_url"`
-	// Theme, DateFormat and GamesView are display preferences that travel
-	// with the account across devices, and are what lets them be part of the
-	// export/import along with the rest of the profile.
+	// Theme, DateFormat, GamesView and CalendarView are display preferences
+	// that travel with the account across devices, and are what lets them be
+	// part of the export/import along with the rest of the profile.
 	Theme      string `gorm:"column:theme" json:"theme"`
 	DateFormat string `gorm:"column:date_format" json:"date_format"`
 	// GamesView is which layout the Games page opens in — 'table' or 'grid'
 	// — when its URL carries no `view` of its own.
 	GamesView string `gorm:"column:games_view" json:"games_view"`
+	// CalendarView is which dates the dashboard calendar opens on: 'release'
+	// or 'logged'.
+	CalendarView string `gorm:"column:calendar_view" json:"calendar_view"`
 	// PasswordHash is bcrypt output. The json:"-" tag is what keeps it out of
 	// every response, since this struct is what the API returns.
 	PasswordHash string `gorm:"column:password_hash" json:"-"`

@@ -250,8 +250,8 @@ func (s *Service) SetPassword(ctx context.Context, userID uint64, password strin
 // so nothing that was signed in before this moment should stay that way.
 //
 // The caller reopens its own session afterwards, same as SetPassword's.
-func (s *Service) RestoreAccount(ctx context.Context, userID uint64, name string, avatarURL *string, passwordHash, theme, dateFormat, gamesView string) error {
-	if err := s.users.RestoreAccount(ctx, userID, name, avatarURL, passwordHash, theme, dateFormat, gamesView); err != nil {
+func (s *Service) RestoreAccount(ctx context.Context, userID uint64, name string, avatarURL *string, passwordHash, theme, dateFormat, gamesView, calendarView string) error {
+	if err := s.users.RestoreAccount(ctx, userID, name, avatarURL, passwordHash, theme, dateFormat, gamesView, calendarView); err != nil {
 		return err
 	}
 	_, err := s.sessions.DeleteForUser(ctx, userID)

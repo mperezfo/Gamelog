@@ -10,7 +10,7 @@ import { ThemeSwitch } from '../components/ThemeSwitch'
 import { useOffline } from '../hooks/useOffline'
 import { useSession, useUpdatePreferences } from '../hooks/useSession'
 import { formatDate } from '../lib/format'
-import type { DateFormat, GamesView } from '../types/auth'
+import type { CalendarView, DateFormat, GamesView } from '../types/auth'
 import { useThemeChoice } from '../theme/themeContext'
 
 /** The four layouts a date can be shown in, with a sample so the option
@@ -26,6 +26,11 @@ const DATE_FORMAT_OPTIONS: { value: DateFormat; label: string }[] = [
 const GAMES_VIEW_OPTIONS: { value: GamesView; label: string }[] = [
   { value: 'table', label: 'Table' },
   { value: 'grid', label: 'Grid' },
+]
+
+const CALENDAR_VIEW_OPTIONS: { value: CalendarView; label: string }[] = [
+  { value: 'release', label: 'Release dates' },
+  { value: 'logged', label: 'Logged dates' },
 ]
 
 /** Everything one account can do to itself: how it appears, how the app
@@ -51,7 +56,7 @@ export function Account() {
 
           <Section
             title="Appearance"
-            description="Theme, date format and default Games view travel with your account, so they follow you to any device you sign in on."
+            description="Theme, date format and default views travel with your account, so they follow you to any device you sign in on."
           >
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex flex-col gap-1.5">
@@ -70,6 +75,13 @@ export function Account() {
                 value={user.games_view}
                 onChange={(gamesView) => updatePreferences.mutate({ games_view: gamesView })}
                 options={GAMES_VIEW_OPTIONS}
+                className="w-auto"
+              />
+              <Select
+                label="Default calendar view"
+                value={user.calendar_view}
+                onChange={(calendarView) => updatePreferences.mutate({ calendar_view: calendarView })}
+                options={CALENDAR_VIEW_OPTIONS}
                 className="w-auto"
               />
             </div>

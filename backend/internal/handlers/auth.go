@@ -75,9 +75,10 @@ type updateProfileInput struct {
 
 type updatePreferencesInput struct {
 	Body struct {
-		Theme      string `json:"theme" enum:"light,dark,system" doc:"Which theme the application renders in."`
-		DateFormat string `json:"date_format" enum:"long,ymd,dmy,mdy" doc:"How a date is written out: 'long' (Dec 31, 2023), 'ymd' (2023/12/31), 'dmy' (31/12/2023) or 'mdy' (12/31/2023)."`
-		GamesView  string `json:"games_view" enum:"table,grid" doc:"Which layout the Games page opens in when its URL carries no view of its own."`
+		Theme        string `json:"theme" enum:"light,dark,system" doc:"Which theme the application renders in."`
+		DateFormat   string `json:"date_format" enum:"long,ymd,dmy,mdy" doc:"How a date is written out: 'long' (Dec 31, 2023), 'ymd' (2023/12/31), 'dmy' (31/12/2023) or 'mdy' (12/31/2023)."`
+		GamesView    string `json:"games_view" enum:"table,grid" doc:"Which layout the Games page opens in when its URL carries no view of its own."`
+		CalendarView string `json:"calendar_view" enum:"release,logged" doc:"Which dates the dashboard calendar opens on: release dates or logged dates."`
 	}
 }
 
@@ -222,8 +223,8 @@ func registerAuth(api huma.API, service *auth.Service) {
 		Method:      http.MethodPut,
 		Path:        "/api/auth/preferences",
 		Summary:     "Update your own display preferences",
-		Description: "Changes the theme, date format and default games view the application renders " +
-			"with. All three travel with the account rather than the browser, so they are also " +
+		Description: "Changes the theme, date format, default games view and default calendar view " +
+			"the application renders with. All four travel with the account rather than the browser, so they are also " +
 			"part of the library export and import.",
 		Tags:     []string{authTag},
 		Metadata: auth.Require(auth.AccessAny),
@@ -234,7 +235,7 @@ func registerAuth(api huma.API, service *auth.Service) {
 			return nil, err
 		}
 
-		updated, err := service.Users().UpdatePreferences(ctx, user.ID, input.Body.Theme, input.Body.DateFormat, input.Body.GamesView)
+		updated, err := service.Users().UpdatePreferences(ctx, user.ID, input.Body.Theme, input.Body.DateFormat, input.Body.GamesView, input.Body.CalendarView)
 		if err != nil {
 			return nil, apiError(err, "no such account")
 		}

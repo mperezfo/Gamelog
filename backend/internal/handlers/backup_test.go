@@ -111,9 +111,10 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 	expectStatus(t, profile, http.StatusOK, "setting an avatar")
 
 	preferences := request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{
-		"theme":       "dark",
-		"date_format": "ymd",
-		"games_view":  "grid",
+		"theme":         "dark",
+		"date_format":   "ymd",
+		"games_view":    "grid",
+		"calendar_view": "logged",
 	})
 	expectStatus(t, preferences, http.StatusOK, "setting preferences")
 
@@ -159,6 +160,7 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 			Theme        string `json:"theme"`
 			DateFormat   string `json:"date_format"`
 			GamesView    string `json:"games_view"`
+			CalendarView string `json:"calendar_view"`
 		} `json:"account"`
 	}
 	if err := json.Unmarshal(readZipEntry(t, archive, "gamelog.json"), &document); err != nil {
@@ -173,8 +175,9 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 	if !strings.HasPrefix(document.Account.PasswordHash, "$2") {
 		t.Errorf("account.password_hash = %q, want a bcrypt hash", document.Account.PasswordHash)
 	}
-	if document.Account.Theme != "dark" || document.Account.DateFormat != "ymd" || document.Account.GamesView != "grid" {
-		t.Errorf("account preferences = %+v, want theme=dark date_format=ymd games_view=grid", document.Account)
+	if document.Account.Theme != "dark" || document.Account.DateFormat != "ymd" || document.Account.GamesView != "grid" ||
+		document.Account.CalendarView != "logged" {
+		t.Errorf("account preferences = %+v, want theme=dark date_format=ymd games_view=grid calendar_view=logged", document.Account)
 	}
 
 	otherSession := login(t, bare, "player", testPassword)
@@ -219,6 +222,7 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 		Theme              string `json:"theme"`
 		DateFormat         string `json:"date_format"`
 		GamesView          string `json:"games_view"`
+		CalendarView       string `json:"calendar_view"`
 	}
 	decode(t, me, &account)
 	if !account.MustChangePassword {
@@ -227,8 +231,8 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 	if account.Name != "Player One" || account.AvatarURL != avatarBody.URL {
 		t.Errorf("account = %+v, want the profile the backup carried", account)
 	}
-	if account.Theme != "dark" || account.DateFormat != "ymd" || account.GamesView != "grid" {
-		t.Errorf("restored preferences = %+v, want theme=dark date_format=ymd games_view=grid", account)
+	if account.Theme != "dark" || account.DateFormat != "ymd" || account.GamesView != "grid" || account.CalendarView != "logged" {
+		t.Errorf("restored preferences = %+v, want theme=dark date_format=ymd games_view=grid calendar_view=logged", account)
 	}
 
 	// Nothing but the session operations work until the password changes.

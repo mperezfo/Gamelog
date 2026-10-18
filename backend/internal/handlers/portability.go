@@ -186,6 +186,7 @@ func registerPortability(api huma.API, db *gorm.DB, authentication *auth.Service
 			Theme:        user.Theme,
 			DateFormat:   user.DateFormat,
 			GamesView:    user.GamesView,
+			CalendarView: user.CalendarView,
 		}, imagesDir)
 		if err != nil {
 			return nil, fmt.Errorf("building the backup: %w", err)
@@ -246,8 +247,8 @@ func registerPortability(api huma.API, db *gorm.DB, authentication *auth.Service
 			return nil, apiError(err, "nothing to import")
 		}
 
-		theme, dateFormat, gamesView := account.NormalisePreferences()
-		if err := authentication.RestoreAccount(ctx, user.ID, account.Name, account.AvatarURL, account.PasswordHash, theme, dateFormat, gamesView); err != nil {
+		theme, dateFormat, gamesView, calendarView := account.NormalisePreferences()
+		if err := authentication.RestoreAccount(ctx, user.ID, account.Name, account.AvatarURL, account.PasswordHash, theme, dateFormat, gamesView, calendarView); err != nil {
 			return nil, apiError(err, "no such account")
 		}
 

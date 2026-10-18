@@ -10,6 +10,10 @@ export type DateFormat = 'long' | 'ymd' | 'dmy' | 'mdy'
  * its own. */
 export type GamesView = 'table' | 'grid'
 
+/** Which dates the dashboard calendar opens on: when each game came out, or
+ * when it was logged. */
+export type CalendarView = 'release' | 'logged'
+
 /** An account, as every endpoint that returns one describes it. */
 export interface User {
   id: number
@@ -23,6 +27,7 @@ export interface User {
   theme: Theme
   date_format: DateFormat
   games_view: GamesView
+  calendar_view: CalendarView
   /** Set right after a backup is restored: the password was overwritten with
    * whatever the backup carried, so nothing works until a fresh one replaces
    * it. */
@@ -34,7 +39,7 @@ export interface User {
 }
 
 /** The display preferences `PUT /api/auth/preferences` replaces, all at once. */
-export type Preferences = Pick<User, 'theme' | 'date_format' | 'games_view'>
+export type Preferences = Pick<User, 'theme' | 'date_format' | 'games_view' | 'calendar_view'>
 
 /** Response of `GET /api/setup`. */
 export interface SetupStatus {

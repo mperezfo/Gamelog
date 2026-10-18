@@ -178,7 +178,7 @@ func (r *UserRepository) SetPassword(ctx context.Context, id uint64, hash string
 // current when the backup was made, not one anybody just typed, so the
 // account is made to choose a fresh password before anything else about it
 // is trusted.
-func (r *UserRepository) RestoreAccount(ctx context.Context, id uint64, name string, avatarURL *string, passwordHash, theme, dateFormat, gamesView string) error {
+func (r *UserRepository) RestoreAccount(ctx context.Context, id uint64, name string, avatarURL *string, passwordHash, theme, dateFormat, gamesView, calendarView string) error {
 	result := r.db.WithContext(ctx).
 		Model(&models.User{ID: id}).
 		Updates(map[string]any{
@@ -189,6 +189,7 @@ func (r *UserRepository) RestoreAccount(ctx context.Context, id uint64, name str
 			"theme":                theme,
 			"date_format":          dateFormat,
 			"games_view":           gamesView,
+			"calendar_view":        calendarView,
 		})
 	if result.Error != nil {
 		return translate(result.Error)
@@ -216,14 +217,19 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, id uint64, name stri
 	return r.Get(ctx, id)
 }
 
-// UpdatePreferences replaces the theme, date format and default games view
-// an account is shown with — the display settings that travel with the
+// UpdatePreferences replaces the theme, date format, default games view and
+// default calendar view an account is shown with — the display settings that travel with the
 // account instead of staying local to one browser (see the migrations that
 // added them).
-func (r *UserRepository) UpdatePreferences(ctx context.Context, id uint64, theme, dateFormat, gamesView string) (*models.User, error) {
+func (r *UserRepository) UpdatePreferences(ctx context.Context, id uint64, theme, dateFormat, gamesView, calendarView string) (*models.User, error) {
 	result := r.db.WithContext(ctx).
 		Model(&models.User{ID: id}).
-		Updates(map[string]any{"theme": theme, "date_format": dateFormat, "games_view": gamesView})
+		Updates(map[string]any{
+			"theme":         theme,
+			"date_format":   dateFormat,
+			"games_view":    gamesView,
+			"calendar_view": calendarView,
+		})
 	if result.Error != nil {
 		return nil, translate(result.Error)
 	}
@@ -233,9 +239,9 @@ func (r *UserRepository) UpdatePreferences(ctx context.Context, id uint64, theme
 	return r.Get(ctx, id)
 }
 
-// applyDefaultPreferences fills in the theme, date format and games view a
-// brand-new account is created with, matching the columns' own DB defaults —
-// GORM writes a Go zero value ("") for a NOT NULL string column explicitly
+// applyDefaultPreferences fills in the theme, date format, games view and
+// calendar view a brand-new account is created with, matching the columns'
+// own DB defaults — GORM writes a Go zero value ("") for a NOT NULL string column explicitly
 // rather than leaving it to the database default, which the enum would
 // reject.
 func applyDefaultPreferences(user *models.User) {
@@ -247,6 +253,9 @@ func applyDefaultPreferences(user *models.User) {
 	}
 	if user.GamesView == "" {
 		user.GamesView = "table"
+	}
+	if user.CalendarView == "" {
+		user.CalendarView = "release"
 	}
 }
 
