@@ -26,6 +26,7 @@ import { Notice } from '../components/Notice'
 import { GameCalendar } from '../components/GameCalendar'
 import { UpcomingRelease } from '../components/UpcomingRelease'
 import { useEdgeFade } from '../hooks/useEdgeFade'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGameModal } from '../hooks/useGameModal'
 import { useGames, useUpdateGame } from '../hooks/useGames'
 import { useOffline } from '../hooks/useOffline'
@@ -39,6 +40,7 @@ const TOP_RATED_COUNT = 10
  * glance, and the fastest path to editing any one game in it.
  */
 export function Dashboard() {
+  useDocumentTitle()
   const games = useGames()
   const updateGame = useUpdateGame()
 

@@ -1,5 +1,6 @@
 import { AuthLayout } from '../components/AuthLayout'
 import { ChangePassword } from '../components/ChangePassword'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 
 /**
  * Shown instead of the application right after a backup is restored: the
@@ -7,6 +8,7 @@ import { ChangePassword } from '../components/ChangePassword'
  * so nothing else is reachable until a fresh one replaces it.
  */
 export function ForcedPasswordChange() {
+  useDocumentTitle('Change password')
   return (
     <AuthLayout
       title="Change your password"

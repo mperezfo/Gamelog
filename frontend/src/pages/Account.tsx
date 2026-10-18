@@ -7,6 +7,7 @@ import { Section } from '../components/Section'
 import { Select } from '../components/Select'
 import { SimulateOffline } from '../components/SimulateOffline'
 import { ThemeSwitch } from '../components/ThemeSwitch'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useOffline } from '../hooks/useOffline'
 import { useSession, useUpdatePreferences } from '../hooks/useSession'
 import { formatDate } from '../lib/format'
@@ -36,6 +37,7 @@ const CALENDAR_VIEW_OPTIONS: { value: CalendarView; label: string }[] = [
 /** Everything one account can do to itself: how it appears, how the app
  * looks on this device, and its password. */
 export function Account() {
+  useDocumentTitle('Account')
   const session = useSession()
   const { theme, setTheme } = useThemeChoice()
   const updatePreferences = useUpdatePreferences()

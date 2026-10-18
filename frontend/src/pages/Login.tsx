@@ -5,6 +5,7 @@ import { AuthLayout } from '../components/AuthLayout'
 import { Button } from '../components/Button'
 import { Field } from '../components/Field'
 import { Notice } from '../components/Notice'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useLogin } from '../hooks/useSession'
 
 /**
@@ -12,6 +13,7 @@ import { useLogin } from '../hooks/useSession'
  * registration: accounts exist because the admin created them.
  */
 export function Login() {
+  useDocumentTitle('Sign in')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
 

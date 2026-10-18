@@ -4,6 +4,7 @@ import { errorMessage } from '../api/client'
 import { GameForm } from '../components/GameForm'
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGame } from '../hooks/useGames'
 
 /**
@@ -18,6 +19,7 @@ export function GameDetail() {
   const navigate = useNavigate()
 
   const game = useGame(params.id)
+  useDocumentTitle(game.data?.title)
 
   if (game.isPending) {
     return (

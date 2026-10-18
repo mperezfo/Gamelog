@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useOffline } from '../hooks/useOffline'
 import type { Game } from '../types/game'
 import { Button } from './Button'
@@ -32,6 +33,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   const [dirty, setDirty] = useState(false)
   const [confirmingClose, setConfirmingClose] = useState(false)
   const offline = useOffline()
+  useDocumentTitle(game ? game.title : 'New game')
 
   // Starts off-screen and slides in on the next frame — starting `visible`
   // true would skip the transition, since there would be nothing to animate

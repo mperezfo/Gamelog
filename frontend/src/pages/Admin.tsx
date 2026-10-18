@@ -8,6 +8,7 @@ import { KeyIcon, TrashIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { Section } from '../components/Section'
+import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useCreateUser, useDeleteUser, useResetUserPassword, useUsers } from '../hooks/useUsers'
 import type { User } from '../types/auth'
 
@@ -18,6 +19,7 @@ import type { User } from '../types/auth'
  * API enforces that rather than trusting this page to leave it out.
  */
 export function Admin({ admin }: { admin: User }) {
+  useDocumentTitle('Accounts')
   const users = useUsers()
 
   return (
