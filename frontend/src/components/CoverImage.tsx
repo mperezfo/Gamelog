@@ -21,6 +21,8 @@ interface CoverImageProps {
   lazy?: boolean
   /** Darkens the edges of the image (see CoverOverlay). */
   overlay?: boolean
+  /** Called with the image once it has loaded, to read its size. */
+  onLoad?: (image: HTMLImageElement) => void
 }
 
 /**
@@ -45,6 +47,7 @@ export function CoverImage({
   iconClassName = 'size-4',
   lazy = true,
   overlay = true,
+  onLoad,
 }: CoverImageProps) {
   const src = url ? imageUrl(url, size) : null
   // Keyed by source, so a slot reused for another cover starts over.
@@ -65,7 +68,10 @@ export function CoverImage({
           loading={lazy ? 'lazy' : undefined}
           decoding="async"
           draggable={false}
-          onLoad={() => setOutcome({ src, loaded: true })}
+          onLoad={(event) => {
+            setOutcome({ src, loaded: true })
+            onLoad?.(event.currentTarget)
+          }}
           onError={() => setOutcome({ src, loaded: false })}
           className={`absolute -top-px -left-px h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none object-cover ${imageClassName}`}
           style={style}
