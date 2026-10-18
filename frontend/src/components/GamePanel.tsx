@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useOffline } from '../hooks/useOffline'
@@ -18,6 +18,10 @@ interface GamePanelProps {
  * has to match the CSS transition duration below. */
 const TRANSITION_MS = 200
 
+/** What the "discard unsaved changes?" prompt is standing in the way of:
+ * closing the panel, or leaving it for the game's full page. */
+type PendingDiscard = 'close' | 'fullPage'
+
 /**
  * The slide-over used to create or edit a game without leaving the dashboard
  * or the table underneath it. `/games/:id` renders the same `GameForm` full
@@ -31,7 +35,9 @@ const TRANSITION_MS = 200
 export function GamePanel({ game, onClose }: GamePanelProps) {
   const [visible, setVisible] = useState(false)
   const [dirty, setDirty] = useState(false)
-  const [confirmingClose, setConfirmingClose] = useState(false)
+  const [pendingDiscard, setPendingDiscard] = useState<PendingDiscard | null>(null)
+  const closeTimer = useRef<number | undefined>(undefined)
+  const navigate = useNavigate()
   const offline = useOffline()
   useDocumentTitle(game ? game.title : 'New game')
 
@@ -51,11 +57,18 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
     }
   }, [])
 
+  // A close still waiting out its slide-out is dropped if the panel goes away
+  // some other way first. `onClose` rewrites the query string against the
+  // page the panel was opened on, so running it late (after "Open full page"
+  // has already navigated to /games/:id, say) would send the user straight
+  // back to that page.
+  useEffect(() => () => clearTimeout(closeTimer.current), [])
+
   // Closes for good, skipping the confirmation — for the paths where there
   // is nothing left to lose: a successful save or delete.
   function closeNow() {
     setVisible(false)
-    setTimeout(onClose, TRANSITION_MS)
+    closeTimer.current = window.setTimeout(onClose, TRANSITION_MS)
   }
 
   // Confirming only when there is something to lose: a blank, untouched
@@ -63,9 +76,28 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   const needsConfirm = dirty
 
   function requestClose() {
-    if (confirmingClose) return
+    if (pendingDiscard) return
     if (needsConfirm) {
-      setConfirmingClose(true)
+      setPendingDiscard('close')
+      return
+    }
+    closeNow()
+  }
+
+  // Leaving for the full page needs no close of its own: its URL carries no
+  // `?modal=`, so the panel unmounts as soon as the route changes. It only
+  // has to wait for the same confirmation a close would, unless it opens in
+  // another tab and leaves this one, edits included, where it is.
+  function openFullPage(event: MouseEvent) {
+    const newTab = event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+    if (!needsConfirm || newTab) return
+    event.preventDefault()
+    setPendingDiscard('fullPage')
+  }
+
+  function discard() {
+    if (pendingDiscard === 'fullPage' && game) {
+      navigate(`/games/${game.slug}`)
       return
     }
     closeNow()
@@ -103,7 +135,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
             {game && (
               <Link
                 to={`/games/${game.slug}`}
-                onClick={requestClose}
+                onClick={openFullPage}
                 className="text-xs font-medium text-accent hover:underline"
               >
                 Open full page
@@ -115,14 +147,14 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
           </Button>
         </div>
 
-        {confirmingClose && (
+        {pendingDiscard && (
           <div className="mb-4 flex items-center justify-between gap-2 rounded-control bg-danger-soft px-3 py-2 text-sm text-ink">
             <span>Discard unsaved changes?</span>
             <div className="flex gap-2">
-              <Button variant="danger" onClick={closeNow}>
+              <Button variant="danger" onClick={discard}>
                 Discard
               </Button>
-              <Button onClick={() => setConfirmingClose(false)}>Keep editing</Button>
+              <Button onClick={() => setPendingDiscard(null)}>Keep editing</Button>
             </div>
           </div>
         )}
