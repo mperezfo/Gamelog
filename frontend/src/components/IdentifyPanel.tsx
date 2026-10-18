@@ -11,13 +11,17 @@ import type { CompanyMatch, GameCandidate } from '../types/metadata'
 import { Button } from './Button'
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { Notice } from './Notice'
+import { Reveal } from './Reveal'
+import { Switch } from './Switch'
 
-/** Which of the fields Identify fills are still empty on the form. Identify
- * never overwrites anything: a field with a value is shown as kept. */
-export interface IdentifyFill {
-  releaseDate: boolean
-  developers: boolean
-  publishers: boolean
+/** What the form holds right now for the fields Identify can set. */
+export interface IdentifyCurrent {
+  /** yyyy-mm-dd, or empty. */
+  releaseDate: string
+  /** Names of the developers and publishers on the form, pending ones
+   * included. */
+  developers: string[]
+  publishers: string[]
 }
 
 /** What one role (developers or publishers) resolves to: records the library
@@ -28,8 +32,8 @@ export interface CompanyResolution {
   pending: NewLookup[]
 }
 
-/** What Apply hands back to the form. A field that was not empty, or that
- * IGDB had nothing for, is left out. */
+/** What Apply hands back to the form: every field present replaces what the
+ * form holds, and every field left out is kept. */
 export interface IdentifyResult {
   /** yyyy-mm-dd, the form's own date shape. */
   releaseDate?: string
@@ -39,7 +43,7 @@ export interface IdentifyResult {
 
 interface IdentifyPanelProps {
   title: string
-  fill: IdentifyFill
+  current: IdentifyCurrent
   developers: Lookup[]
   publishers: Lookup[]
   onApply: (result: IdentifyResult) => void
@@ -51,18 +55,17 @@ interface IdentifyPanelProps {
  * publishers from the game picked among the results.
  *
  * Two steps, because a title alone is often ambiguous (an original and its
- * remake share one): pick the game, then confirm what it would fill in. In
- * the second step every developer and publisher can be pointed at a record
- * the library already has, created, or skipped. Apply only changes the form;
- * nothing is created or linked until the game is saved.
+ * remake share one): pick the game, then confirm what it would change. Apply
+ * only changes the form; nothing is created or linked until the game is
+ * saved.
  */
-export function IdentifyPanel({ title, fill, developers, publishers, onApply, onClose }: IdentifyPanelProps) {
+export function IdentifyPanel({ title, current, developers, publishers, onApply, onClose }: IdentifyPanelProps) {
   const candidates = useGameCandidates(title)
   const [picked, setPicked] = useState<GameCandidate | null>(null)
 
   return (
     <div className="flex flex-col gap-3 rounded-control bg-sunken p-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex h-6 items-center justify-between gap-2">
         {picked ? (
           <button
             type="button"
@@ -73,9 +76,7 @@ export function IdentifyPanel({ title, fill, developers, publishers, onApply, on
             Results
           </button>
         ) : (
-          <span className="min-w-0 truncate text-[13px] font-medium text-ink-muted">
-            IGDB results for “{title}”
-          </span>
+          <span className="min-w-0 truncate text-[13px] font-medium text-ink-muted">IGDB results for “{title}”</span>
         )}
         <button
           type="button"
@@ -87,30 +88,34 @@ export function IdentifyPanel({ title, fill, developers, publishers, onApply, on
         </button>
       </div>
 
-      {picked ? (
-        <IdentifyConfirm
-          candidate={picked}
-          fill={fill}
-          developers={developers}
-          publishers={publishers}
-          onApply={onApply}
-          onCancel={onClose}
-        />
-      ) : candidates.isPending ? (
-        <p className="text-sm text-ink-faint">Searching IGDB…</p>
-      ) : candidates.isError ? (
-        <Notice tone="error">{errorMessage(candidates.error)}</Notice>
-      ) : candidates.data.length === 0 ? (
-        <p className="text-sm text-ink-faint">No games found on IGDB.</p>
-      ) : (
-        <ul className="-mx-1 flex max-h-80 flex-col overflow-y-auto">
-          {candidates.data.map((candidate) => (
-            <li key={candidate.igdb_id}>
-              <CandidateRow candidate={candidate} onPick={() => setPicked(candidate)} />
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* Keyed by step, so that each one fades in as the panel resizes
+          around it. */}
+      <div key={picked?.igdb_id ?? 'results'} className="animate-[gl-appear_150ms_ease-out] motion-reduce:animate-none">
+        {picked ? (
+          <IdentifyConfirm
+            candidate={picked}
+            current={current}
+            developers={developers}
+            publishers={publishers}
+            onApply={onApply}
+            onCancel={onClose}
+          />
+        ) : candidates.isPending ? (
+          <p className="text-sm text-ink-faint">Searching IGDB…</p>
+        ) : candidates.isError ? (
+          <Notice tone="error">{errorMessage(candidates.error)}</Notice>
+        ) : candidates.data.length === 0 ? (
+          <p className="text-sm text-ink-faint">No games found on IGDB.</p>
+        ) : (
+          <ul className="-mx-1 flex max-h-80 flex-col overflow-y-auto">
+            {candidates.data.map((candidate) => (
+              <li key={candidate.igdb_id}>
+                <CandidateRow candidate={candidate} onPick={() => setPicked(candidate)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }
@@ -167,11 +172,18 @@ function resolve(companies: CompanyMatch[], choices: Choice[]): CompanyResolutio
       if (!resolution.ids.includes(choice.id)) resolution.ids.push(choice.id)
       // Already linked to that very record: nothing new to remember.
       const alreadyLinked = company.match?.reason === 'linked' && company.match.id === choice.id
-      if (!alreadyLinked) resolution.links.push({ id: choice.id, igdb_company_id: company.igdb_company_id })
+      if (!alreadyLinked)
+        resolution.links.push({
+          id: choice.id,
+          igdb_company_id: company.igdb_company_id,
+        })
     } else if (choice.kind === 'create') {
       const name = foldCase(company.name)
       if (!resolution.pending.some((p) => foldCase(p.name) === name)) {
-        resolution.pending.push({ name: company.name, igdb_company_id: company.igdb_company_id })
+        resolution.pending.push({
+          name: company.name,
+          igdb_company_id: company.igdb_company_id,
+        })
       }
     }
   })
@@ -179,72 +191,95 @@ function resolve(companies: CompanyMatch[], choices: Choice[]): CompanyResolutio
   return resolution
 }
 
-function hasAny(resolution: CompanyResolution): boolean {
-  return resolution.ids.length > 0 || resolution.pending.length > 0
+function isEmpty(resolution: CompanyResolution): boolean {
+  return resolution.ids.length === 0 && resolution.pending.length === 0
 }
 
 interface IdentifyConfirmProps {
   candidate: GameCandidate
-  fill: IdentifyFill
+  current: IdentifyCurrent
   developers: Lookup[]
   publishers: Lookup[]
   onApply: (result: IdentifyResult) => void
   onCancel: () => void
 }
 
-function IdentifyConfirm({ candidate, fill, developers, publishers, onApply, onCancel }: IdentifyConfirmProps) {
+/**
+ * One section per field, each with a switch for whether IGDB's value goes in.
+ * It starts on for a field that is empty and off for one that already has a
+ * value, so that nothing set by hand is replaced without asking. Whatever
+ * would be replaced is shown struck through, the same way a skipped company
+ * is: struck through always means "goes away".
+ */
+function IdentifyConfirm({ candidate, current, developers, publishers, onApply, onCancel }: IdentifyConfirmProps) {
   const dateFormat = useDateFormat()
   const [developerChoices, setDeveloperChoices] = useState(() => candidate.developers.map(defaultChoice))
   const [publisherChoices, setPublisherChoices] = useState(() => candidate.publishers.map(defaultChoice))
 
+  const igdbDate = candidate.release_date?.slice(0, 10) ?? ''
+  const [applyDate, setApplyDate] = useState(current.releaseDate === '')
+  const [applyDevelopers, setApplyDevelopers] = useState(current.developers.length === 0)
+  const [applyPublishers, setApplyPublishers] = useState(current.publishers.length === 0)
+
+  const developerResolution = resolve(candidate.developers, developerChoices)
+  const publisherResolution = resolve(candidate.publishers, publisherChoices)
+
   const result: IdentifyResult = {}
-  if (fill.releaseDate && candidate.release_date) {
-    result.releaseDate = candidate.release_date.slice(0, 10)
-  }
-  if (fill.developers) {
-    const resolution = resolve(candidate.developers, developerChoices)
-    if (hasAny(resolution)) result.developers = resolution
-  }
-  if (fill.publishers) {
-    const resolution = resolve(candidate.publishers, publisherChoices)
-    if (hasAny(resolution)) result.publishers = resolution
-  }
+  if (applyDate && igdbDate && igdbDate !== current.releaseDate) result.releaseDate = igdbDate
+  // Skipping every company applies nothing, rather than clearing the field.
+  if (applyDevelopers && !isEmpty(developerResolution)) result.developers = developerResolution
+  if (applyPublishers && !isEmpty(publisherResolution)) result.publishers = publisherResolution
   const changesSomething = Object.keys(result).length > 0
 
   const year = releaseYear(candidate)
+  const date = (value: string) => formatDate(value, dateFormat)
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-sm font-medium text-ink">
+      <p className="truncate text-sm font-medium text-ink">
         {candidate.name}
         {year && <span className="font-normal text-ink-faint"> ({year})</span>}
       </p>
 
-      <ConfirmSection label="Release date">
-        {!fill.releaseDate ? (
-          <Kept />
-        ) : candidate.release_date ? (
-          <span className="text-sm text-ink">{formatDate(candidate.release_date.slice(0, 10), dateFormat)}</span>
+      <ConfirmSection
+        label="Release date"
+        // Nothing to decide when IGDB has no date, or the same one.
+        toggle={
+          igdbDate && igdbDate !== current.releaseDate ? { checked: applyDate, onChange: setApplyDate } : undefined
+        }
+        kept={current.releaseDate ? date(current.releaseDate) : undefined}
+      >
+        {!igdbDate ? (
+          <Muted>Not on IGDB</Muted>
         ) : (
-          <Missing />
+          <p className="flex min-w-0 items-baseline gap-2 text-sm text-ink">
+            {current.releaseDate && current.releaseDate !== igdbDate && (
+              <Replaced>{date(current.releaseDate)}</Replaced>
+            )}
+            <span>{date(igdbDate)}</span>
+          </p>
         )}
       </ConfirmSection>
 
       <CompanySection
         label="Developers"
-        fill={fill.developers}
         companies={candidate.developers}
         choices={developerChoices}
         onChoicesChange={setDeveloperChoices}
         records={developers}
+        current={current.developers}
+        apply={applyDevelopers}
+        onApplyChange={setApplyDevelopers}
       />
       <CompanySection
         label="Publishers"
-        fill={fill.publishers}
         companies={candidate.publishers}
         choices={publisherChoices}
         onChoicesChange={setPublisherChoices}
         records={publishers}
+        current={current.publishers}
+        apply={applyPublishers}
+        onApplyChange={setApplyPublishers}
       />
 
       <div className="flex gap-2">
@@ -257,58 +292,120 @@ function IdentifyConfirm({ candidate, fill, developers, publishers, onApply, onC
   )
 }
 
-function ConfirmSection({ label, children }: { label: string; children: ReactNode }) {
+interface ConfirmSectionProps {
+  label: string
+  /** The switch for whether IGDB's value goes in. Left out when there is
+   * nothing to decide. */
+  toggle?: { checked: boolean; onChange: (checked: boolean) => void }
+  /** What the field keeps while the switch is off, shown next to the label
+   * in place of the section's body. */
+  kept?: string
+  children: ReactNode
+}
+
+function ConfirmSection({ label, toggle, kept, children }: ConfirmSectionProps) {
+  const open = toggle?.checked ?? true
+
   return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-medium text-ink-muted">{label}</span>
-      {children}
+    <div className="flex flex-col">
+      <div className="flex h-5 items-baseline gap-3">
+        <span className="shrink-0 text-[13px] font-medium text-ink-muted">{label}</span>
+        <span
+          className={[
+            'min-w-0 flex-1 truncate text-sm text-ink transition-opacity duration-150',
+            open ? 'opacity-0' : 'opacity-100',
+          ].join(' ')}
+          aria-hidden={open}
+        >
+          {kept}
+        </span>
+        {toggle && (
+          <span className="self-center">
+            <Switch checked={toggle.checked} onChange={toggle.onChange}>
+              <span className="sr-only">Use IGDB’s {label.toLowerCase()}</span>
+            </Switch>
+          </span>
+        )}
+      </div>
+      <Reveal open={open}>
+        <div className="pt-1.5">{children}</div>
+      </Reveal>
     </div>
   )
 }
 
-function Kept() {
-  return <span className="text-sm text-ink-faint">Already set, kept as it is</span>
+function Muted({ children }: { children: ReactNode }) {
+  return <p className="text-sm text-ink-faint">{children}</p>
 }
 
-function Missing() {
-  return <span className="text-sm text-ink-faint">Not on IGDB</span>
+/** A value the section would replace. */
+function Replaced({ children }: { children: ReactNode }) {
+  return <s className="min-w-0 truncate text-ink-faint decoration-ink-faint">{children}</s>
 }
 
 interface CompanySectionProps {
   label: string
-  fill: boolean
   companies: CompanyMatch[]
   choices: Choice[]
   onChoicesChange: (choices: Choice[]) => void
   records: Lookup[]
+  current: string[]
+  apply: boolean
+  onApplyChange: (apply: boolean) => void
 }
 
-function CompanySection({ label, fill, companies, choices, onChoicesChange, records }: CompanySectionProps) {
+function CompanySection({
+  label,
+  companies,
+  choices,
+  onChoicesChange,
+  records,
+  current,
+  apply,
+  onApplyChange,
+}: CompanySectionProps) {
+  const currentNames = current.join(', ')
+
   return (
-    <ConfirmSection label={label}>
-      {!fill ? (
-        <Kept />
-      ) : companies.length === 0 ? (
-        <Missing />
+    <ConfirmSection
+      label={label}
+      toggle={companies.length > 0 ? { checked: apply, onChange: onApplyChange } : undefined}
+      kept={currentNames || undefined}
+    >
+      {companies.length === 0 ? (
+        <Muted>Not on IGDB</Muted>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {companies.map((company, index) => (
-            <li
-              key={company.igdb_company_id}
-              className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3"
-            >
-              <span className="min-w-0 truncate text-sm text-ink" title={`${company.name} on IGDB`}>
-                {company.name}
-              </span>
-              <CompanyChoice
-                company={company}
-                choice={choices[index]}
-                records={records}
-                onChange={(choice) => onChoicesChange(choices.map((c, i) => (i === index ? choice : c)))}
-              />
-            </li>
-          ))}
-        </ul>
+        <div className="flex flex-col gap-1.5">
+          {currentNames && (
+            <p className="flex text-sm">
+              <Replaced>{currentNames}</Replaced>
+            </p>
+          )}
+          <ul className="flex flex-col gap-1.5">
+            {companies.map((company, index) => {
+              const skipped = choices[index].kind === 'skip'
+              return (
+                <li key={company.igdb_company_id} className="flex items-center gap-3">
+                  <span
+                    className={[
+                      'min-w-0 flex-1 truncate text-sm transition-colors duration-150',
+                      skipped ? 'text-ink-faint line-through decoration-ink-faint' : 'text-ink',
+                    ].join(' ')}
+                    title={`${company.name} on IGDB`}
+                  >
+                    {company.name}
+                  </span>
+                  <CompanyChoice
+                    company={company}
+                    choice={choices[index]}
+                    records={records}
+                    onChange={(choice) => onChoicesChange(choices.map((c, i) => (i === index ? choice : c)))}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+        </div>
       )}
     </ConfirmSection>
   )
@@ -322,9 +419,10 @@ interface CompanyChoiceProps {
 }
 
 /**
- * Where one company goes: the record it was matched to, any other record of
- * the library, a new record, or nowhere. Searchable, since a library's
- * developers can run into the hundreds (see MultiSelectDropdown).
+ * Where one company goes: a record of the library (the one it was matched
+ * to comes first), a new record named as on IGDB, or nowhere. Searchable,
+ * since a library's developers can run into the hundreds (see
+ * MultiSelectDropdown).
  */
 function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProps) {
   const [open, setOpen] = useState(false)
@@ -342,10 +440,9 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  const match = company.match
+  const matchId = company.match?.id
   const foldedQuery = foldCase(query.trim())
-  // The match first, then the rest of the library in its own order.
-  const ordered = match ? [...records.filter((r) => r.id === match.id), ...records.filter((r) => r.id !== match.id)] : records
+  const ordered = [...records.filter((r) => r.id === matchId), ...records.filter((r) => r.id !== matchId)]
   const filtered = ordered.filter((record) => foldCase(record.name).includes(foldedQuery))
 
   function pick(next: Choice) {
@@ -354,29 +451,16 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
     setOpen(false)
   }
 
-  function badge(id: number) {
-    if (match?.id !== id) return null
-    return (
-      <span className="shrink-0 text-[10px] font-semibold tracking-wide text-accent uppercase">
-        {match.reason === 'linked' ? 'linked' : 'suggested'}
-      </span>
-    )
-  }
-
+  // The trigger never repeats the company's name, already on the left: it
+  // only says where it goes.
   let label: ReactNode
   if (choice.kind === 'existing') {
-    const record = records.find((r) => r.id === choice.id)
-    label = (
-      <>
-        <span className="truncate">{record?.name ?? match?.name}</span>
-        {badge(choice.id)}
-      </>
-    )
+    label = <span className="truncate">{records.find((r) => r.id === choice.id)?.name ?? company.match?.name}</span>
   } else if (choice.kind === 'create') {
     label = (
       <>
-        <span className="truncate">Create “{company.name}”</span>
-        <span className="shrink-0 text-[10px] font-semibold tracking-wide text-accent uppercase">new</span>
+        <PlusIcon className="size-3.5 shrink-0 text-accent" />
+        <span className="truncate">Create new</span>
       </>
     )
   } else {
@@ -387,7 +471,7 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
     next.kind === choice.kind && (next.kind !== 'existing' || (choice.kind === 'existing' && next.id === choice.id))
 
   return (
-    <div className="relative w-full shrink-0 sm:w-56" ref={containerRef}>
+    <div className="relative w-36 shrink-0 sm:w-52" ref={containerRef}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -398,7 +482,7 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 z-10 mt-1 w-full min-w-56 overflow-hidden rounded-control bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+        <div className="absolute top-full right-0 z-10 mt-1 w-56 animate-[gl-appear_100ms_ease-out] overflow-hidden rounded-control bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.18)] motion-reduce:animate-none">
           <input
             autoFocus
             value={query}
@@ -409,12 +493,12 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
           <div className="max-h-52 overflow-y-auto border-t border-line p-1">
             <ChoiceRow selected={isSelected({ kind: 'create' })} onClick={() => pick({ kind: 'create' })}>
               <PlusIcon className="size-3.5 shrink-0 text-accent" />
-              <span className="truncate text-accent">Create “{company.name}”</span>
+              <span className="truncate">Create “{company.name}”</span>
             </ChoiceRow>
             <ChoiceRow selected={isSelected({ kind: 'skip' })} onClick={() => pick({ kind: 'skip' })}>
               <span className="truncate">Skip</span>
             </ChoiceRow>
-            {filtered.length > 0 && <div className="my-1 border-t border-line" />}
+            {filtered.length > 0 && <div className="mx-1 my-1 border-t border-line" />}
             {filtered.map((record) => (
               <ChoiceRow
                 key={record.id}
@@ -422,7 +506,6 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
                 onClick={() => pick({ kind: 'existing', id: record.id })}
               >
                 <span className="truncate">{record.name}</span>
-                {badge(record.id)}
               </ChoiceRow>
             ))}
           </div>
@@ -432,15 +515,7 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
   )
 }
 
-function ChoiceRow({
-  selected,
-  onClick,
-  children,
-}: {
-  selected: boolean
-  onClick: () => void
-  children: ReactNode
-}) {
+function ChoiceRow({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
       type="button"

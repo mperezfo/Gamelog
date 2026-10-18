@@ -15,8 +15,9 @@ import { CoverImageField } from './CoverImageField'
 import { DateField } from './DateField'
 import { Field } from './Field'
 import { SparklesIcon, TrashIcon } from './icons'
-import { IdentifyPanel, type IdentifyResult } from './IdentifyPanel'
+import { IdentifyPanel, type IdentifyCurrent, type IdentifyResult } from './IdentifyPanel'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
+import { Reveal } from './Reveal'
 import { Notice } from './Notice'
 import { Select } from './Select'
 import { Textarea } from './Textarea'
@@ -91,8 +92,10 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const [pendingPublishers, setPendingPublishers] = useState<NewLookup[]>([])
   const [developerLinks, setDeveloperLinks] = useState<CompanyLink[]>([])
   const [publisherLinks, setPublisherLinks] = useState<CompanyLink[]>([])
-  // The title Identify is looking up, or null while its panel is closed.
+  // The title Identify is looking up, or null while its panel is not
+  // there. It outlives identifyOpen by the length of the closing animation.
   const [identifyTitle, setIdentifyTitle] = useState<string | null>(null)
+  const [identifyOpen, setIdentifyOpen] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const [initial] = useState(() => ({
@@ -134,13 +137,23 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     developerLinks.length > 0 ||
     publisherLinks.length > 0
 
-  // Identify only fills what is empty, never what was already set.
-  const identifyFill = {
-    releaseDate: releaseDate === '',
-    developers: developerIds.length === 0 && pendingDevelopers.length === 0,
-    publishers: publisherIds.length === 0 && pendingPublishers.length === 0,
+  // What Identify shows as about to be kept or replaced.
+  const identifyCurrent: IdentifyCurrent = {
+    releaseDate,
+    developers: [
+      ...(developers.data ?? []).filter((d) => developerIds.includes(d.id)).map((d) => d.name),
+      ...pendingDevelopers.map((d) => d.name),
+    ],
+    publishers: [
+      ...(publishers.data ?? []).filter((p) => publisherIds.includes(p.id)).map((p) => p.name),
+      ...pendingPublishers.map((p) => p.name),
+    ],
   }
-  const nothingToIdentify = !identifyFill.releaseDate && !identifyFill.developers && !identifyFill.publishers
+
+  function openIdentify() {
+    setIdentifyTitle(title.trim())
+    setIdentifyOpen(true)
+  }
 
   function applyIdentified(result: IdentifyResult) {
     if (result.releaseDate) setReleaseDate(result.releaseDate)
@@ -154,7 +167,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
       setPublisherLinks(result.publishers.links)
       setPendingPublishers(result.publishers.pending)
     }
-    setIdentifyTitle(null)
+    setIdentifyOpen(false)
   }
 
   // Titles must be unique — matched the same case/accent-insensitive way the
@@ -277,13 +290,9 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             <Button
               variant="ghost"
               className="shrink-0 px-2"
-              title={
-                nothingToIdentify
-                  ? 'Release date, developers and publishers are already set'
-                  : 'Fill in the release date, developers and publishers from IGDB'
-              }
-              disabled={!title.trim() || nothingToIdentify}
-              onClick={() => setIdentifyTitle(title.trim())}
+              title="Fill in the release date, developers and publishers from IGDB"
+              disabled={!title.trim()}
+              onClick={openIdentify}
             >
               <SparklesIcon />
               Identify
@@ -292,15 +301,23 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
         </div>
 
         {identifyTitle !== null && (
-          <IdentifyPanel
-            key={identifyTitle}
-            title={identifyTitle}
-            fill={identifyFill}
-            developers={developers.data ?? []}
-            publishers={publishers.data ?? []}
-            onApply={applyIdentified}
-            onClose={() => setIdentifyTitle(null)}
-          />
+          // The form's gap goes inside the animated height, so that closing
+          // ends exactly where the next field starts.
+          <div className="-mt-5">
+            <Reveal open={identifyOpen} onClosed={() => setIdentifyTitle(null)}>
+              <div className="pt-5">
+                <IdentifyPanel
+                  key={identifyTitle}
+                  title={identifyTitle}
+                  current={identifyCurrent}
+                  developers={developers.data ?? []}
+                  publishers={publishers.data ?? []}
+                  onApply={applyIdentified}
+                  onClose={() => setIdentifyOpen(false)}
+                />
+              </div>
+            </Reveal>
+          </div>
         )}
 
         {duplicateGame && (
