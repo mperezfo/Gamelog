@@ -37,7 +37,7 @@ services:
     environment:
       GAMELOG_DB_HOST: db
       GAMELOG_DB_PASSWORD: change-me
-      # GAMELOG_SECURE_COOKIE: 'true' # once served over HTTPS
+      # GAMELOG_SECURE_COOKIE: 'true' # if served over HTTPS
     ports:
       - "9999:9999"
     volumes:
