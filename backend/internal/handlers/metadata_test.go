@@ -117,7 +117,7 @@ func TestMetadataWithoutIGDB(t *testing.T) {
 	}
 
 	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/games?title=Celeste", nil),
-		http.StatusServiceUnavailable, "searching without IGDB credentials")
+		http.StatusNotImplemented, "searching without IGDB credentials")
 }
 
 func TestMetadataSearchMatchesCompanies(t *testing.T) {
@@ -189,10 +189,11 @@ func TestMetadataSearchMatchesCompanies(t *testing.T) {
 	expectMatch(t, found.Developers[1], insomniac, "linked")
 	expectMatch(t, found.Publishers[0], sony, "linked")
 
-	// IGDB failing is a 502, not a 500.
+	// IGDB failing is a 424: not a 500, since nothing is wrong here, and not
+	// a 502, which the frontend would take for the whole server being down.
 	searcher.err = errors.New("connection refused")
 	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/games?title=Celeste", nil),
-		http.StatusBadGateway, "searching while IGDB is down")
+		http.StatusFailedDependency, "searching while IGDB is down")
 }
 
 func TestGameWriteCreatesAndLinksCompanies(t *testing.T) {

@@ -74,9 +74,18 @@ type searchGameMetadataOutput struct {
 	}
 }
 
+// searchTimeout bounds a whole search, renewing the token included. It stays
+// under the frontend's own wait for an answer (see its api/client.ts), past
+// which the app takes the server itself for unreachable.
+const searchTimeout = 8 * time.Second
+
 // registerMetadata registers the lookups of game metadata on IGDB, behind the
 // game form's Identify button. games is nil when the deployment has no IGDB
-// credentials, in which case the capabilities say so and a search answers 503.
+// credentials, in which case the capabilities say so and a search answers 501.
+//
+// Neither failure answers 502 or 503, the statuses a gateway would use: the
+// frontend reads those, from any endpoint, as the server being unreachable
+// and switches to its offline mode, when only IGDB is.
 func registerMetadata(api huma.API, db *gorm.DB, games GameSearcher) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-metadata-capabilities",
@@ -103,20 +112,22 @@ func registerMetadata(api huma.API, db *gorm.DB, games GameSearcher) {
 			"caller's library it most likely is, to write back with a game's developer_ids, " +
 			"new_developers and developer_links (and their publisher equivalents).",
 		Tags:   []string{"Metadata"},
-		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusBadGateway, http.StatusServiceUnavailable},
+		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusFailedDependency, http.StatusNotImplemented},
 	}, func(ctx context.Context, input *searchGameMetadataInput) (*searchGameMetadataOutput, error) {
 		if games == nil {
-			return nil, huma.Error503ServiceUnavailable("IGDB is not configured on this deployment")
+			return nil, huma.NewError(http.StatusNotImplemented, "IGDB is not configured on this deployment")
 		}
 		user, err := currentUser(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		results, err := games.Search(ctx, strings.TrimSpace(input.Title))
+		searchCtx, cancel := context.WithTimeout(ctx, searchTimeout)
+		defer cancel()
+		results, err := games.Search(searchCtx, strings.TrimSpace(input.Title))
 		if err != nil {
 			slog.Warn("searching IGDB failed", "error", err)
-			return nil, huma.Error502BadGateway("IGDB could not be reached, or did not answer")
+			return nil, huma.NewError(http.StatusFailedDependency, "IGDB could not be reached, or did not answer")
 		}
 
 		developers, err := newCompanyMatcher[models.Developer](ctx, db, user.ID)
