@@ -122,8 +122,13 @@ export function MultiSelectDropdown({
             title="Created when the game is saved"
             className="inline-flex items-center gap-1 rounded-[4px] bg-hover px-1.5 py-0.5 text-xs font-medium text-ink"
           >
-            {item.name}
-            <span className="text-[10px] font-semibold tracking-wide text-accent uppercase">new</span>
+            {/* Baseline rather than centre: small capitals centred on a line
+                of lower-case text sit visibly high, while on its baseline
+                they line up with the name's x-height. */}
+            <span className="inline-flex items-baseline gap-1">
+              {item.name}
+              <span className="text-[10px] leading-none font-semibold tracking-wide text-accent uppercase">new</span>
+            </span>
             <span
               role="button"
               tabIndex={-1}
