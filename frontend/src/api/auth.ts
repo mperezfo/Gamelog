@@ -1,4 +1,4 @@
-import type { DateFormat, GamesView, SetupStatus, Theme, User } from '../types/auth'
+import type { Preferences, SetupStatus, User } from '../types/auth'
 import { ApiError, apiFetch, apiSend } from './client'
 
 /**
@@ -38,8 +38,8 @@ export function updateProfile(name: string, avatarUrl: string | null): Promise<U
   return apiSend<User>('/auth/profile', 'PUT', { name, avatar_url: avatarUrl })
 }
 
-export function updatePreferences(theme: Theme, dateFormat: DateFormat, gamesView: GamesView): Promise<User> {
-  return apiSend<User>('/auth/preferences', 'PUT', { theme, date_format: dateFormat, games_view: gamesView })
+export function updatePreferences(preferences: Preferences): Promise<User> {
+  return apiSend<User>('/auth/preferences', 'PUT', preferences)
 }
 
 export function getSetupStatus(): Promise<SetupStatus> {

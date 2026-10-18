@@ -33,6 +33,9 @@ export interface User {
   updated_at: string
 }
 
+/** The display preferences `PUT /api/auth/preferences` replaces, all at once. */
+export type Preferences = Pick<User, 'theme' | 'date_format' | 'games_view'>
+
 /** Response of `GET /api/setup`. */
 export interface SetupStatus {
   /** Whether the deployment still has no accounts at all. */

@@ -61,26 +61,14 @@ export function Account() {
               <Select
                 label="Date format"
                 value={user.date_format}
-                onChange={(dateFormat) =>
-                  updatePreferences.mutate({
-                    theme: user.theme,
-                    dateFormat,
-                    gamesView: user.games_view,
-                  })
-                }
+                onChange={(dateFormat) => updatePreferences.mutate({ date_format: dateFormat })}
                 options={DATE_FORMAT_OPTIONS}
                 className="w-auto"
               />
               <Select
                 label="Default Games view"
                 value={user.games_view}
-                onChange={(gamesView) =>
-                  updatePreferences.mutate({
-                    theme: user.theme,
-                    dateFormat: user.date_format,
-                    gamesView,
-                  })
-                }
+                onChange={(gamesView) => updatePreferences.mutate({ games_view: gamesView })}
                 options={GAMES_VIEW_OPTIONS}
                 className="w-auto"
               />

@@ -35,8 +35,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   function changeTheme(next: Theme) {
     setTheme(next)
-    const user = session.data
-    if (user) updatePreferences.mutate({ theme: next, dateFormat: user.date_format, gamesView: user.games_view })
+    if (session.data) updatePreferences.mutate({ theme: next })
   }
 
   return <ThemeContext value={{ theme, setTheme: changeTheme }}>{children}</ThemeContext>
