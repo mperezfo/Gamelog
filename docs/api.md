@@ -59,13 +59,20 @@ GET    /api/export                          the library as one JSON document
 POST   /api/import?mode=&dry_run=           loads one back in
 GET    /api/backup                          the whole account as a .zip
 POST   /api/backup                          restores one
+
+GET    /api/metadata/capabilities           which metadata lookups this deployment offers
+GET    /api/metadata/games?title=           looks a game up on IGDB
 ```
 
 `/api/docs` is the authoritative list, with every parameter and schema.
 
 Listing the games of a genre, a developer, a publisher or a platform is a filter on `GET /api/games` rather than a nested route, since the listing already has to support the same joins.
 
-A game is written with its relations as ids (`platform_id`, `genre_ids`, `developer_ids`, `publisher_ids`) and read back with them loaded, so saving a game can never create or rename a genre. `PUT` replaces the whole record: anything left out of the body is cleared.
+A game is written with its relations as ids (`platform_id`, `genre_ids`, `developer_ids`, `publisher_ids`) and read back with them loaded, so saving a game can never create or rename a genre by accident. `PUT` replaces the whole record: anything left out of the body is cleared.
+
+The one way a game write creates records is on request: `new_developers` and `new_publishers` name developers and publishers to attach, created if the library does not have them yet, and `developer_links` and `publisher_links` tie existing ones to the IGDB company each stands for. All of it is written in the same transaction as the game, so a write that fails, or a form that is abandoned, leaves nothing behind.
+
+`GET /api/metadata/games` searches IGDB by title and answers with the candidate games, their release date, developers and publishers. Each developer and publisher comes with the record of your library it most likely is: the one already linked to that IGDB company, or a guess from the name, which the game form shows as a suggestion to confirm. It needs IGDB credentials (see [Self-hosting](self-hosting.md#game-metadata-igdb)): without them it answers `501`, and `GET /api/metadata/capabilities` reports `identify: false`. When IGDB itself fails, the answer is `424`.
 
 An uploaded image is stored as what its bytes say it is, whatever the file was called. `POST /api/images` accepts PNG, JPEG, WebP, GIF and AVIF, and converts AVIF to JPEG (or PNG, when it has transparency), so the URL it answers with can end in a different extension from the file sent.
 

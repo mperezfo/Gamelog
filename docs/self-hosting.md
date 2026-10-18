@@ -184,9 +184,25 @@ Everything is configured through environment variables. Every variable has a def
 | `GAMELOG_IMAGES_DIR` | `/data/images` in the image | Where uploaded images are stored, content-addressed by the sha256 of their bytes |
 | `GAMELOG_MIGRATE` | `true` | Apply pending migrations at startup. Set to `false` to control when the schema changes yourself |
 | `GAMELOG_DOCS` | `true` | Serve the interactive API documentation at `/api/docs` |
+| `GAMELOG_IGDB_CLIENT_ID` | — | Client ID of a Twitch application, for looking games up on IGDB. See [Game metadata](#game-metadata-igdb) |
+| `GAMELOG_IGDB_CLIENT_SECRET` | — | Its client secret. Set both or neither |
 | `GAMELOG_PORT` | `8080` | Backend port. Inside the image it is an internal detail between Caddy and the backend: the container's public port is always 9999 |
 
 The defaults are local development credentials. Change them before deploying anywhere, even behind Tailscale.
+
+## Game metadata (IGDB)
+
+The game form's **Identify** button looks the title up on [IGDB](https://www.igdb.com) and fills in the release date, developers and publishers that are still empty. It is optional and off by default: it only appears once the deployment has IGDB credentials.
+
+IGDB is run by Twitch and authenticates through a Twitch application:
+
+1. Sign in to the [Twitch developer console](https://dev.twitch.tv/console) with a Twitch account. Twitch asks for two-factor authentication to be turned on first.
+2. Register an application. Any name will do; `http://localhost` is fine as the OAuth redirect URL, since it is never used; pick the *Confidential* client type.
+3. Copy its **Client ID**, generate a **Client Secret**, and set them as `GAMELOG_IGDB_CLIENT_ID` and `GAMELOG_IGDB_CLIENT_SECRET`.
+
+The backend exchanges them for an access token on its own and renews it when it runs out, so there is nothing else to maintain. One application serves every account of the deployment, and the server needs outbound access to `id.twitch.tv` and `api.igdb.com`. The covers shown next to each result are loaded by the browser straight from `images.igdb.com`, only to tell the results apart: nothing from IGDB is stored but the fields you apply.
+
+When a developer or publisher is applied, Gamelog remembers which IGDB company it stands for, so the next game from the same company is recognised outright instead of guessed from its name. Several IGDB companies can point at the same record, which is how "Sony Computer Entertainment" and "Sony Interactive Entertainment" can both be your "Sony". These links travel with an [export](import-export.md) and a backup.
 
 ## Accounts
 
