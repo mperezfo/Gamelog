@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { useGames } from '../hooks/useGames'
-import { useOffline } from '../hooks/useOffline'
+import { useOffline, useOfflineSimulated } from '../hooks/useOffline'
 import { CloudOffIcon } from './icons'
 
 const RELATIVE = new Intl.RelativeTimeFormat('en', { numeric: 'auto' })
@@ -36,6 +36,7 @@ function useCopyAge() {
  * how old what is shown instead is, for as long as it cannot. */
 export function OfflineBanner() {
   const offline = useOffline()
+  const simulated = useOfflineSimulated()
   const age = useCopyAge()
   if (!offline) return null
 
@@ -46,7 +47,7 @@ export function OfflineBanner() {
     >
       <CloudOffIcon className="size-3.5 shrink-0" />
       <span className="truncate">
-        <span className="font-medium">Offline</span>
+        <span className="font-medium">{simulated ? 'Offline (simulated)' : 'Offline'}</span>
         <span className="opacity-80"> · read-only copy from this device</span>
         {age && (
           <span className="opacity-60">

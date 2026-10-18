@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
-import { isOffline, subscribeConnectivity } from '../lib/connectivity'
+import { isOffline, isOfflineSimulated, subscribeConnectivity } from '../lib/connectivity'
 import { useHealth } from './useHealth'
 
 /**
@@ -11,6 +11,12 @@ import { useHealth } from './useHealth'
  */
 export function useOffline(): boolean {
   return useSyncExternalStore(subscribeConnectivity, isOffline)
+}
+
+/** Development only: whether the offline mode is being simulated, so what
+ * shows it can say so. Always false in a production build. */
+export function useOfflineSimulated(): boolean {
+  return useSyncExternalStore(subscribeConnectivity, isOfflineSimulated)
 }
 
 /** Mounted once, at the top of the app: keeps asking the server while it

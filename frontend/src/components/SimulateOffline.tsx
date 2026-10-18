@@ -1,12 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useSyncExternalStore } from 'react'
 
-import { isOfflineSimulated, setOfflineSimulated, subscribeConnectivity } from '../lib/connectivity'
+import { useOfflineSimulated } from '../hooks/useOffline'
+import { setOfflineSimulated } from '../lib/connectivity'
 
 /** Development only: makes every request fail as if the server were gone,
  * to try the offline mode without stopping the backend. */
 export function SimulateOffline() {
-  const simulated = useSyncExternalStore(subscribeConnectivity, isOfflineSimulated)
+  const simulated = useOfflineSimulated()
   const queryClient = useQueryClient()
 
   return (
