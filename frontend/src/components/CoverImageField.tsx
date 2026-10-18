@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type P
 
 import { uploadImage } from '../api/images'
 import { errorMessage } from '../api/client'
+import { coverFitStyle, cropSize } from '../lib/cover'
 import { Button } from './Button'
 import { CoverImage } from './CoverImage'
 import { ImageIcon, TrashIcon } from './icons'
@@ -27,9 +28,6 @@ interface CoverImageFieldProps {
 const MIN_ZOOM = 1
 const MAX_ZOOM = 3
 
-/** Portrait cards crop with this aspect ratio — see GameCoverCard. */
-const PORTRAIT_ASPECT = 3 / 4
-
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
@@ -48,17 +46,6 @@ function containGeometry(container: { width: number; height: number }, natural: 
   const renderedHeight = container.height
   const renderedWidth = container.height * imgAspect
   return { renderedWidth, renderedHeight, offsetX: (container.width - renderedWidth) / 2, offsetY: 0 }
-}
-
-/** The portrait crop window, in image pixels: the largest 3:4 box that fits
- * inside the image, since that's what `object-fit: cover` crops down to. */
-function cropSize(natural: { w: number; h: number }) {
-  if (natural.w / natural.h > PORTRAIT_ASPECT) {
-    const height = natural.h
-    return { width: height * PORTRAIT_ASPECT, height }
-  }
-  const width = natural.w
-  return { width, height: width / PORTRAIT_ASPECT }
 }
 
 /**
@@ -128,6 +115,30 @@ export function CoverImageField({
   // device) is dropped rather than left as a broken image over its
   // thumbnail.
   const [failedCover, setFailedCover] = useState<string | null>(null)
+  // The saved crop is applied to the banner below, which needs the shapes
+  // of both the cover and the banner. The cover's comes from the thumbnail
+  // or the original, whichever loads first, so the crop is in place from
+  // the start rather than jumping there once the original arrives.
+  const [coverAspect, setCoverAspect] = useState<{ url: string; aspect: number } | null>(null)
+  const [boxAspect, setBoxAspect] = useState<number | null>(null)
+
+  function readCoverAspect(image: HTMLImageElement) {
+    setCoverAspect({ url: value, aspect: image.naturalWidth / image.naturalHeight })
+  }
+
+  // Rerun on leaving the crop editor, which unmounts the banner.
+  useEffect(() => {
+    const box = coverBoxRef.current
+    if (!box) return
+    const observer = new ResizeObserver(() => setBoxAspect(box.clientWidth / box.clientHeight))
+    observer.observe(box)
+    return () => observer.disconnect()
+  }, [cropping])
+
+  const coverStyle =
+    coverAspect?.url === value && boxAspect
+      ? coverFitStyle({ cover_focal_x: focalX, cover_focal_y: focalY, cover_zoom: zoom }, coverAspect.aspect, boxAspect)
+      : undefined
 
   async function handleFile(file: File | undefined) {
     if (!file) return
@@ -371,9 +382,11 @@ export function CoverImageField({
                     size="md"
                     className="size-full"
                     imageClassName="object-top select-none"
+                    style={coverStyle}
                     iconClassName="size-6"
                     lazy={false}
                     overlay={false}
+                    onLoad={readCoverAspect}
                   />
                 </div>
               )}
@@ -385,12 +398,14 @@ export function CoverImageField({
                   draggable={false}
                   onLoad={(event) => {
                     setCoverNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })
+                    readCoverAspect(event.currentTarget)
                     setLoadedCover(value)
                   }}
                   onError={() => setFailedCover(value)}
                   // A pixel larger than the box on every side, as CoverImage
                   // draws it: some covers carry a thin frame of their own.
                   className="absolute -top-px -left-px h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none object-cover object-top select-none"
+                  style={coverStyle}
                 />
               )}
               {coverNatural && (
