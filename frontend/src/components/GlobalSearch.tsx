@@ -96,6 +96,7 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
         value={query}
         placeholder="Search games…"
         aria-label="Search games"
+        aria-keyshortcuts="f"
         onChange={(event) => {
           setQuery(event.target.value)
           setActiveIndex(0)
@@ -108,12 +109,25 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
         }}
         onKeyDown={handleKeyDown}
         className={[
-          'h-8 w-full rounded-control bg-sunken pl-7 text-sm text-ink',
-          query ? 'pr-7' : 'pr-2.5',
+          'peer h-8 w-full rounded-control bg-sunken pl-7 text-sm text-ink',
+          query ? 'pr-7' : 'pr-2.5 sm:pr-8',
           'placeholder:text-ink-faint outline-none transition-colors duration-75',
           'focus-visible:ring-2 focus-visible:ring-accent/40',
         ].join(' ')}
       />
+
+      {/* Advertises the "f" shortcut on desktop, where there is a keyboard
+          to press it with, and steps aside once the box has focus or the
+          clear button needs the spot. It sits 7px from the top so that,
+          counting its 1px bottom edge, it is centred on whole pixels. */}
+      {!query && (
+        <kbd
+          aria-hidden="true"
+          className="pointer-events-none absolute top-[7px] right-2 hidden h-[17px] min-w-[17px] items-center justify-center rounded-control border border-line px-1 font-sans text-[10.5px] leading-none font-normal text-ink-faint shadow-[0_1px_0_var(--color-line)] transition-opacity duration-100 peer-focus:opacity-0 sm:flex"
+        >
+          F
+        </kbd>
+      )}
 
       {query && (
         <button
