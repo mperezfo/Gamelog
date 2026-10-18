@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"errors"
+	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/mperezfo/gamelog/internal/models"
@@ -116,4 +118,31 @@ func (r *LookupRepository[T]) LinkIGDBCompanies(ctx context.Context, links []Com
 		values...,
 	).Error
 	return translate(err)
+}
+
+// attachIGDBCompanies fills in IGDBCompanyIDs on developers and publishers,
+// sorted, so that a read hands back the links along with the records. It
+// does nothing for genres and platforms, which have none.
+func (r *LookupRepository[T]) attachIGDBCompanies(ctx context.Context, entities []T) error {
+	if _, _, ok := igdbLinkTable[T](); !ok || len(entities) == 0 {
+		return nil
+	}
+
+	links, err := r.IGDBCompanies(ctx)
+	if err != nil {
+		return err
+	}
+	byRecord := make(map[uint64][]uint64)
+	for company, record := range links {
+		byRecord[record] = append(byRecord[record], company)
+	}
+
+	for i := range entities {
+		companies := byRecord[idOf(&entities[i])]
+		slices.Sort(companies)
+		// The same reflection as nameOf and friends in lookup.go: only the
+		// two types igdbLinkTable accepts have the field.
+		reflect.ValueOf(&entities[i]).Elem().FieldByName("IGDBCompanyIDs").Set(reflect.ValueOf(companies))
+	}
+	return nil
 }

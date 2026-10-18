@@ -64,7 +64,11 @@ func (r *LookupRepository[T]) Get(ctx context.Context, id uint64) (*T, error) {
 	if err := r.scoped(ctx).First(&entity, id).Error; err != nil {
 		return nil, translate(err)
 	}
-	return &entity, nil
+	found := []T{entity}
+	if err := r.attachIGDBCompanies(ctx, found); err != nil {
+		return nil, err
+	}
+	return &found[0], nil
 }
 
 // List returns every entity the owner has, ordered by name.
@@ -72,6 +76,9 @@ func (r *LookupRepository[T]) List(ctx context.Context) ([]T, error) {
 	var entities []T
 	if err := r.scoped(ctx).Order("name").Find(&entities).Error; err != nil {
 		return nil, translate(err)
+	}
+	if err := r.attachIGDBCompanies(ctx, entities); err != nil {
+		return nil, err
 	}
 	return entities, nil
 }

@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"slices"
 	"time"
 
 	"gorm.io/gorm"
@@ -47,21 +46,13 @@ func (e *Exporter) Export(ctx context.Context) (*Document, error) {
 	}); err != nil {
 		return nil, err
 	}
-	developerLinks, err := igdbCompaniesByRecord[models.Developer](ctx, e.db, e.userID)
-	if err != nil {
-		return nil, err
-	}
 	if document.Developers, err = exportLookups(ctx, e.db, e.userID, func(d models.Developer) LookupEntry {
-		return LookupEntry{Name: d.Name, Icon: d.Icon, IGDBCompanyIDs: developerLinks[d.ID]}
+		return LookupEntry{Name: d.Name, Icon: d.Icon, IGDBCompanyIDs: d.IGDBCompanyIDs}
 	}); err != nil {
 		return nil, err
 	}
-	publisherLinks, err := igdbCompaniesByRecord[models.Publisher](ctx, e.db, e.userID)
-	if err != nil {
-		return nil, err
-	}
 	if document.Publishers, err = exportLookups(ctx, e.db, e.userID, func(p models.Publisher) LookupEntry {
-		return LookupEntry{Name: p.Name, Icon: p.Icon, IGDBCompanyIDs: publisherLinks[p.ID]}
+		return LookupEntry{Name: p.Name, Icon: p.Icon, IGDBCompanyIDs: p.IGDBCompanyIDs}
 	}); err != nil {
 		return nil, err
 	}
@@ -92,25 +83,6 @@ func exportLookups[T repository.Lookup](ctx context.Context, db *gorm.DB, userID
 		entries = append(entries, entry(record))
 	}
 	return entries, nil
-}
-
-// igdbCompaniesByRecord reads the IGDB company links of developers or
-// publishers, grouped by the record they point at and sorted, so that the same
-// library always exports the same file.
-func igdbCompaniesByRecord[T repository.Lookup](ctx context.Context, db *gorm.DB, userID uint64) (map[uint64][]uint64, error) {
-	links, err := repository.NewLookupRepository[T](db, userID).IGDBCompanies(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	byRecord := make(map[uint64][]uint64)
-	for company, record := range links {
-		byRecord[record] = append(byRecord[record], company)
-	}
-	for _, companies := range byRecord {
-		slices.Sort(companies)
-	}
-	return byRecord, nil
 }
 
 // exportGame writes one game, naming its relations instead of numbering them.

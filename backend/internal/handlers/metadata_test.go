@@ -268,6 +268,25 @@ func TestGameWriteCreatesAndLinksCompanies(t *testing.T) {
 	found := searchMetadata(t, alice).Candidates[0]
 	expectMatch(t, found.Publishers[0], sie, "linked")
 
+	// A listing carries the links too, for the lookup pages to show.
+	rec = request(t, alice, http.MethodGet, "/api/publishers", nil)
+	expectStatus(t, rec, http.StatusOK, "listing publishers")
+	var listed []models.Publisher
+	decode(t, rec, &listed)
+	for _, publisher := range listed {
+		want := map[uint64][]uint64{sie: {10100}}[publisher.ID]
+		if len(publisher.IGDBCompanyIDs) != len(want) || (len(want) > 0 && publisher.IGDBCompanyIDs[0] != want[0]) {
+			t.Errorf("%s lists igdb_company_ids %v, want %v", publisher.Name, publisher.IGDBCompanyIDs, want)
+		}
+	}
+	rec = request(t, alice, http.MethodGet, itemPath("/api/publishers", sie), nil)
+	expectStatus(t, rec, http.StatusOK, "reading a publisher")
+	var read models.Publisher
+	decode(t, rec, &read)
+	if len(read.IGDBCompanyIDs) != 1 || read.IGDBCompanyIDs[0] != 10100 {
+		t.Errorf("SIE reads with igdb_company_ids %v, want [10100]", read.IGDBCompanyIDs)
+	}
+
 	// Another account's record cannot be linked.
 	rec = request(t, bob, http.MethodPost, "/api/games", map[string]any{
 		"title":           "Hollow Knight",
