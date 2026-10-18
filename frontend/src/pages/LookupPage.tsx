@@ -300,7 +300,7 @@ function LookupForm({
         ) : (
           <Field
             label="Icon"
-            placeholder="🗺️"
+            placeholder="None"
             value={icon}
             onChange={(event) => setIcon(event.target.value)}
             className="w-16"
