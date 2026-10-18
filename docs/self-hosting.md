@@ -192,7 +192,7 @@ The defaults are local development credentials. Change them before deploying any
 
 ## Game metadata (IGDB)
 
-The game form's **Identify** button looks the title up on [IGDB](https://www.igdb.com) and fills in the release date, developers and publishers. An empty field is filled in by default, and one already set is only replaced if you say so. It is optional and off by default: it only appears once the deployment has IGDB credentials.
+The game form's **Identify** button looks the title up on [IGDB](https://www.igdb.com) and fills in the title, release date, developers and publishers. An empty field is filled in by default, and one already set is only replaced if you say so. It is optional and off by default: it only appears once the deployment has IGDB credentials.
 
 IGDB is run by Twitch and authenticates through a Twitch application:
 

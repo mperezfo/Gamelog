@@ -139,6 +139,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
 
   // What Identify shows as about to be kept or replaced.
   const identifyCurrent: IdentifyCurrent = {
+    title,
     releaseDate,
     developers: [
       ...(developers.data ?? []).filter((d) => developerIds.includes(d.id)).map((d) => d.name),
@@ -179,6 +180,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     identifiedRef.current = null
     if (!result) return
 
+    if (result.title) setTitle(result.title)
     if (result.releaseDate) setReleaseDate(result.releaseDate)
     if (result.developers) {
       setDeveloperIds(result.developers.ids)
@@ -319,7 +321,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             <Button
               variant="ghost"
               className="shrink-0 px-2"
-              title="Fill in the release date, developers and publishers from IGDB"
+              title="Fill in the title, release date, developers and publishers from IGDB"
               disabled={!title.trim()}
               onClick={openIdentify}
             >

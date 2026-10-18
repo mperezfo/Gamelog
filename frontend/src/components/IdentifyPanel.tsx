@@ -16,6 +16,7 @@ import { Switch } from './Switch'
 
 /** What the form holds right now for the fields Identify can set. */
 export interface IdentifyCurrent {
+  title: string
   /** yyyy-mm-dd, or empty. */
   releaseDate: string
   /** Names of the developers and publishers on the form, pending ones
@@ -35,6 +36,7 @@ export interface CompanyResolution {
 /** What Apply hands back to the form: every field present replaces what the
  * form holds, and every field left out is kept. */
 export interface IdentifyResult {
+  title?: string
   /** yyyy-mm-dd, the form's own date shape. */
   releaseDate?: string
   developers?: CompanyResolution
@@ -67,13 +69,19 @@ export function IdentifyPanel({ title, current, developers, publishers, onApply,
     <div className="flex flex-col gap-3 rounded-control bg-sunken p-3">
       <div className="flex h-6 items-center justify-between gap-2">
         {picked ? (
+          // The picked game, which is also the way back to the others: the
+          // title section below may well show the game's own title instead.
           <button
             type="button"
             onClick={() => setPicked(null)}
-            className="-ml-1 inline-flex items-center gap-1 rounded-control px-1 text-[13px] font-medium text-ink-muted hover:text-ink"
+            title="Back to the results"
+            className="-ml-1 inline-flex min-w-0 items-center gap-1 rounded-control px-1 text-[13px] font-medium text-ink-muted hover:text-ink"
           >
-            <ChevronLeftIcon className="size-3.5" />
-            Results
+            <ChevronLeftIcon className="size-3.5 shrink-0" />
+            <span className="truncate">
+              {picked.name}
+              {releaseYear(picked) && <span className="font-normal text-ink-faint"> ({releaseYear(picked)})</span>}
+            </span>
           </button>
         ) : (
           <span className="min-w-0 truncate text-[13px] font-medium text-ink-muted">IGDB results for “{title}”</span>
@@ -236,6 +244,12 @@ function IdentifyConfirm({ candidate, current, developers, publishers, onApply, 
   const [developerChoices, setDeveloperChoices] = useState(() => candidate.developers.map(defaultChoice))
   const [publisherChoices, setPublisherChoices] = useState(() => candidate.publishers.map(defaultChoice))
 
+  const igdbTitle = candidate.name.trim()
+  const currentTitle = current.title.trim()
+  // The form never has an empty title by the time Identify runs, so the
+  // title is only ever replaced on request.
+  const [applyTitle, setApplyTitle] = useState(false)
+
   const igdbDate = candidate.release_date?.slice(0, 10) ?? ''
   const [applyDate, setApplyDate] = useState(current.releaseDate === '')
   const [applyDevelopers, setApplyDevelopers] = useState(current.developers.length === 0)
@@ -245,21 +259,28 @@ function IdentifyConfirm({ candidate, current, developers, publishers, onApply, 
   const publisherResolution = resolve(candidate.publishers, publisherChoices)
 
   const result: IdentifyResult = {}
+  if (applyTitle && igdbTitle && igdbTitle !== currentTitle) result.title = igdbTitle
   if (applyDate && igdbDate && igdbDate !== current.releaseDate) result.releaseDate = igdbDate
   // Skipping every company applies nothing, rather than clearing the field.
   if (applyDevelopers && !isEmpty(developerResolution)) result.developers = developerResolution
   if (applyPublishers && !isEmpty(publisherResolution)) result.publishers = publisherResolution
   const changesSomething = Object.keys(result).length > 0
 
-  const year = releaseYear(candidate)
   const date = (value: string) => formatDate(value, dateFormat)
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="truncate text-sm font-medium text-ink">
-        {candidate.name}
-        {year && <span className="font-normal text-ink-faint"> ({year})</span>}
-      </p>
+      <ConfirmSection
+        label="Title"
+        // Nothing to decide when it is the same title already.
+        toggle={igdbTitle !== currentTitle ? { checked: applyTitle, onChange: setApplyTitle } : undefined}
+        kept={currentTitle}
+      >
+        <p className="flex min-w-0 items-baseline gap-2 text-sm text-ink">
+          {igdbTitle !== currentTitle && <Replaced>{currentTitle}</Replaced>}
+          <span className="min-w-0 truncate">{igdbTitle}</span>
+        </p>
+      </ConfirmSection>
 
       <ConfirmSection
         label="Release date"
