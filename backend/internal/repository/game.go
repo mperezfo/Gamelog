@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -40,10 +42,25 @@ func (r *GameRepository) scoped(ctx context.Context) *gorm.DB {
 // Relations are passed as ids rather than as populated structs on purpose: it
 // makes it impossible to accidentally create or rename a genre while saving a
 // game, which is what GORM would do with a fully populated association.
+//
+// The one way a game write does create a record is on request, through
+// NewDevelopers and NewPublishers: a name the game is to carry that the
+// library may not have yet. They are created in the same transaction as the
+// game, so a write that fails leaves nothing behind.
 type GameRelations struct {
 	GenreIDs     []uint64
 	DeveloperIDs []uint64
 	PublisherIDs []uint64
+
+	// NewDevelopers and NewPublishers are found by name, or created, and
+	// attached on top of DeveloperIDs and PublisherIDs.
+	NewDevelopers []NewLookup
+	NewPublishers []NewLookup
+
+	// DeveloperLinks and PublisherLinks tie existing records to the IGDB
+	// company they stand for, written along with the game.
+	DeveloperLinks []CompanyLink
+	PublisherLinks []CompanyLink
 }
 
 // GameFilter narrows down a listing. A nil field means "no filter".
@@ -106,6 +123,10 @@ func (r *GameRepository) Create(ctx context.Context, game *models.Game, rel Game
 	game.UserID = &owner
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		rel, err := r.resolveNewLookups(ctx, tx, rel)
+		if err != nil {
+			return err
+		}
 		if err := r.checkOwnership(tx, game.PlatformID, rel); err != nil {
 			return err
 		}
@@ -120,7 +141,10 @@ func (r *GameRepository) Create(ctx context.Context, game *models.Game, rel Game
 		if err := tx.Omit("Genres", "Developers", "Publishers", "Platform").Create(game).Error; err != nil {
 			return err
 		}
-		return replaceRelations(tx, game.ID, rel)
+		if err := replaceRelations(tx, game.ID, rel); err != nil {
+			return err
+		}
+		return r.linkCompanies(ctx, tx, rel)
 	})
 	return translate(err)
 }
@@ -270,6 +294,10 @@ func (r *GameRepository) BackfillSlugs(ctx context.Context) (int, error) {
 // Update overwrites a game and replaces its relations, in a transaction.
 func (r *GameRepository) Update(ctx context.Context, game *models.Game, rel GameRelations) error {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		rel, err := r.resolveNewLookups(ctx, tx, rel)
+		if err != nil {
+			return err
+		}
 		if err := r.checkOwnership(tx, game.PlatformID, rel); err != nil {
 			return err
 		}
@@ -294,7 +322,10 @@ func (r *GameRepository) Update(ctx context.Context, game *models.Game, rel Game
 		if result.RowsAffected == 0 {
 			return ErrNotFound
 		}
-		return replaceRelations(tx, game.ID, rel)
+		if err := replaceRelations(tx, game.ID, rel); err != nil {
+			return err
+		}
+		return r.linkCompanies(ctx, tx, rel)
 	})
 	return translate(err)
 }
@@ -401,6 +432,61 @@ func (r *GameRepository) filtered(ctx context.Context, filter GameFilter) (*gorm
 	}
 
 	return query, nil
+}
+
+// resolveNewLookups finds or creates the developers and publishers rel names
+// rather than numbers, adds them to the ids the game is attached to, and
+// turns the IGDB company each one stands for into a link for linkCompanies
+// to write.
+func (r *GameRepository) resolveNewLookups(ctx context.Context, tx *gorm.DB, rel GameRelations) (GameRelations, error) {
+	var err error
+	rel.DeveloperIDs, rel.DeveloperLinks, err = findOrCreateLookups[models.Developer](
+		ctx, tx, r.userID, rel.NewDevelopers, rel.DeveloperIDs, rel.DeveloperLinks)
+	if err != nil {
+		return rel, err
+	}
+	rel.PublisherIDs, rel.PublisherLinks, err = findOrCreateLookups[models.Publisher](
+		ctx, tx, r.userID, rel.NewPublishers, rel.PublisherIDs, rel.PublisherLinks)
+	return rel, err
+}
+
+// findOrCreateLookups resolves one entity's new records into ids, appended to
+// ids, and into links, appended to links. Neither slice is modified in place:
+// both belong to the caller.
+func findOrCreateLookups[T Lookup](
+	ctx context.Context,
+	tx *gorm.DB,
+	userID uint64,
+	news []NewLookup,
+	ids []uint64,
+	links []CompanyLink,
+) ([]uint64, []CompanyLink, error) {
+	if len(news) == 0 {
+		return ids, links, nil
+	}
+
+	ids = slices.Clone(ids)
+	links = slices.Clone(links)
+	repo := NewLookupRepository[T](tx, userID)
+	for _, record := range news {
+		id, err := repo.FindOrCreate(ctx, strings.TrimSpace(record.Name))
+		if err != nil {
+			return nil, nil, err
+		}
+		ids = append(ids, id)
+		if record.IGDBCompanyID != nil {
+			links = append(links, CompanyLink{ID: id, IGDBCompanyID: *record.IGDBCompanyID})
+		}
+	}
+	return ids, links, nil
+}
+
+// linkCompanies writes the IGDB company links a game write carries.
+func (r *GameRepository) linkCompanies(ctx context.Context, tx *gorm.DB, rel GameRelations) error {
+	if err := NewLookupRepository[models.Developer](tx, r.userID).LinkIGDBCompanies(ctx, rel.DeveloperLinks); err != nil {
+		return err
+	}
+	return NewLookupRepository[models.Publisher](tx, r.userID).LinkIGDBCompanies(ctx, rel.PublisherLinks)
 }
 
 // replaceRelations rewrites the join-table rows for one game.

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -155,9 +156,9 @@ func (r *LookupRepository[T]) BackfillSlugs(ctx context.Context) (int, error) {
 	return count, translate(err)
 }
 
-// nameOf, idOf, setSlug and setUserID reach into the few fields Create and
-// Update need from a type they only know as a member of the Lookup type set,
-// which — being a union of plain structs rather than a method interface —
+// nameOf, idOf, setName, setSlug and setUserID reach into the few fields the
+// methods in this file need from a type they only know as a member of the
+// Lookup type set, which — being a union of plain structs rather than a method interface —
 // gives no other way to read or write a field generically. All four share
 // every one of these field names, so this is safe.
 func nameOf[T any](entity *T) string {
@@ -166,6 +167,10 @@ func nameOf[T any](entity *T) string {
 
 func idOf[T any](entity *T) uint64 {
 	return reflect.ValueOf(entity).Elem().FieldByName("ID").Uint()
+}
+
+func setName[T any](entity *T, value string) {
+	reflect.ValueOf(entity).Elem().FieldByName("Name").SetString(value)
 }
 
 func setSlug[T any](entity *T, value string) {
@@ -264,6 +269,26 @@ func (r *LookupRepository[T]) FindByName(ctx context.Context, name string) (*T, 
 		return nil, translate(err)
 	}
 	return &entity, nil
+}
+
+// FindOrCreate returns the id of the owner's record with that name, creating
+// it first when there is none. The name is matched the same way FindByName
+// matches it, ignoring case and accents.
+func (r *LookupRepository[T]) FindOrCreate(ctx context.Context, name string) (uint64, error) {
+	existing, err := r.FindByName(ctx, name)
+	if err == nil {
+		return idOf(existing), nil
+	}
+	if !errors.Is(err, ErrNotFound) {
+		return 0, err
+	}
+
+	var entity T
+	setName(&entity, name)
+	if err := r.Create(ctx, &entity); err != nil {
+		return 0, err
+	}
+	return idOf(&entity), nil
 }
 
 // DeleteAll removes every record of the entity this repository's owner has.

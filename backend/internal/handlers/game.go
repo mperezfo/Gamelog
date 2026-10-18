@@ -17,7 +17,8 @@ import (
 //
 // It is a separate type from models.Game on purpose: id, created_at and
 // updated_at belong to the server, and the N:M relations are written as ids so
-// that saving a game can never create or rename a genre.
+// that saving a game can never create or rename a genre. The one exception is
+// explicit: new_developers and new_publishers, created along with the game.
 type gameBody struct {
 	Title  string        `json:"title" minLength:"1" maxLength:"255" doc:"Title of the game." example:"Hollow Knight"`
 	Status models.Status `json:"status" doc:"Lifecycle stage of the game."`
@@ -58,6 +59,44 @@ type gameBody struct {
 	GenreIDs     []uint64 `json:"genre_ids,omitempty" doc:"Genres of the game. Every id must exist. Repeated ids are ignored."`
 	DeveloperIDs []uint64 `json:"developer_ids,omitempty" doc:"Developers of the game. Every id must exist. Repeated ids are ignored."`
 	PublisherIDs []uint64 `json:"publisher_ids,omitempty" doc:"Publishers of the game. Every id must exist. Repeated ids are ignored."`
+
+	// Created in the same transaction as the game rather than beforehand
+	// through POST /api/developers, so that a form abandoned, or a write that
+	// fails, leaves no record behind that no game carries.
+	NewDevelopers []newLookupBody `json:"new_developers,omitempty" doc:"Developers to attach by name, created if the library does not have them yet. A name already in the library, ignoring case and accents, is attached rather than created again."`
+	NewPublishers []newLookupBody `json:"new_publishers,omitempty" doc:"Publishers to attach by name, created if the library does not have them yet. A name already in the library, ignoring case and accents, is attached rather than created again."`
+
+	DeveloperLinks []companyLinkBody `json:"developer_links,omitempty" doc:"Links from existing developers to the IGDB company each stands for, written along with the game. An IGDB company already linked to another developer moves to this one."`
+	PublisherLinks []companyLinkBody `json:"publisher_links,omitempty" doc:"Links from existing publishers to the IGDB company each stands for, written along with the game. An IGDB company already linked to another publisher moves to this one."`
+}
+
+// newLookupBody is a developer or publisher a game write names rather than
+// numbers. The name has the same limits as POST /api/developers.
+type newLookupBody struct {
+	Name          string  `json:"name" minLength:"1" maxLength:"100" doc:"Name of the developer or publisher." example:"Team Cherry"`
+	IGDBCompanyID *uint64 `json:"igdb_company_id,omitempty" doc:"IGDB company the record stands for, to link it to. See GET /api/metadata/games." example:"9346"`
+}
+
+// companyLinkBody ties an existing developer or publisher to an IGDB company.
+type companyLinkBody struct {
+	ID            uint64 `json:"id" doc:"Id of the developer or publisher. Must exist." example:"3"`
+	IGDBCompanyID uint64 `json:"igdb_company_id" doc:"IGDB company it stands for." example:"9346"`
+}
+
+func newLookups(bodies []newLookupBody) []repository.NewLookup {
+	out := make([]repository.NewLookup, 0, len(bodies))
+	for _, body := range bodies {
+		out = append(out, repository.NewLookup{Name: strings.TrimSpace(body.Name), IGDBCompanyID: body.IGDBCompanyID})
+	}
+	return out
+}
+
+func companyLinks(bodies []companyLinkBody) []repository.CompanyLink {
+	out := make([]repository.CompanyLink, 0, len(bodies))
+	for _, body := range bodies {
+		out = append(out, repository.CompanyLink{ID: body.ID, IGDBCompanyID: body.IGDBCompanyID})
+	}
+	return out
 }
 
 // model turns the request body into the pair the repository expects.
@@ -78,9 +117,13 @@ func (b gameBody) model(id uint64) (*models.Game, repository.GameRelations) {
 			LoggedDate:    b.LoggedDate,
 			PlatformID:    b.PlatformID,
 		}, repository.GameRelations{
-			GenreIDs:     b.GenreIDs,
-			DeveloperIDs: b.DeveloperIDs,
-			PublisherIDs: b.PublisherIDs,
+			GenreIDs:       b.GenreIDs,
+			DeveloperIDs:   b.DeveloperIDs,
+			PublisherIDs:   b.PublisherIDs,
+			NewDevelopers:  newLookups(b.NewDevelopers),
+			NewPublishers:  newLookups(b.NewPublishers),
+			DeveloperLinks: companyLinks(b.DeveloperLinks),
+			PublisherLinks: companyLinks(b.PublisherLinks),
 		}
 }
 
