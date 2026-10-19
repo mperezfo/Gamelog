@@ -106,7 +106,17 @@ func (r *LookupRepository[T]) Update(ctx context.Context, entity *T) error {
 		}
 		return nil
 	})
-	return translate(err)
+	if err != nil {
+		return translate(err)
+	}
+	// Read back with its links, which a write leaves as they were, so that
+	// what a caller hands back is the whole record, as a read would.
+	updated := []T{*entity}
+	if err := r.attachIGDBCompanies(ctx, updated); err != nil {
+		return err
+	}
+	*entity = updated[0]
+	return nil
 }
 
 // assignSlug computes a unique slug for a name, scoped to this repository's

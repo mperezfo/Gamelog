@@ -338,6 +338,15 @@ func TestGameWriteCreatesAndLinksCompanies(t *testing.T) {
 		t.Errorf("SIE reads with igdb_company_ids %v, want [10100]", read.IGDBCompanyIDs)
 	}
 
+	// An edit answers with the whole record, links included, as a read does.
+	rec = request(t, alice, http.MethodPut, itemPath("/api/publishers", sie), map[string]any{"name": "SIE", "icon": "🎮"})
+	expectStatus(t, rec, http.StatusOK, "editing a linked publisher")
+	var edited models.Publisher
+	decode(t, rec, &edited)
+	if len(edited.IGDBCompanyIDs) != 1 || edited.IGDBCompanyIDs[0] != 10100 {
+		t.Errorf("an edit answered with igdb_company_ids %v, want [10100]", edited.IGDBCompanyIDs)
+	}
+
 	// Another account's record cannot be linked.
 	rec = request(t, bob, http.MethodPost, "/api/games", map[string]any{
 		"title":           "Hollow Knight",
