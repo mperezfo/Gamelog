@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"gorm.io/gorm"
 
@@ -78,6 +80,44 @@ type ImportReport struct {
 // noteLimit caps each list of notes, so that a bad file cannot answer with a
 // line per row. What is left over is counted in a final note.
 const noteLimit = 200
+
+// textLimit is the longest value a column takes (see the migrations): in
+// characters, or in bytes for a TEXT column. A longer one is left out, with a
+// note, where the database would otherwise refuse the row and with it the
+// whole import.
+type textLimit struct {
+	max   int
+	bytes bool
+}
+
+var (
+	titleLimit   = textLimit{max: 255}
+	taglineLimit = textLimit{max: 255}
+	notesLimit   = textLimit{max: 65535, bytes: true}
+	urlLimit     = textLimit{max: 2048}
+	// nameLimit is the API's own limit for the four simple entities (see
+	// handlers.lookupBody), the shortest of their columns.
+	nameLimit = textLimit{max: 100}
+	iconLimit = textLimit{max: 100}
+)
+
+// fits reports whether text is within the limit.
+func (l textLimit) fits(text string) bool {
+	if l.bytes {
+		return len(text) <= l.max
+	}
+	return utf8.RuneCountInString(text) <= l.max
+}
+
+func (l textLimit) String() string {
+	if l.bytes {
+		return fmt.Sprintf("%d bytes", l.max)
+	}
+	return fmt.Sprintf("%d characters", l.max)
+}
+
+// hexColor is a platform's colour as the API takes it.
+var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // errDryRun rolls the transaction back after a dry run. It never leaves
 // Import.
@@ -257,8 +297,26 @@ func (r *importRun) importLookups(ctx context.Context, section section) error {
 			r.skip(section.name, index, "", "an entry with no name cannot be imported")
 			continue
 		}
+		if !nameLimit.fits(name) {
+			r.skip(section.name, index, name, fmt.Sprintf("a name can be at most %s long", nameLimit))
+			continue
+		}
 
-		id, created, err := section.port.apply(ctx, name, entry.Icon, entry.Color)
+		icon := entry.Icon
+		if icon != nil && !iconLimit.fits(strings.TrimSpace(*icon)) {
+			r.warn(section.name, index, name, fmt.Sprintf("its icon was longer than %s, so it was left out", iconLimit))
+			icon = nil
+		}
+		color := entry.Color
+		if color != nil && section.name == "platforms" {
+			if text := strings.TrimSpace(*color); text != "" && !hexColor.MatchString(text) {
+				r.warn(section.name, index, name, fmt.Sprintf(
+					"%q is not a colour written as #rrggbb, so it was left out", text))
+				color = nil
+			}
+		}
+
+		id, created, err := section.port.apply(ctx, name, icon, color)
 		if err != nil {
 			return err
 		}
@@ -319,6 +377,10 @@ func (r *importRun) importGames(ctx context.Context, entries []ImportGame) error
 		}
 		if title == "" {
 			r.skip("games", index, "", "an entry with no title cannot be imported")
+			continue
+		}
+		if !titleLimit.fits(title) {
+			r.skip("games", index, title, fmt.Sprintf("a title can be at most %s long", titleLimit))
 			continue
 		}
 
@@ -431,9 +493,9 @@ func (r *importRun) buildGame(
 		}
 	}
 
-	game.Tagline = applyText(entry.Tagline, game.Tagline)
-	game.Notes = applyText(entry.Notes, game.Notes)
-	game.CoverImageURL = applyText(entry.CoverImageURL, game.CoverImageURL)
+	game.Tagline = r.applyText(index, title, "tagline", taglineLimit, entry.Tagline, game.Tagline)
+	game.Notes = r.applyText(index, title, "notes", notesLimit, entry.Notes, game.Notes)
+	game.CoverImageURL = r.applyText(index, title, "cover_image_url", urlLimit, entry.CoverImageURL, game.CoverImageURL)
 
 	game.CoverFocalX = r.applyUnitFraction(index, title, "cover_focal_x", entry.CoverFocalX, game.CoverFocalX)
 	game.CoverFocalY = r.applyUnitFraction(index, title, "cover_focal_y", entry.CoverFocalY, game.CoverFocalY)
@@ -468,9 +530,13 @@ func (r *importRun) buildGame(
 
 	if entry.Platform != nil {
 		name := strings.TrimSpace(*entry.Platform)
-		if name == "" {
+		switch {
+		case name == "":
 			game.PlatformID = nil
-		} else {
+		case !nameLimit.fits(name):
+			r.warn("games", index, title, fmt.Sprintf(
+				"its platform's name was longer than %s, so the platform was left out", nameLimit))
+		default:
 			id, err := r.resolve(ctx, r.platforms, name, &r.report.Created.Platforms)
 			if err != nil {
 				return nil, relations, err
@@ -480,14 +546,15 @@ func (r *importRun) buildGame(
 	}
 
 	for _, related := range []struct {
+		field   string
 		names   Names
 		port    lookupPort
 		created *int
 		into    *[]uint64
 	}{
-		{entry.Genres, r.genres, &r.report.Created.Genres, &relations.GenreIDs},
-		{entry.Developers, r.developers, &r.report.Created.Developers, &relations.DeveloperIDs},
-		{entry.Publishers, r.publishers, &r.report.Created.Publishers, &relations.PublisherIDs},
+		{"genres", entry.Genres, r.genres, &r.report.Created.Genres, &relations.GenreIDs},
+		{"developers", entry.Developers, r.developers, &r.report.Created.Developers, &relations.DeveloperIDs},
+		{"publishers", entry.Publishers, r.publishers, &r.report.Created.Publishers, &relations.PublisherIDs},
 	} {
 		// A relation the entry does not carry is left as it is; an empty one
 		// clears it.
@@ -497,6 +564,11 @@ func (r *importRun) buildGame(
 
 		ids := make([]uint64, 0, len(related.names))
 		for _, name := range related.names {
+			if !nameLimit.fits(strings.TrimSpace(name)) {
+				r.warn("games", index, title, fmt.Sprintf(
+					"one of its %s had a name longer than %s, so it was left out", related.field, nameLimit))
+				continue
+			}
 			id, err := r.resolve(ctx, related.port, name, related.created)
 			if err != nil {
 				return nil, relations, err
@@ -560,15 +632,21 @@ func currentRelations(game *models.Game) repository.GameRelations {
 	return relations
 }
 
-// applyText writes a text field: absent keeps what is stored, empty clears it.
-func applyText(entry *string, current *string) *string {
+// applyText writes a text field: absent keeps what is stored, empty clears it,
+// and one past its limit is left out, with a warning, keeping what is stored.
+func (r *importRun) applyText(index int, title, field string, limit textLimit, entry, current *string) *string {
 	if entry == nil {
 		return current
 	}
-	if text := strings.TrimSpace(*entry); text != "" {
-		return &text
+	text := strings.TrimSpace(*entry)
+	if text == "" {
+		return nil
 	}
-	return nil
+	if !limit.fits(text) {
+		r.warn("games", index, title, fmt.Sprintf("its %s field was longer than %s, so it was left out", field, limit))
+		return current
+	}
+	return &text
 }
 
 // applyDate writes a date field: absent keeps what is stored, empty clears it.

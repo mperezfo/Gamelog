@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -378,6 +379,52 @@ func TestImportReportsWhatItCannotReadAndCanBeRehearsed(t *testing.T) {
 		if game.Status != models.StatusPending {
 			t.Errorf("%s: status = %q, want the default %q", game.Title, game.Status, models.StatusPending)
 		}
+	}
+}
+
+// TestImportLeavesOutWhatDoesNotFit: a value past what its column takes is
+// left out with a note, rather than refused by the database and the whole
+// import with it, and a document past the 1 MiB other bodies get is read.
+func TestImportLeavesOutWhatDoesNotFit(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	long := strings.Repeat("x", 300)
+	report := importLibrary(t, handler, "/api/import", map[string]any{
+		"platforms": []map[string]any{{"name": "Switch", "color": "red"}},
+		"genres":    []any{long[:101], map[string]any{"name": "RPG", "icon": long}},
+		"games": []map[string]any{
+			{"title": long},
+			{"title": "Celeste", "tagline": long, "genres": []string{"Platformer", long[:101]}},
+		},
+	})
+
+	if len(report.Skipped) != 2 {
+		t.Errorf("skipped = %+v, want the genre and the game whose name and title are too long", report.Skipped)
+	}
+	if len(report.Warnings) != 4 {
+		t.Errorf("warnings = %+v, want the colour, the icon, the tagline and the genre name", report.Warnings)
+	}
+
+	games := listGames(t, handler)
+	if len(games) != 1 {
+		t.Fatalf("the library holds %d games, want Celeste alone", len(games))
+	}
+	if games[0].Tagline != nil {
+		t.Errorf("tagline = %q, want the one too long left out", *games[0].Tagline)
+	}
+	if len(games[0].Genres) != 1 || games[0].Genres[0].Name != "Platformer" {
+		t.Errorf("genres = %+v, want Platformer alone", games[0].Genres)
+	}
+
+	// A large library's export, notes and all, is well past 1 MiB.
+	notes := strings.Repeat("A long note. ", 5000)
+	entries := make([]map[string]any, 0, 40)
+	for i := range 40 {
+		entries = append(entries, map[string]any{"title": fmt.Sprintf("Game %d", i), "notes": notes})
+	}
+	report = importLibrary(t, handler, "/api/import", map[string]any{"games": entries})
+	if report.Created.Games != 40 {
+		t.Errorf("created %d games from a 2.5 MiB document, want 40", report.Created.Games)
 	}
 }
 

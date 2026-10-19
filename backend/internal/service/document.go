@@ -221,7 +221,8 @@ func (n *Number) UnmarshalJSON(data []byte) error {
 			return nil
 		}
 		parsed, err := strconv.ParseFloat(strings.Replace(text, ",", ".", 1), 64)
-		if err != nil {
+		// ParseFloat also reads "NaN" and "Inf", which no column can hold.
+		if err != nil || math.IsNaN(parsed) || math.IsInf(parsed, 0) {
 			return fmt.Errorf("%q is not a number", text)
 		}
 		*n = Number{Value: parsed}
