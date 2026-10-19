@@ -56,6 +56,8 @@ type gameBody struct {
 
 	PlatformID *uint64 `json:"platform_id,omitempty" doc:"Platform the game was played on. Must exist."`
 
+	IGDBID *uint64 `json:"igdb_id,omitempty" doc:"IGDB game this game was identified as (see GET /api/metadata/games). Left out or null, the game is linked to none." example:"26192"`
+
 	GenreIDs     []uint64 `json:"genre_ids,omitempty" doc:"Genres of the game. Every id must exist. Repeated ids are ignored."`
 	DeveloperIDs []uint64 `json:"developer_ids,omitempty" doc:"Developers of the game. Every id must exist. Repeated ids are ignored."`
 	PublisherIDs []uint64 `json:"publisher_ids,omitempty" doc:"Publishers of the game. Every id must exist. Repeated ids are ignored."`
@@ -116,6 +118,7 @@ func (b gameBody) model(id uint64) (*models.Game, repository.GameRelations) {
 			ReleaseDate:   b.ReleaseDate,
 			LoggedDate:    b.LoggedDate,
 			PlatformID:    b.PlatformID,
+			IGDBID:        b.IGDBID,
 		}, repository.GameRelations{
 			GenreIDs:       b.GenreIDs,
 			DeveloperIDs:   b.DeveloperIDs,

@@ -26,6 +26,7 @@
       "cover_image_url": null,
       "release_date": "2017-02-24",
       "logged_date": "2026-01-15",
+      "igdb_id": 14593,
       "platform": "Nintendo Switch",
       "genres": ["Metroidvania"],
       "developers": ["Team Cherry"],
@@ -38,6 +39,8 @@
 Relations are written **by name, never by id**. An id belongs to one database, while a name is what you typed, so the file survives being imported into another copy of Gamelog, edited in a text editor, or kept as the backup of a database that no longer exists.
 
 `igdb_company_ids` are the IGDB companies a developer or publisher has been linked to through the game form's Identify button. They are left out of a record with none, and an import links them again on top of any the record already has; an older file without them imports as before. On an import they can also be a single number or a string (`"37, 1234"`), and anything that is not an id is left out with a warning rather than failing the import.
+
+A game's `igdb_id` is the IGDB game it was identified as, and `null` when it was not. An import reads it as a number or a string; an empty value unlinks the game, and anything that is not a single id is left out with a warning.
 
 The export is served with a `Content-Disposition` header, so opening `/api/export` in a browser saves a `gamelog-YYYY-MM-DD.json` file instead of painting JSON on the screen.
 

@@ -22,6 +22,7 @@ import (
 type IGDB interface {
 	Search(ctx context.Context, title string) ([]igdb.Game, error)
 	CompanyURL(ctx context.Context, id uint64) (string, error)
+	GameURL(ctx context.Context, id uint64) (string, error)
 	Companies(ctx context.Context, ids []uint64) ([]igdb.Company, error)
 }
 
@@ -86,13 +87,44 @@ type listIGDBCompaniesOutput struct {
 	}
 }
 
-type companyPageInput struct {
-	ID uint64 `path:"id" doc:"IGDB's id for the company." example:"37"`
+type igdbPageInput struct {
+	ID uint64 `path:"id" doc:"IGDB's id for the record." example:"37"`
 }
 
-type companyPageOutput struct {
+type igdbPageOutput struct {
 	Status   int
-	Location string `header:"Location" doc:"The company's page on igdb.com."`
+	Location string `header:"Location" doc:"The record's page on igdb.com."`
+}
+
+// igdbPage is one kind of IGDB record whose page the API redirects to.
+type igdbPage struct {
+	operationID string
+	path        string
+	// noun names the record in the summary and the errors.
+	noun        string
+	description string
+	url         func(source IGDB, ctx context.Context, id uint64) (string, error)
+}
+
+// igdbPages are the IGDB records a library refers to by id, and so has to
+// be able to open the page of.
+var igdbPages = []igdbPage{
+	{
+		operationID: "open-igdb-company",
+		path:        "/api/metadata/companies/{id}/page",
+		noun:        "company",
+		description: "Redirects to the page of an IGDB company, such as the one a developer or publisher " +
+			"is linked to (see its igdb_company_ids).",
+		url: IGDB.CompanyURL,
+	},
+	{
+		operationID: "open-igdb-game",
+		path:        "/api/metadata/games/{id}/page",
+		noun:        "game",
+		description: "Redirects to the page of an IGDB game, such as the one a game was identified as " +
+			"(see its igdb_id).",
+		url: IGDB.GameURL,
+	},
 }
 
 type searchGameMetadataOutput struct {
@@ -212,34 +244,35 @@ func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
 		return out, nil
 	})
 
-	huma.Register(api, huma.Operation{
-		OperationID: "open-igdb-company",
-		Method:      http.MethodGet,
-		Path:        "/api/metadata/companies/{id}/page",
-		Summary:     "Open a company's page on IGDB",
-		Description: "Redirects to the page of an IGDB company, such as the one a developer or publisher " +
-			"is linked to (see its igdb_company_ids). IGDB addresses its pages by name rather than " +
-			"by id, so this is the way to reach one from an id alone.",
-		Tags:          []string{"Metadata"},
-		DefaultStatus: http.StatusFound,
-		Errors: []int{http.StatusUnauthorized, http.StatusNotFound, http.StatusFailedDependency,
-			http.StatusNotImplemented},
-	}, func(ctx context.Context, input *companyPageInput) (*companyPageOutput, error) {
-		if source == nil {
-			return nil, errIGDBNotConfigured()
-		}
-		lookupCtx, cancel := context.WithTimeout(ctx, searchTimeout)
-		defer cancel()
-		url, err := source.CompanyURL(lookupCtx, input.ID)
-		if errors.Is(err, igdb.ErrNotFound) {
-			return nil, huma.Error404NotFound("IGDB has no company with that id")
-		}
-		if err != nil {
-			slog.Warn("looking an IGDB company up failed", "id", input.ID, "error", err)
-			return nil, errIGDBFailed()
-		}
-		return &companyPageOutput{Status: http.StatusFound, Location: url}, nil
-	})
+	for _, page := range igdbPages {
+		huma.Register(api, huma.Operation{
+			OperationID: page.operationID,
+			Method:      http.MethodGet,
+			Path:        page.path,
+			Summary:     "Open a " + page.noun + "'s page on IGDB",
+			Description: page.description + " IGDB addresses its pages by name rather than by id, " +
+				"so this is the way to reach one from an id alone.",
+			Tags:          []string{"Metadata"},
+			DefaultStatus: http.StatusFound,
+			Errors: []int{http.StatusUnauthorized, http.StatusNotFound, http.StatusFailedDependency,
+				http.StatusNotImplemented},
+		}, func(ctx context.Context, input *igdbPageInput) (*igdbPageOutput, error) {
+			if source == nil {
+				return nil, errIGDBNotConfigured()
+			}
+			lookupCtx, cancel := context.WithTimeout(ctx, searchTimeout)
+			defer cancel()
+			url, err := page.url(source, lookupCtx, input.ID)
+			if errors.Is(err, igdb.ErrNotFound) {
+				return nil, huma.Error404NotFound("IGDB has no " + page.noun + " with that id")
+			}
+			if err != nil {
+				slog.Warn("looking an IGDB "+page.noun+" up failed", "id", input.ID, "error", err)
+				return nil, errIGDBFailed()
+			}
+			return &igdbPageOutput{Status: http.StatusFound, Location: url}, nil
+		})
+	}
 }
 
 // errIGDBNotConfigured and errIGDBFailed are the two ways an operation that

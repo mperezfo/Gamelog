@@ -71,6 +71,7 @@ func TestExportAndImportRoundTrip(t *testing.T) {
 		"genre_ids":       []uint64{genreID},
 		"developer_ids":   []uint64{developerID},
 		"publisher_ids":   []uint64{publisherID},
+		"igdb_id":         14593,
 	})
 	expectStatus(t, created, http.StatusCreated, "creating a game")
 
@@ -89,6 +90,9 @@ func TestExportAndImportRoundTrip(t *testing.T) {
 	}
 	if len(game.Genres) != 1 || game.Genres[0] != "Metroidvania" {
 		t.Errorf("genres = %v, want them written by name", game.Genres)
+	}
+	if game.IGDBID == nil || *game.IGDBID != 14593 {
+		t.Errorf("igdb_id = %v, want 14593", game.IGDBID)
 	}
 	if want := time.Date(2017, time.February, 24, 0, 0, 0, 0, time.UTC); game.ReleaseDate == nil ||
 		!game.ReleaseDate.Time.Equal(want) {

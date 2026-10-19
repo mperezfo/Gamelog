@@ -366,6 +366,7 @@ func (r *importRun) buildGame(
 		game.ReleaseDate = current.ReleaseDate
 		game.LoggedDate = current.LoggedDate
 		game.PlatformID = current.PlatformID
+		game.IGDBID = current.IGDBID
 		relations = currentRelations(current)
 	}
 
@@ -419,6 +420,19 @@ func (r *importRun) buildGame(
 
 	game.ReleaseDate = applyDate(entry.ReleaseDate, game.ReleaseDate)
 	game.LoggedDate = applyDate(entry.LoggedDate, game.LoggedDate)
+
+	if ids := entry.IGDBID; ids != nil {
+		switch {
+		case len(ids.Values) == 1 && ids.Dropped == 0:
+			id := ids.Values[0]
+			game.IGDBID = &id
+		case len(ids.Values) == 0 && ids.Dropped == 0:
+			game.IGDBID = nil
+		default:
+			r.warn("games", index, title,
+				"a game is linked to one IGDB game, and its igdb_id was not a single IGDB id, so it was left out")
+		}
+	}
 
 	if entry.Platform != nil {
 		name := strings.TrimSpace(*entry.Platform)

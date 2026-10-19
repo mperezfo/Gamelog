@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 
 import { errorMessage } from '../api/client'
+import { igdbGamePage } from '../api/metadata'
 import { useGameModal } from '../hooks/useGameModal'
 import { useCreateGame, useDeleteGame, useGames, useUpdateGame } from '../hooks/useGames'
 import { useLookups } from '../hooks/useLookups'
@@ -14,7 +15,7 @@ import { ChipMultiSelect } from './ChipMultiSelect'
 import { CoverImageField } from './CoverImageField'
 import { DateField } from './DateField'
 import { Field } from './Field'
-import { SearchIcon, TrashIcon } from './icons'
+import { ExternalLinkIcon, SearchIcon, TrashIcon } from './icons'
 import { IdentifyPanel, type IdentifyCurrent, type IdentifyResult } from './IdentifyPanel'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
 import { Reveal } from './Reveal'
@@ -82,6 +83,9 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const [releaseDate, setReleaseDate] = useState(dateValue(game?.release_date))
   const [loggedDate, setLoggedDate] = useState(dateValue(game?.logged_date))
   const [platformId, setPlatformId] = useState(game?.platform_id ? String(game.platform_id) : '')
+  const [igdbId, setIgdbId] = useState(game?.igdb_id ?? null)
+  // The IGDB game Unlink just took off, for Undo to put back.
+  const [unlinkedIgdbId, setUnlinkedIgdbId] = useState<number | null>(null)
   const [genreIds, setGenreIds] = useState((game?.genres ?? []).map((g) => g.id))
   const [developerIds, setDeveloperIds] = useState((game?.developers ?? []).map((d) => d.id))
   const [publisherIds, setPublisherIds] = useState((game?.publishers ?? []).map((p) => p.id))
@@ -111,6 +115,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     releaseDate: dateValue(game?.release_date),
     loggedDate: dateValue(game?.logged_date),
     platformId: game?.platform_id ? String(game.platform_id) : '',
+    igdbId: game?.igdb_id ?? null,
     genreIds: (game?.genres ?? []).map((g) => g.id),
     developerIds: (game?.developers ?? []).map((d) => d.id),
     publisherIds: (game?.publishers ?? []).map((p) => p.id),
@@ -129,6 +134,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     releaseDate !== initial.releaseDate ||
     loggedDate !== initial.loggedDate ||
     platformId !== initial.platformId ||
+    igdbId !== initial.igdbId ||
     !sameIds(genreIds, initial.genreIds) ||
     !sameIds(developerIds, initial.developerIds) ||
     !sameIds(publisherIds, initial.publisherIds) ||
@@ -141,6 +147,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const identifyCurrent: IdentifyCurrent = {
     title,
     releaseDate,
+    igdbId,
     developers: [
       ...(developers.data ?? []).filter((d) => developerIds.includes(d.id)).map((d) => d.name),
       ...pendingDevelopers.map((d) => d.name),
@@ -180,6 +187,10 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     identifiedRef.current = null
     if (!result) return
 
+    if (result.igdbId !== undefined) {
+      setIgdbId(result.igdbId)
+      setUnlinkedIgdbId(null)
+    }
     if (result.title) setTitle(result.title)
     if (result.releaseDate) setReleaseDate(result.releaseDate)
     if (result.developers) {
@@ -203,6 +214,24 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     if (!needle) return undefined
     return (games.data ?? []).find((g) => g.id !== game?.id && foldCase(g.title.trim()) === needle)
   }, [games.data, title, game?.id])
+
+  // Two games can be the same IGDB game (nothing stops it), but it is more
+  // often a mistake, so the form says so without refusing to save.
+  const igdbTwin = useMemo(() => {
+    if (igdbId === null) return undefined
+    return (games.data ?? []).find((g) => g.id !== game?.id && g.igdb_id === igdbId)
+  }, [games.data, igdbId, game?.id])
+
+  // What the link under the title is about: the IGDB game, or the one just
+  // unlinked while Undo can still bring it back.
+  const shownIgdbId = igdbId ?? unlinkedIgdbId
+
+  // The IGDB games the rest of the library is linked to, for Identify to
+  // point out among its results.
+  const libraryIgdbIds = useMemo(
+    () => new Set((games.data ?? []).flatMap((g) => (g.id !== game?.id && g.igdb_id !== null ? [g.igdb_id] : []))),
+    [games.data, game?.id],
+  )
 
   useEffect(() => {
     onDirtyChange?.(isDirty)
@@ -247,6 +276,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
       release_date: toApiDate(releaseDate),
       logged_date: toApiDate(loggedDate),
       platform_id: platformId ? Number(platformId) : null,
+      igdb_id: igdbId,
       genre_ids: genreIds,
       developer_ids: developerIds,
       publisher_ids: publisherIds,
@@ -296,38 +326,56 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
           onZoomChange={setCoverZoom}
         />
 
-        <div className="flex items-center gap-2">
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Untitled"
-            // Enter looks the title up, where Identify is available: it is
-            // the one thing worth doing straight from the title. The form
-            // itself never saves on Enter (see guardEnter).
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-              if (capabilities.data?.identify && title.trim()) openIdentify()
-            }}
-            required
-            aria-invalid={duplicateGame ? true : undefined}
-            className={[
-              'min-w-0 flex-1 bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:text-ink-faint',
-              duplicateGame ? 'text-danger' : 'text-ink',
-            ].join(' ')}
-          />
-          {/* Only on a deployment with IGDB credentials: without them there is
-              nothing for the button to look games up in. */}
-          {capabilities.data?.identify && (
-            <Button
-              variant="ghost"
-              className="shrink-0 px-2"
-              title="Fill in the title, release date, developers and publishers from IGDB"
-              disabled={!title.trim()}
-              onClick={openIdentify}
-            >
-              <SearchIcon />
-              Identify
-            </Button>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="Untitled"
+              // Enter looks the title up, where Identify is available: it is
+              // the one thing worth doing straight from the title. The form
+              // itself never saves on Enter (see guardEnter).
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
+                if (capabilities.data?.identify && title.trim()) openIdentify()
+              }}
+              required
+              aria-invalid={duplicateGame ? true : undefined}
+              className={[
+                'min-w-0 flex-1 bg-transparent text-xl font-semibold tracking-tight outline-none placeholder:text-ink-faint',
+                duplicateGame ? 'text-danger' : 'text-ink',
+              ].join(' ')}
+            />
+            {/* Only on a deployment with IGDB credentials: without them there
+                is nothing for the button to look games up in. */}
+            {capabilities.data?.identify && (
+              <Button
+                variant="ghost"
+                className="shrink-0 px-2"
+                title="Fill in the title, release date, developers and publishers from IGDB"
+                disabled={!title.trim()}
+                onClick={openIdentify}
+              >
+                <SearchIcon />
+                Identify
+              </Button>
+            )}
+          </div>
+
+          {shownIgdbId !== null && (
+            <IgdbGameLink
+              id={shownIgdbId}
+              unlinked={igdbId === null}
+              canOpen={Boolean(capabilities.data?.identify)}
+              onUnlink={() => {
+                setUnlinkedIgdbId(igdbId)
+                setIgdbId(null)
+              }}
+              onUndo={() => {
+                setIgdbId(unlinkedIgdbId)
+                setUnlinkedIgdbId(null)
+              }}
+            />
           )}
         </div>
 
@@ -341,6 +389,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
                   key={identifyTitle}
                   title={identifyTitle}
                   current={identifyCurrent}
+                  libraryIgdbIds={libraryIgdbIds}
                   developers={developers.data ?? []}
                   publishers={publishers.data ?? []}
                   onApply={applyIdentified}
@@ -358,6 +407,19 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
               type="button"
               className="font-medium underline underline-offset-2"
               onClick={() => modal.openGame(duplicateGame)}
+            >
+              Open it
+            </button>
+          </Notice>
+        )}
+
+        {igdbTwin && (
+          <Notice tone="ok">
+            “{igdbTwin.title}” is linked to this IGDB game too.{' '}
+            <button
+              type="button"
+              className="font-medium underline underline-offset-2"
+              onClick={() => modal.openGame(igdbTwin)}
             >
               Open it
             </button>
@@ -483,5 +545,52 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
         )}
       </div>
     </form>
+  )
+}
+
+interface IgdbGameLinkProps {
+  id: number
+  /** Unlinked on this form, not saved yet: shown struck through, with Undo. */
+  unlinked: boolean
+  /** Whether the API can find the page, which needs IGDB credentials. */
+  canOpen: boolean
+  onUnlink: () => void
+  onUndo: () => void
+}
+
+/**
+ * The game's link to IGDB, under its title: the page there, and a way to
+ * drop the link. Dropping it waits for Save like any other field, and reads
+ * struck through until then, the way Identify shows what goes away.
+ */
+function IgdbGameLink({ id, unlinked, canOpen, onUnlink, onUndo }: IgdbGameLinkProps) {
+  const label =
+    canOpen && !unlinked ? (
+      <a
+        href={igdbGamePage(id)}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="View on IGDB"
+        className="inline-flex items-center gap-1 transition-colors duration-75 hover:text-ink"
+      >
+        Linked to IGDB
+        <ExternalLinkIcon className="size-3 shrink-0" />
+      </a>
+    ) : (
+      <span className={unlinked ? 'line-through decoration-ink-faint' : undefined}>Linked to IGDB</span>
+    )
+
+  return (
+    <p className="flex items-center gap-1.5 text-xs text-ink-faint">
+      {label}
+      <span aria-hidden="true">·</span>
+      <button
+        type="button"
+        onClick={unlinked ? onUndo : onUnlink}
+        className="transition-colors duration-75 hover:text-ink"
+      >
+        {unlinked ? 'Undo' : 'Unlink'}
+      </button>
+    </p>
   )
 }

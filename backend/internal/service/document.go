@@ -74,6 +74,7 @@ type GameEntry struct {
 	CoverZoom     *float64 `json:"cover_zoom" doc:"Zoom applied to the cover in portrait, from 1 to 3. Null is no zoom."`
 	ReleaseDate   *Date    `json:"release_date" doc:"Release date of the game."`
 	LoggedDate    *Date    `json:"logged_date" doc:"When the game was started, logged or finished."`
+	IGDBID        *uint64  `json:"igdb_id" doc:"IGDB game the game was identified as. Null when it was not." example:"26192"`
 
 	Platform   *string  `json:"platform" doc:"Name of the platform the game was played on." example:"Nintendo Switch"`
 	Genres     []string `json:"genres" doc:"Names of the genres of the game."`
