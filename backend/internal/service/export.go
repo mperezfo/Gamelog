@@ -37,7 +37,7 @@ func (e *Exporter) Export(ctx context.Context) (*Document, error) {
 
 	var err error
 	if document.Platforms, err = exportLookups(ctx, e.db, e.userID, func(p models.Platform) LookupEntry {
-		return LookupEntry{Name: p.Name, Icon: p.Icon, Color: p.Color}
+		return LookupEntry{Name: p.Name, Icon: p.Icon, Color: p.Color, IGDBPlatformIDs: p.IGDBPlatformIDs}
 	}); err != nil {
 		return nil, err
 	}

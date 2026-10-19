@@ -1,10 +1,12 @@
 package handlers
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,7 +25,9 @@ type IGDB interface {
 	Search(ctx context.Context, title string) ([]igdb.Game, error)
 	CompanyURL(ctx context.Context, id uint64) (string, error)
 	GameURL(ctx context.Context, id uint64) (string, error)
+	PlatformURL(ctx context.Context, id uint64) (string, error)
 	Companies(ctx context.Context, ids []uint64) ([]igdb.Company, error)
+	Platforms(ctx context.Context, ids []uint64) ([]igdb.Platform, error)
 }
 
 type metadataCapabilitiesOutput struct {
@@ -36,27 +40,38 @@ type searchGameMetadataInput struct {
 	Title string `query:"title" required:"true" minLength:"1" maxLength:"255" doc:"Title to look up." example:"Resident Evil 4"`
 }
 
-// matchReason documents how a company was matched to a record of the library.
+// matchReason documents how a company or platform was matched to a record of
+// the library.
 type matchReason string
 
 const (
-	// matchLinked is a record already linked to the IGDB company: no guess.
+	// matchLinked is a record already linked to the IGDB record: no guess.
 	matchLinked matchReason = "linked"
 )
 
-// companyMatchTarget is the record of the library a company is likely to be.
-type companyMatchTarget struct {
-	ID     uint64      `json:"id" doc:"Id of the developer or publisher." example:"3"`
+// matchTarget is the record of the library a company or platform is likely
+// to be.
+type matchTarget struct {
+	ID     uint64      `json:"id" doc:"Id of the developer, publisher or platform." example:"3"`
 	Name   string      `json:"name" doc:"Its name." example:"Sony"`
-	Reason matchReason `json:"reason" enum:"linked,name,normalized,prefix" doc:"How it was found: linked to this IGDB company already, the same name ignoring case and accents, the same name without company suffixes and generic words, or one name starting with the other. Only linked is certain; the rest are suggestions."`
+	Reason matchReason `json:"reason" enum:"linked,name,normalized,prefix" doc:"How it was found: linked to this IGDB record already, the same name ignoring case and accents, the same name without company suffixes and generic words, or one name starting with the other (companies only). Only linked is certain; the rest are suggestions."`
 }
 
 // companyMatch is a developer or publisher of a candidate, with the record of
 // the library it most likely is.
 type companyMatch struct {
-	IGDBCompanyID uint64              `json:"igdb_company_id" doc:"IGDB's id for the company." example:"10100"`
-	Name          string              `json:"name" doc:"The company's name on IGDB." example:"Sony Interactive Entertainment"`
-	Match         *companyMatchTarget `json:"match" doc:"The developer or publisher of the library this company most likely is. Null when none is close enough to suggest."`
+	IGDBCompanyID uint64       `json:"igdb_company_id" doc:"IGDB's id for the company." example:"10100"`
+	Name          string       `json:"name" doc:"The company's name on IGDB." example:"Sony Interactive Entertainment"`
+	Match         *matchTarget `json:"match" doc:"The developer or publisher of the library this company most likely is. Null when none is close enough to suggest."`
+}
+
+// platformMatch is a platform of a candidate, with the platform of the
+// library it most likely is.
+type platformMatch struct {
+	IGDBPlatformID uint64       `json:"igdb_platform_id" doc:"IGDB's id for the platform." example:"167"`
+	Name           string       `json:"name" doc:"The platform's name on IGDB." example:"PlayStation 5"`
+	Abbreviation   string       `json:"abbreviation" doc:"IGDB's short name for it. Empty when IGDB has none." example:"PS5"`
+	Match          *matchTarget `json:"match" doc:"The platform of the library this platform most likely is: of those linked to it, the one with the most games. Null when none is close enough to suggest."`
 }
 
 // gameCandidate is one IGDB game a title may refer to.
@@ -65,11 +80,11 @@ type gameCandidate struct {
 	Name   string `json:"name" doc:"Title on IGDB." example:"Resident Evil 4"`
 	// RFC 3339 at midnight UTC, the same shape as a game's release_date, so
 	// that it can be written back as it is.
-	ReleaseDate *time.Time     `json:"release_date" doc:"First release date across every platform, RFC 3339. Null when IGDB does not know it." example:"2023-03-24T00:00:00Z"`
-	Platforms   []string       `json:"platforms" doc:"Platforms it was released on, as IGDB names them." example:"[\"PlayStation 5\"]"`
-	CoverURL    *string        `json:"cover_url" doc:"Small cover hosted by IGDB, to tell candidates apart. Not meant to be stored: see the Images tag." example:"https://images.igdb.com/igdb/image/upload/t_cover_small/co6bo0.jpg"`
-	Developers  []companyMatch `json:"developers" doc:"Developers, each with the developer of the library it most likely is."`
-	Publishers  []companyMatch `json:"publishers" doc:"Publishers, each with the publisher of the library it most likely is."`
+	ReleaseDate *time.Time      `json:"release_date" doc:"First release date across every platform, RFC 3339. Null when IGDB does not know it." example:"2023-03-24T00:00:00Z"`
+	Platforms   []platformMatch `json:"platforms" doc:"Platforms it was released on, each with the platform of the library it most likely is."`
+	CoverURL    *string         `json:"cover_url" doc:"Small cover hosted by IGDB, to tell candidates apart. Not meant to be stored: see the Images tag." example:"https://images.igdb.com/igdb/image/upload/t_cover_small/co6bo0.jpg"`
+	Developers  []companyMatch  `json:"developers" doc:"Developers, each with the developer of the library it most likely is."`
+	Publishers  []companyMatch  `json:"publishers" doc:"Publishers, each with the publisher of the library it most likely is."`
 }
 
 type listIGDBCompaniesInput struct {
@@ -84,6 +99,22 @@ type igdbCompany struct {
 type listIGDBCompaniesOutput struct {
 	Body struct {
 		Companies []igdbCompany `json:"companies" doc:"The companies, in the order asked for. An id IGDB does not know is left out."`
+	}
+}
+
+type listIGDBPlatformsInput struct {
+	IDs []uint64 `query:"ids" required:"true" minItems:"1" maxItems:"50" doc:"IGDB's ids for the platforms, comma-separated." example:"[6,167]"`
+}
+
+type igdbPlatform struct {
+	ID           uint64 `json:"id" doc:"IGDB's id for the platform." example:"167"`
+	Name         string `json:"name" doc:"Its name on IGDB." example:"PlayStation 5"`
+	Abbreviation string `json:"abbreviation" doc:"Its short name on IGDB. Empty when IGDB has none." example:"PS5"`
+}
+
+type listIGDBPlatformsOutput struct {
+	Body struct {
+		Platforms []igdbPlatform `json:"platforms" doc:"The platforms, in the order asked for. An id IGDB does not know is left out."`
 	}
 }
 
@@ -116,6 +147,14 @@ var igdbPages = []igdbPage{
 		description: "Redirects to the page of an IGDB company, such as the one a developer or publisher " +
 			"is linked to (see its igdb_company_ids).",
 		url: IGDB.CompanyURL,
+	},
+	{
+		operationID: "open-igdb-platform",
+		path:        "/api/metadata/platforms/{id}/page",
+		noun:        "platform",
+		description: "Redirects to the page of an IGDB platform, such as one a platform is linked to " +
+			"(see its igdb_platform_ids).",
+		url: IGDB.PlatformURL,
 	},
 	{
 		operationID: "open-igdb-game",
@@ -167,9 +206,10 @@ func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
 		Path:        "/api/metadata/games",
 		Summary:     "Look a game up on IGDB",
 		Description: "Searches IGDB for the games a title may refer to, with their release date, " +
-			"developers and publishers. Each developer and publisher comes with the record of the " +
-			"caller's library it most likely is, to write back with a game's developer_ids, " +
-			"new_developers and developer_links (and their publisher equivalents).",
+			"platforms, developers and publishers. Each platform, developer and publisher comes with " +
+			"the record of the caller's library it most likely is, to write back with a game's " +
+			"developer_ids, new_developers and developer_links (and their publisher equivalents), " +
+			"or platform_id, new_platform and platform_link.",
 		Tags:   []string{"Metadata"},
 		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusFailedDependency, http.StatusNotImplemented},
 	}, func(ctx context.Context, input *searchGameMetadataInput) (*searchGameMetadataOutput, error) {
@@ -197,6 +237,10 @@ func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
 		if err != nil {
 			return nil, apiError(err, "")
 		}
+		platforms, err := newPlatformMatcher(ctx, db, user.ID)
+		if err != nil {
+			return nil, apiError(err, "")
+		}
 
 		out := &searchGameMetadataOutput{}
 		out.Body.Candidates = make([]gameCandidate, 0, len(results))
@@ -205,7 +249,7 @@ func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
 				IGDBID:      result.ID,
 				Name:        result.Name,
 				ReleaseDate: result.ReleaseDate,
-				Platforms:   result.Platforms,
+				Platforms:   platforms.matchAll(result.Platforms),
 				CoverURL:    result.CoverURL,
 				Developers:  developers.matchAll(result.Developers),
 				Publishers:  publishers.matchAll(result.Publishers),
@@ -240,6 +284,37 @@ func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
 		out.Body.Companies = make([]igdbCompany, 0, len(companies))
 		for _, company := range companies {
 			out.Body.Companies = append(out.Body.Companies, igdbCompany{ID: company.ID, Name: company.Name})
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "list-igdb-platforms",
+		Method:      http.MethodGet,
+		Path:        "/api/metadata/platforms",
+		Summary:     "Name IGDB platforms",
+		Description: "Returns the names of IGDB platforms by id, such as those a platform is linked to " +
+			"(see its igdb_platform_ids), which the library itself does not keep.",
+		Tags: []string{"Metadata"},
+		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusFailedDependency,
+			http.StatusNotImplemented},
+	}, func(ctx context.Context, input *listIGDBPlatformsInput) (*listIGDBPlatformsOutput, error) {
+		if source == nil {
+			return nil, errIGDBNotConfigured()
+		}
+		lookupCtx, cancel := context.WithTimeout(ctx, searchTimeout)
+		defer cancel()
+		platforms, err := source.Platforms(lookupCtx, input.IDs)
+		if err != nil {
+			slog.Warn("naming IGDB platforms failed", "error", err)
+			return nil, errIGDBFailed()
+		}
+
+		out := &listIGDBPlatformsOutput{}
+		out.Body.Platforms = make([]igdbPlatform, 0, len(platforms))
+		for _, platform := range platforms {
+			out.Body.Platforms = append(out.Body.Platforms,
+				igdbPlatform{ID: platform.ID, Name: platform.Name, Abbreviation: platform.Abbreviation})
 		}
 		return out, nil
 	})
@@ -344,12 +419,85 @@ func (m *companyMatcher) matchAll(companies []igdb.Company) []companyMatch {
 
 // match prefers a link, which is the user's own earlier choice, over any
 // guess from the name.
-func (m *companyMatcher) match(company igdb.Company) *companyMatchTarget {
+func (m *companyMatcher) match(company igdb.Company) *matchTarget {
 	if id, ok := m.links[company.ID]; ok {
-		return &companyMatchTarget{ID: id, Name: m.names[id], Reason: matchLinked}
+		return &matchTarget{ID: id, Name: m.names[id], Reason: matchLinked}
 	}
 	if candidate, reason, ok := namematch.Best(company.Name, m.candidates); ok {
-		return &companyMatchTarget{ID: candidate.ID, Name: candidate.Name, Reason: matchReason(reason)}
+		return &matchTarget{ID: candidate.ID, Name: candidate.Name, Reason: matchReason(reason)}
+	}
+	return nil
+}
+
+// platformMatcher pairs IGDB platforms with the platforms of one library,
+// read once per search.
+type platformMatcher struct {
+	candidates []namematch.Candidate
+	names      map[uint64]string
+	// links maps an IGDB platform id onto the platforms linked to it, the
+	// one with the most games first.
+	links map[uint64][]uint64
+}
+
+func newPlatformMatcher(ctx context.Context, db *gorm.DB, userID uint64) (*platformMatcher, error) {
+	records, err := repository.NewLookupRepository[models.Platform](db, userID).List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// How many games each platform has, to choose among the platforms one
+	// IGDB platform is linked to: the library's own habit is the best guess.
+	games, err := repository.NewGameRepository(db, userID).CountByPlatform(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	matcher := &platformMatcher{
+		candidates: make([]namematch.Candidate, 0, len(records)),
+		names:      make(map[uint64]string, len(records)),
+		links:      map[uint64][]uint64{},
+	}
+	// The listing is ordered by name, so a stable sort by games keeps ties
+	// in alphabetical order.
+	slices.SortStableFunc(records, func(a, b models.Platform) int { return cmp.Compare(games[b.ID], games[a.ID]) })
+	for _, record := range records {
+		matcher.candidates = append(matcher.candidates, namematch.Candidate{ID: record.ID, Name: record.Name})
+		matcher.names[record.ID] = record.Name
+		for _, platform := range record.IGDBPlatformIDs {
+			matcher.links[platform] = append(matcher.links[platform], record.ID)
+		}
+	}
+	return matcher, nil
+}
+
+func (m *platformMatcher) matchAll(platforms []igdb.Platform) []platformMatch {
+	out := make([]platformMatch, 0, len(platforms))
+	for _, platform := range platforms {
+		out = append(out, platformMatch{
+			IGDBPlatformID: platform.ID,
+			Name:           platform.Name,
+			Abbreviation:   platform.Abbreviation,
+			Match:          m.match(platform),
+		})
+	}
+	return out
+}
+
+// match prefers a link over any guess, and guesses from the abbreviation
+// before the name: a library tends to call a platform what IGDB abbreviates
+// it to ("PS5"), more than its full name. A shared prefix is not a guess
+// worth making here, unlike for companies: "Xbox" is not "Xbox Series X",
+// nor "Switch" the "Switch 2".
+func (m *platformMatcher) match(platform igdb.Platform) *matchTarget {
+	if linked := m.links[platform.ID]; len(linked) > 0 {
+		return &matchTarget{ID: linked[0], Name: m.names[linked[0]], Reason: matchLinked}
+	}
+	for _, name := range []string{platform.Abbreviation, platform.Name} {
+		if name == "" {
+			continue
+		}
+		if candidate, reason, ok := namematch.Best(name, m.candidates); ok && reason != namematch.ReasonPrefix {
+			return &matchTarget{ID: candidate.ID, Name: candidate.Name, Reason: matchReason(reason)}
+		}
 	}
 	return nil
 }

@@ -117,4 +117,7 @@ type Platform struct {
 	// Color is a hex code ("#3b82f6") shown wherever a game's platform is.
 	// Platform only: see migration 00003.
 	Color *string `gorm:"column:color" json:"color"`
+	// IGDBPlatformIDs are the IGDB platforms the platform stands for, filled
+	// in the same way as Developer.IGDBCompanyIDs. See migration 00018.
+	IGDBPlatformIDs []uint64 `gorm:"-" json:"igdb_platform_ids,omitempty"`
 }

@@ -11,6 +11,8 @@ export interface Lookup {
   /** The IGDB companies a developer or publisher has been linked to through
    * Identify. Left out when there are none, and always for the other two. */
   igdb_company_ids?: number[]
+  /** The same for a platform and the IGDB platforms it stands for. */
+  igdb_platform_ids?: number[]
 }
 
 /** What creating or renaming one of them sends. */

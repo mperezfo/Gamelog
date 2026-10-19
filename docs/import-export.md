@@ -7,7 +7,12 @@
   "version": 1,
   "exported_at": "2026-09-13T08:00:00Z",
   "platforms": [
-    { "name": "Nintendo Switch", "icon": "🎮", "color": "#e60012" }
+    {
+      "name": "Nintendo Switch",
+      "icon": "🎮",
+      "color": "#e60012",
+      "igdb_platform_ids": [130]
+    }
   ],
   "genres": [{ "name": "Metroidvania", "icon": "🗺️" }],
   "developers": [
@@ -38,7 +43,7 @@
 
 Relations are written **by name, never by id**. An id belongs to one database, while a name is what you typed, so the file survives being imported into another copy of Gamelog, edited in a text editor, or kept as the backup of a database that no longer exists.
 
-`igdb_company_ids` are the IGDB companies a developer or publisher has been linked to through the game form's Identify button. They are left out of a record with none, and an import links them again on top of any the record already has; an older file without them imports as before. On an import they can also be a single number or a string (`"37, 1234"`), and anything that is not an id is left out with a warning rather than failing the import.
+`igdb_company_ids` are the IGDB companies a developer or publisher has been linked to through the game form's Identify button, and `igdb_platform_ids` the IGDB platforms a platform has. They are left out of a record with none, and an import links them again on top of any the record already has; an older file without them imports as before. On an import they can also be a single number or a string (`"37, 1234"`), and anything that is not an id is left out with a warning rather than failing the import.
 
 A game's `igdb_id` is the IGDB game it was identified as, and `null` when it was not. An import reads it as a number or a string; an empty value unlinks the game, and anything that is not a single id is left out with a warning.
 

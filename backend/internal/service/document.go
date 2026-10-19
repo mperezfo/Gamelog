@@ -58,6 +58,8 @@ type LookupEntry struct {
 	// IGDBCompanyIDs carries the links of migration 00016, so that a backup
 	// restores them too.
 	IGDBCompanyIDs []uint64 `json:"igdb_company_ids,omitempty" doc:"IGDB companies the record stands for. Only a developer or a publisher has any." example:"[9346]"`
+	// IGDBPlatformIDs does the same for the links of migration 00018.
+	IGDBPlatformIDs []uint64 `json:"igdb_platform_ids,omitempty" doc:"IGDB platforms the record stands for. Only a platform has any." example:"[167]"`
 }
 
 // GameEntry is one game, with its platform and its genres, developers and

@@ -52,6 +52,15 @@ type Company struct {
 	Name string
 }
 
+// Platform is a system as IGDB lists it.
+type Platform struct {
+	ID   uint64
+	Name string
+	// Abbreviation is IGDB's short name ("PS5" for "PlayStation 5"), or empty
+	// when it has none.
+	Abbreviation string
+}
+
 // Game is one search result.
 type Game struct {
 	ID   uint64
@@ -59,7 +68,7 @@ type Game struct {
 	// ReleaseDate is IGDB's first release date across every platform, at
 	// midnight UTC. Nil when IGDB does not know it.
 	ReleaseDate *time.Time
-	Platforms   []string
+	Platforms   []Platform
 	Developers  []Company
 	Publishers  []Company
 	// CoverURL is a small cover hosted by IGDB, to tell candidates apart.
@@ -100,7 +109,7 @@ func New(clientID, clientSecret string) *Client {
 func (c *Client) Search(ctx context.Context, title string) ([]Game, error) {
 	query := fmt.Sprintf(
 		`search "%s"; `+
-			`fields name,first_release_date,platforms.name,cover.image_id,`+
+			`fields name,first_release_date,platforms.name,platforms.abbreviation,cover.image_id,`+
 			`involved_companies.company.name,involved_companies.developer,involved_companies.publisher; `+
 			`where version_parent = null; limit %d;`,
 		escape(title), searchLimit,
@@ -118,44 +127,75 @@ func (c *Client) Search(ctx context.Context, title string) ([]Game, error) {
 	return games, nil
 }
 
-// maxCompanies caps one lookup of companies by id, which IGDB answers in a
-// single page of at most this many results.
-const maxCompanies = 50
+// maxByID caps one lookup of records by id, which IGDB answers in a single
+// page of at most this many results.
+const maxByID = 50
 
 // Companies returns the companies with the given ids, in the order asked
 // for. An id IGDB does not know is left out.
 func (c *Client) Companies(ctx context.Context, ids []uint64) ([]Company, error) {
-	if len(ids) == 0 {
-		return []Company{}, nil
+	results, err := byID[apiCompany](ctx, c, "companies", "name", ids)
+	if err != nil {
+		return nil, err
 	}
-	if len(ids) > maxCompanies {
-		ids = ids[:maxCompanies]
+	companies := make([]Company, 0, len(results))
+	for _, result := range results {
+		companies = append(companies, Company{ID: result.ID, Name: result.Name})
+	}
+	return companies, nil
+}
+
+// Platforms returns the platforms with the given ids, in the order asked
+// for. An id IGDB does not know is left out.
+func (c *Client) Platforms(ctx context.Context, ids []uint64) ([]Platform, error) {
+	results, err := byID[apiPlatform](ctx, c, "platforms", "name,abbreviation", ids)
+	if err != nil {
+		return nil, err
+	}
+	platforms := make([]Platform, 0, len(results))
+	for _, result := range results {
+		platforms = append(platforms, result.platform())
+	}
+	return platforms, nil
+}
+
+// identified is a record of the API, which byID reads by its id.
+type identified interface {
+	apiCompany | apiPlatform
+	id() uint64
+}
+
+// byID reads the records of one endpoint with the given ids, at most maxByID
+// of them, in the order asked for. An id IGDB does not know is left out.
+func byID[R identified](ctx context.Context, c *Client, endpoint, fields string, ids []uint64) ([]R, error) {
+	if len(ids) == 0 {
+		return []R{}, nil
+	}
+	if len(ids) > maxByID {
+		ids = ids[:maxByID]
 	}
 
 	list := make([]string, 0, len(ids))
 	for _, id := range ids {
 		list = append(list, strconv.FormatUint(id, 10))
 	}
-	var results []struct {
-		ID   uint64 `json:"id"`
-		Name string `json:"name"`
-	}
-	query := fmt.Sprintf("fields name; where id = (%s); limit %d;", strings.Join(list, ","), maxCompanies)
-	if err := c.query(ctx, "companies", query, &results); err != nil {
+	var results []R
+	query := fmt.Sprintf("fields %s; where id = (%s); limit %d;", fields, strings.Join(list, ","), maxByID)
+	if err := c.query(ctx, endpoint, query, &results); err != nil {
 		return nil, err
 	}
 
-	names := make(map[uint64]string, len(results))
+	found := make(map[uint64]R, len(results))
 	for _, result := range results {
-		names[result.ID] = result.Name
+		found[result.id()] = result
 	}
-	companies := make([]Company, 0, len(ids))
+	ordered := make([]R, 0, len(ids))
 	for _, id := range ids {
-		if name, ok := names[id]; ok {
-			companies = append(companies, Company{ID: id, Name: name})
+		if result, ok := found[id]; ok {
+			ordered = append(ordered, result)
 		}
 	}
-	return companies, nil
+	return ordered, nil
 }
 
 // ErrNotFound is returned when IGDB has no record with the id asked for.
@@ -164,6 +204,11 @@ var ErrNotFound = errors.New("igdb: not found")
 // CompanyURL returns the page of a company on igdb.com.
 func (c *Client) CompanyURL(ctx context.Context, id uint64) (string, error) {
 	return c.pageURL(ctx, "companies", "https://www.igdb.com/companies/", id)
+}
+
+// PlatformURL returns the page of a platform on igdb.com.
+func (c *Client) PlatformURL(ctx context.Context, id uint64) (string, error) {
+	return c.pageURL(ctx, "platforms", "https://www.igdb.com/platforms/", id)
 }
 
 // GameURL returns the page of a game on igdb.com.
@@ -309,15 +354,34 @@ func decodeResponse(resp *http.Response, what string, target any) error {
 	return nil
 }
 
+// apiCompany is a company as the API returns it.
+type apiCompany struct {
+	ID   uint64 `json:"id"`
+	Name string `json:"name"`
+}
+
+func (c apiCompany) id() uint64 { return c.ID }
+
+// apiPlatform is a platform as the API returns it.
+type apiPlatform struct {
+	ID           uint64 `json:"id"`
+	Name         string `json:"name"`
+	Abbreviation string `json:"abbreviation"`
+}
+
+func (p apiPlatform) id() uint64 { return p.ID }
+
+func (p apiPlatform) platform() Platform {
+	return Platform{ID: p.ID, Name: p.Name, Abbreviation: strings.TrimSpace(p.Abbreviation)}
+}
+
 // apiGame is a game as the search query above returns it.
 type apiGame struct {
-	ID               uint64 `json:"id"`
-	Name             string `json:"name"`
-	FirstReleaseDate *int64 `json:"first_release_date"`
-	Platforms        []struct {
-		Name string `json:"name"`
-	} `json:"platforms"`
-	Cover *struct {
+	ID               uint64        `json:"id"`
+	Name             string        `json:"name"`
+	FirstReleaseDate *int64        `json:"first_release_date"`
+	Platforms        []apiPlatform `json:"platforms"`
+	Cover            *struct {
 		ImageID string `json:"image_id"`
 	} `json:"cover"`
 	InvolvedCompanies []struct {
@@ -335,7 +399,7 @@ func (g apiGame) game() Game {
 	game := Game{
 		ID:         g.ID,
 		Name:       g.Name,
-		Platforms:  make([]string, 0, len(g.Platforms)),
+		Platforms:  make([]Platform, 0, len(g.Platforms)),
 		Developers: []Company{},
 		Publishers: []Company{},
 	}
@@ -347,7 +411,10 @@ func (g apiGame) game() Game {
 		game.ReleaseDate = &released
 	}
 	for _, platform := range g.Platforms {
-		game.Platforms = append(game.Platforms, platform.Name)
+		if platform.ID == 0 || platform.Name == "" {
+			continue
+		}
+		game.Platforms = append(game.Platforms, platform.platform())
 	}
 	if g.Cover != nil && g.Cover.ImageID != "" {
 		cover := fmt.Sprintf(coverURL, g.Cover.ImageID)

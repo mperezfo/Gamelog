@@ -89,6 +89,24 @@ export interface GameInput {
   /** Ties existing records to the IGDB company each stands for. */
   developer_links?: CompanyLink[]
   publisher_links?: CompanyLink[]
+  /** The platform to play it on, by name: created if the library does not
+   * have it yet, and attached in place of platform_id. */
+  new_platform?: NewPlatform | null
+  /** Ties an existing platform to an IGDB platform it stands for. */
+  platform_link?: PlatformLink | null
+}
+
+/** A platform to create when the game is saved. */
+export interface NewPlatform {
+  name: string
+  /** The IGDB platform to link it to. */
+  igdb_platform_id?: number | null
+}
+
+/** An existing platform and an IGDB platform it stands for. */
+export interface PlatformLink {
+  id: number
+  igdb_platform_id: number
 }
 
 /** A developer or publisher to create when the game is saved. */

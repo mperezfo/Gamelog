@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 
-import { getMetadataCapabilities, listIgdbCompanies, searchGameMetadata } from '../api/metadata'
+import { getMetadataCapabilities, listIgdbNames, searchGameMetadata } from '../api/metadata'
 
 /** What the deployment is configured for. It only changes with a restart of
  * the server, so it is read once per session. */
@@ -12,12 +12,12 @@ export function useMetadataCapabilities() {
   })
 }
 
-/** The names of IGDB companies, fetched only once `enabled`: they are shown
- * on demand, and a company's name hardly ever changes. */
-export function useIgdbCompanies(ids: number[], enabled: boolean) {
+/** The names of IGDB companies or platforms, fetched only once `enabled`:
+ * they are shown on demand, and a name hardly ever changes. */
+export function useIgdbNames(kind: 'companies' | 'platforms', ids: number[], enabled: boolean) {
   return useQuery({
-    queryKey: ['metadata', 'companies', ids],
-    queryFn: () => listIgdbCompanies(ids),
+    queryKey: ['metadata', kind, ids],
+    queryFn: () => listIgdbNames(kind, ids),
     enabled,
     staleTime: Infinity,
     retry: false,
