@@ -92,13 +92,30 @@ func (f *fakeSearcher) GameURL(_ context.Context, id uint64) (string, error) {
 	return "", igdb.ErrNotFound
 }
 
+// Images knows Resident Evil 4 (26192) and nothing else.
+func (f *fakeSearcher) Images(_ context.Context, id uint64) ([]igdb.Image, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	if id == 26192 {
+		return []igdb.Image{{
+			URL:      "https://images.igdb.com/igdb/image/upload/t_original/co6bo0.jpg",
+			ThumbURL: "https://images.igdb.com/igdb/image/upload/t_cover_big/co6bo0.jpg",
+			Width:    1200,
+			Height:   1600,
+			Kind:     igdb.KindCover,
+		}}, nil
+	}
+	return nil, igdb.ErrNotFound
+}
+
 // newMetadataRouter builds the API around games, which router.New would
 // otherwise build from real IGDB credentials. A nil games is a deployment
 // without them.
 func newMetadataRouter(db *gorm.DB, source handlers.IGDB) http.Handler {
 	r := chi.NewRouter()
 	api := humachi.New(r, huma.DefaultConfig("Gamelog API", "test"))
-	handlers.Register(api, db, newAuthService(db), os.TempDir(), "test", source)
+	handlers.Register(api, db, newAuthService(db), os.TempDir(), "test", handlers.Sources{IGDB: source})
 	return r
 }
 

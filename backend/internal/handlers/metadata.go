@@ -28,11 +28,14 @@ type IGDB interface {
 	PlatformURL(ctx context.Context, id uint64) (string, error)
 	Companies(ctx context.Context, ids []uint64) ([]igdb.Company, error)
 	Platforms(ctx context.Context, ids []uint64) ([]igdb.Platform, error)
+	Images(ctx context.Context, gameID uint64) ([]igdb.Image, error)
 }
 
 type metadataCapabilitiesOutput struct {
 	Body struct {
 		Identify bool `json:"identify" doc:"Whether games can be looked up on IGDB, which needs the deployment to be configured with IGDB credentials."`
+		// Never null: a client checks its length, not its presence.
+		ImageSources []string `json:"image_sources" enum:"igdb,steamgriddb" doc:"Where cover images can be searched for (see search-game-images), in the order to offer them. Empty when the deployment is configured for neither."`
 	}
 }
 
@@ -178,13 +181,17 @@ type searchGameMetadataOutput struct {
 const searchTimeout = 8 * time.Second
 
 // registerMetadata registers the lookups of game metadata on IGDB, behind the
-// game form's Identify button. source is nil when the deployment has no IGDB
-// credentials, in which case the capabilities say so and the rest answer 501.
+// game form's Identify button, and the search for cover images (see
+// registerImageSearch). A source is nil when the deployment has no credentials
+// for it, in which case the capabilities say so and its operations answer 501.
 //
 // Neither failure answers 502 or 503, the statuses a gateway would use: the
 // frontend reads those, from any endpoint, as the server being unreachable
 // and switches to its offline mode, when only IGDB is.
-func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
+func registerMetadata(api huma.API, db *gorm.DB, sources Sources) {
+	source := sources.IGDB
+	images := imageSearchSources(sources)
+
 	huma.Register(api, huma.Operation{
 		OperationID: "get-metadata-capabilities",
 		Method:      http.MethodGet,
@@ -197,8 +204,14 @@ func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
 	}, func(ctx context.Context, _ *struct{}) (*metadataCapabilitiesOutput, error) {
 		out := &metadataCapabilitiesOutput{}
 		out.Body.Identify = source != nil
+		out.Body.ImageSources = make([]string, 0, len(images))
+		for _, image := range images {
+			out.Body.ImageSources = append(out.Body.ImageSources, image.id)
+		}
 		return out, nil
 	})
+
+	registerImageSearch(api, images)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "search-game-metadata",
@@ -351,14 +364,24 @@ func registerMetadata(api huma.API, db *gorm.DB, source IGDB) {
 }
 
 // errIGDBNotConfigured and errIGDBFailed are the two ways an operation that
-// needs IGDB fails through no fault of the request. See registerMetadata for
-// why neither is a 502 or a 503.
+// needs IGDB fails through no fault of the request.
 func errIGDBNotConfigured() error {
-	return huma.NewError(http.StatusNotImplemented, "IGDB is not configured on this deployment")
+	return errSourceNotConfigured("IGDB")
 }
 
 func errIGDBFailed() error {
-	return huma.NewError(http.StatusFailedDependency, "IGDB could not be reached, or did not answer")
+	return errSourceFailed("IGDB")
+}
+
+// errSourceNotConfigured and errSourceFailed are the two ways an operation
+// that needs an outside service fails through no fault of the request. See
+// registerMetadata for why neither is a 502 or a 503.
+func errSourceNotConfigured(name string) error {
+	return huma.NewError(http.StatusNotImplemented, name+" is not configured on this deployment")
+}
+
+func errSourceFailed(name string) error {
+	return huma.NewError(http.StatusFailedDependency, name+" could not be reached, or did not answer")
 }
 
 // companyMatcher pairs IGDB companies with the records of one library, read
