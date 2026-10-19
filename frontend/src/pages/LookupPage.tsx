@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom'
 import { errorMessage } from '../api/client'
 import { igdbPage } from '../api/metadata'
 import { Button } from '../components/Button'
+import { ColorField } from '../components/ColorField'
 import { Emoji } from '../components/Emoji'
+import { EmojiField } from '../components/EmojiField'
 import { Field } from '../components/Field'
 import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
@@ -444,23 +446,9 @@ function LookupForm({
           className="flex-1"
         />
         {kind === 'platforms' ? (
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[13px] font-medium text-ink-muted">Color</label>
-            <input
-              type="color"
-              value={color}
-              onChange={(event) => setColor(event.target.value)}
-              className="h-9 w-11 cursor-pointer rounded-control border border-line-strong bg-sunken p-1 outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-            />
-          </div>
+          <ColorField label="Color" value={color} onChange={setColor} />
         ) : (
-          <Field
-            label="Icon"
-            placeholder="None"
-            value={icon}
-            onChange={(event) => setIcon(event.target.value)}
-            className="w-16"
-          />
+          <EmojiField label="Icon" value={icon} onChange={setIcon} />
         )}
       </div>
       {item && kind !== 'genres' && (
