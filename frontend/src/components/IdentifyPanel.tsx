@@ -6,7 +6,7 @@ import { useDateFormat } from '../hooks/useSession'
 import { formatDate } from '../lib/format'
 import { foldCase } from '../lib/fuzzy'
 import type { CompanyLink, NewLookup } from '../types/game'
-import type { Lookup } from '../types/lookup'
+import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import type { CompanyMatch, GameCandidate } from '../types/metadata'
 import { Button } from './Button'
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
@@ -208,10 +208,10 @@ function resolve(companies: CompanyMatch[], choices: Choice[]): CompanyResolutio
           igdb_company_id: company.igdb_company_id,
         })
     } else if (choice.kind === 'create') {
-      const name = foldCase(company.name)
-      if (!resolution.pending.some((p) => foldCase(p.name) === name)) {
+      const name = recordName(company.name)
+      if (!resolution.pending.some((p) => foldCase(p.name) === foldCase(name))) {
         resolution.pending.push({
-          name: company.name,
+          name,
           igdb_company_id: company.igdb_company_id,
         })
       }
@@ -219,6 +219,13 @@ function resolve(companies: CompanyMatch[], choices: Choice[]): CompanyResolutio
   })
 
   return resolution
+}
+
+/** IGDB's name for a company, cut to what the API takes for a new record:
+ * IGDB sets no such limit, and one longer name would fail the game's whole
+ * save. Cut by character rather than by UTF-16 unit, so as not to split one. */
+function recordName(name: string): string {
+  return Array.from(name.trim()).slice(0, MAX_LOOKUP_NAME).join('').trim()
 }
 
 function isEmpty(resolution: CompanyResolution): boolean {

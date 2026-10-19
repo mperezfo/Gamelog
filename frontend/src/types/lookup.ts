@@ -20,5 +20,10 @@ export interface LookupInput {
   color?: string | null
 }
 
+/** The longest name the API takes for a genre, developer, publisher or
+ * platform, in characters. A longer one fails the request, and inside a game
+ * write (a new developer, say) the whole save with it. */
+export const MAX_LOOKUP_NAME = 100
+
 /** The four simple entities, plural as their endpoint segment. */
 export type LookupKind = 'genres' | 'developers' | 'publishers' | 'platforms'
