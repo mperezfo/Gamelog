@@ -310,3 +310,24 @@ export function ExternalLinkIcon(props: IconProps) {
     </Icon>
   )
 }
+
+/** Shows what a password field holds (see Field). */
+export function EyeIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="2.75" />
+    </Icon>
+  )
+}
+
+/** Hides it again. */
+export function EyeOffIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M9.9 5.8A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-2.6 3.4M6.6 6.6C4 8.3 2.5 12 2.5 12S6 18.5 12 18.5c1.9 0 3.5-.6 4.9-1.5" />
+      <path d="M10 10a2.75 2.75 0 0 0 4 4" />
+      <path d="M3 3l18 18" />
+    </Icon>
+  )
+}

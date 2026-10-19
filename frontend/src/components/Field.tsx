@@ -1,6 +1,7 @@
-import { useId, useRef, type InputHTMLAttributes, type RefObject } from 'react'
+import { useId, useRef, useState, type InputHTMLAttributes, type RefObject } from 'react'
 
-import { ChevronDownIcon, ChevronUpIcon } from './icons'
+import { validityMessage } from '../lib/validity'
+import { ChevronDownIcon, ChevronUpIcon, EyeIcon, EyeOffIcon } from './icons'
 
 interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string
@@ -8,26 +9,52 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
   hint?: string
 }
 
-/** A labelled text input. */
-export function Field({ label, hint, className = '', ...props }: FieldProps) {
+/**
+ * A labelled text input.
+ *
+ * What is wrong with it, once a submit has been refused, shows under it in
+ * place of the hint (see useInlineValidation for why the browser's own
+ * bubble never does), and follows the typing from then on until it is put
+ * right.
+ */
+export function Field({ label, hint, className = '', onChange, onInvalid, ...props }: FieldProps) {
   const id = useId()
+  const messageId = `${id}-message`
   const inputRef = useRef<HTMLInputElement>(null)
+  const [error, setError] = useState('')
+  const [revealed, setRevealed] = useState(false)
   const number = props.type === 'number'
+  const password = props.type === 'password'
+  const message = error || hint
 
   const input = (
     <input
       id={id}
       ref={inputRef}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={message ? messageId : undefined}
+      onChange={(event) => {
+        if (error) setError(event.currentTarget.validity.valid ? '' : validityMessage(event.currentTarget))
+        onChange?.(event)
+      }}
+      onInvalid={(event) => {
+        setError(validityMessage(event.currentTarget))
+        onInvalid?.(event)
+      }}
       className={[
         'h-9 w-full rounded-control bg-sunken px-2.5',
         'text-sm text-ink placeholder:text-ink-faint',
         'outline-none transition-colors duration-75',
-        'focus-visible:ring-2 focus-visible:ring-accent/40',
+        error
+          ? 'ring-1 ring-danger focus-visible:ring-2 focus-visible:ring-danger/40'
+          : 'focus-visible:ring-2 focus-visible:ring-accent/40',
         'disabled:opacity-50',
         number ? NUMBER_CLASSES : '',
+        password ? 'pr-9' : '',
         className,
       ].join(' ')}
       {...props}
+      type={password && revealed ? 'text' : props.type}
     />
   )
 
@@ -38,19 +65,52 @@ export function Field({ label, hint, className = '', ...props }: FieldProps) {
           {label}
         </label>
       )}
-      {/* Only a number input gets a positioned wrapper, for Stepper. On any
-          other input it would paint over whatever a caller lays on top of
-          it, such as the icon in the Games search box. */}
-      {number ? (
+      {/* Only a number or password input gets a positioned wrapper, for the
+          buttons laid over it. On any other input it would paint over
+          whatever a caller lays on top of it, such as the icon in the Games
+          search box. */}
+      {number || password ? (
         <div className="relative">
           {input}
-          <Stepper input={inputRef} />
+          {number && <Stepper input={inputRef} />}
+          {password && (
+            <RevealButton revealed={revealed} disabled={props.disabled} onToggle={() => setRevealed((r) => !r)} />
+          )}
         </div>
       ) : (
         input
       )}
-      {hint && <p className="text-xs text-ink-faint">{hint}</p>}
+      {message && (
+        <p id={messageId} className={`text-xs ${error ? 'text-danger' : 'text-ink-faint'}`}>
+          {message}
+        </p>
+      )}
     </div>
+  )
+}
+
+/**
+ * Shows the password as plain text and back, the same in every browser:
+ * Edge would otherwise draw an eye of its own (hidden in index.css) and the
+ * rest none at all. Pressing it leaves focus, and the caret, in the input.
+ */
+function RevealButton({ revealed, disabled, onToggle }: { revealed: boolean; disabled?: boolean; onToggle: () => void }) {
+  const label = revealed ? 'Hide password' : 'Show password'
+  const Glyph = revealed ? EyeOffIcon : EyeIcon
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      data-tooltip={label}
+      aria-pressed={revealed}
+      disabled={disabled}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onToggle}
+      className="absolute inset-y-0 right-0 flex w-9 items-center justify-center rounded-control text-ink-faint transition-colors duration-75 enabled:hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50"
+    >
+      <Glyph className="size-4" />
+    </button>
   )
 }
 

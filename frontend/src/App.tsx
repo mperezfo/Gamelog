@@ -8,6 +8,7 @@ import { errorMessage, UnreachableError } from './api/client'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useReconnect } from './hooks/useOffline'
+import { useInlineValidation } from './hooks/useInlineValidation'
 import { useOfflineSync } from './hooks/useOfflineSync'
 import { useScrollbarFade } from './hooks/useScrollbarFade'
 import { useSession } from './hooks/useSession'
@@ -45,6 +46,7 @@ export default function App() {
   useTruncationTooltip()
   useScrollbarFade()
   useTapFeedback()
+  useInlineValidation()
 
   return (
     <PersistQueryClientProvider
