@@ -287,11 +287,15 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const remove = useDeleteGame()
 
   const saving = create.isPending || update.isPending
+  // A cover still uploading or importing: saving now would keep the old one.
+  const [coverBusy, setCoverBusy] = useState(false)
   const saveError = create.error ?? update.error
 
   function submit(event: FormEvent) {
     event.preventDefault()
-    if (duplicateGame) return
+    // Not left to the disabled button alone: a form has other ways to be
+    // submitted than a click on it.
+    if (duplicateGame || coverBusy) return
 
     const input: GameInput = {
       title,
@@ -366,6 +370,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
               ? { title: title.trim(), igdbId, sources: capabilities.data.image_sources }
               : undefined
           }
+          onBusyChange={setCoverBusy}
         />
 
         <div className="flex flex-col gap-1">
@@ -561,8 +566,8 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
 
       <div className="flex items-center justify-between gap-2 pt-2">
         <div className="flex gap-2">
-          <Button type="submit" variant="primary" disabled={saving || offline || Boolean(duplicateGame)}>
-            {saving ? 'Saving…' : game ? 'Save' : 'Create game'}
+          <Button type="submit" variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame)}>
+            {saving ? 'Saving…' : coverBusy ? 'Storing cover…' : game ? 'Save' : 'Create game'}
           </Button>
           {onCancel && <Button onClick={onCancel}>Cancel</Button>}
         </div>

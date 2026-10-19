@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent } from 'react'
 
-import { uploadImage } from '../api/images'
+import { importImage, uploadImage } from '../api/images'
 import { errorMessage } from '../api/client'
 import { coverFitStyle, cropSize } from '../lib/cover'
 import { Button } from './Button'
-import type { ImageSource } from '../types/metadata'
+import type { GameImage, ImageSource } from '../types/metadata'
 import { CoverImage } from './CoverImage'
+import { Dots } from './Dots'
 import { ImageIcon, TrashIcon } from './icons'
 import { ImageSearch } from './ImageSearch'
 import { Notice } from './Notice'
@@ -33,6 +34,10 @@ interface CoverImageFieldProps {
     igdbId: number | null
     sources: ImageSource[]
   }
+  /** Told when an image starts or finishes being stored, during which the
+   * cover the form holds is not the one on screen yet, and saving would
+   * keep the old one. */
+  onBusyChange?: (busy: boolean) => void
 }
 
 const MIN_ZOOM = 1
@@ -77,6 +82,7 @@ export function CoverImageField({
   onZoomChange,
   readOnly = false,
   imageSearch,
+  onBusyChange,
 }: CoverImageFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -111,6 +117,12 @@ export function CoverImageField({
 
   const [cropping, setCropping] = useState(false)
   const [searching, setSearching] = useState(false)
+  // An image picked in the search, shown from the thumbnail the browser
+  // already has while a copy is imported, so that a pick takes effect at
+  // once rather than after the download. `stored` is where the copy landed,
+  // and the preview stays until that has loaded in its place, so that the
+  // cover never blinks out in between.
+  const [preview, setPreview] = useState<{ thumb: string; stored: string | null } | null>(null)
   const [draftX, setDraftX] = useState(focalX ?? 0.5)
   const [draftY, setDraftY] = useState(focalY ?? 0.5)
   const [draftZoom, setDraftZoom] = useState(zoom ?? MIN_ZOOM)
@@ -152,6 +164,11 @@ export function CoverImageField({
       ? coverFitStyle({ cover_focal_x: focalX, cover_focal_y: focalY, cover_zoom: zoom }, coverAspect.aspect, boxAspect)
       : undefined
 
+  const importing = preview !== null && preview.stored === null
+  const showPreview =
+    preview !== null && (importing || (value === preview.stored && loadedCover !== value && failedCover !== value))
+  const busy = uploading || importing
+
   /** Makes url the cover. A new image starts uncropped: the old crop was
    * chosen for another picture. */
   function applyImage(url: string) {
@@ -162,8 +179,9 @@ export function CoverImageField({
   }
 
   async function handleFile(file: File | undefined) {
-    if (!file) return
+    if (!file || importing) return
     setUploading(true)
+    onBusyChange?.(true)
     setError(null)
     try {
       const { url } = await uploadImage(file)
@@ -172,7 +190,27 @@ export function CoverImageField({
       setError(errorMessage(err))
     } finally {
       setUploading(false)
+      onBusyChange?.(false)
       if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  async function handlePick(image: GameImage) {
+    setSearching(false)
+    setPreview({ thumb: image.thumb_url, stored: null })
+    setShowOverlay(false)
+    onBusyChange?.(true)
+    setError(null)
+    try {
+      const { url } = await importImage(image.url)
+      applyImage(url)
+      setPreview({ thumb: image.thumb_url, stored: url })
+    } catch (err) {
+      // Back to the cover there was, which the form never stopped holding.
+      setPreview(null)
+      setError(errorMessage(err))
+    } finally {
+      onBusyChange?.(false)
     }
   }
 
@@ -444,7 +482,7 @@ export function CoverImageField({
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={uploading}
+                    disabled={busy}
                     className="bg-surface/90 hover:bg-surface"
                     onClick={(event) => {
                       event.stopPropagation()
@@ -453,7 +491,7 @@ export function CoverImageField({
                   >
                     {uploading ? 'Uploading…' : 'Replace'}
                   </Button>
-                  {!uploading && imageSearch && (
+                  {!busy && imageSearch && (
                     <Button
                       type="button"
                       variant="secondary"
@@ -467,7 +505,7 @@ export function CoverImageField({
                       Search image
                     </Button>
                   )}
-                  {!uploading && (
+                  {!busy && (
                     <Button
                       type="button"
                       variant="secondary"
@@ -480,7 +518,7 @@ export function CoverImageField({
                       Set portrait crop
                     </Button>
                   )}
-                  {!uploading && (
+                  {!busy && (
                     <Button
                       type="button"
                       variant="secondary"
@@ -505,10 +543,10 @@ export function CoverImageField({
               <ImageIcon className="size-5 text-ink-faint" />
               {!readOnly && (
                 <div className="flex flex-wrap justify-center gap-2">
-                  <Button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}>
+                  <Button type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
                     {uploading ? 'Uploading…' : 'Add a cover'}
                   </Button>
-                  {!uploading && imageSearch && (
+                  {!busy && imageSearch && (
                     <Button
                       type="button"
                       onClick={() => {
@@ -531,6 +569,25 @@ export function CoverImageField({
               filling the box, that made the highlight invisible instead of
               merely faint. Being last in the DOM guarantees this paints over
               the image and the hover overlay regardless. */}
+          {/* Over the cover and its buttons, which wait for the import. */}
+          {showPreview && preview && (
+            <div className="absolute inset-0 bg-sunken">
+              <img
+                src={preview.thumb}
+                alt=""
+                referrerPolicy="no-referrer"
+                draggable={false}
+                className="absolute -top-px -left-px h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none object-cover object-top select-none"
+              />
+              {importing && (
+                <span className="absolute right-2 bottom-2 rounded-[4px] bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white">
+                  Importing
+                  <Dots />
+                </span>
+              )}
+            </div>
+          )}
+
           {dragging && (
             <div className="pointer-events-none absolute inset-0 rounded-control border-2 border-dashed border-accent" />
           )}
@@ -547,10 +604,7 @@ export function CoverImageField({
           title={imageSearch.title}
           igdbId={imageSearch.igdbId}
           sources={imageSearch.sources}
-          onPick={(url) => {
-            applyImage(url)
-            setSearching(false)
-          }}
+          onPick={(image) => void handlePick(image)}
           onClose={() => setSearching(false)}
         />
       )}

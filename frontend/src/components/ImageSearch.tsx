@@ -1,7 +1,6 @@
 import { useState } from 'react'
 
 import { errorMessage } from '../api/client'
-import { importImage } from '../api/images'
 import { useGameImages } from '../hooks/useMetadata'
 import type { GameImage, ImageKind, ImageSearchGame, ImageSource } from '../types/metadata'
 import { Button } from './Button'
@@ -31,36 +30,21 @@ interface ImageSearchProps {
   igdbId: number | null
   /** The sources to offer, one tab each. */
   sources: ImageSource[]
-  /** Called with the stored path of the picked image, once imported. */
-  onPick: (url: string) => void
+  /** Called with the picked image, straight away: importing it is up to
+   * the caller, which can show it in the meantime. */
+  onPick: (image: GameImage) => void
   onClose: () => void
 }
 
 /**
  * Looks the game up on IGDB and SteamGridDB and shows their images to pick
- * a cover from, in a popup large enough to tell them apart. Picking one imports a copy into
- * the library, as an upload would: the source's own URL is never stored.
+ * a cover from, in a popup large enough to tell them apart.
  */
 export function ImageSearch({ title, igdbId, sources, onPick, onClose }: ImageSearchProps) {
   const [source, setSource] = useState<ImageSource>(sources[0])
   // The match picked on each source, when it is not the one shown first.
   // Kept here rather than in each tab, so that a tab keeps it while hidden.
   const [switched, setSwitched] = useState<Partial<Record<ImageSource, number>>>({})
-  const [importing, setImporting] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  async function pick(image: GameImage) {
-    setImporting(image.url)
-    setError(null)
-    try {
-      const { url } = await importImage(image.url)
-      onPick(url)
-    } catch (err) {
-      setError(errorMessage(err))
-    } finally {
-      setImporting(null)
-    }
-  }
 
   return (
     <Dialog aria-label={`Images for ${title}`} onClose={onClose}>
@@ -103,15 +87,8 @@ export function ImageSearch({ title, igdbId, sources, onPick, onClose }: ImageSe
         firstGameId={source === 'igdb' ? igdbId : null}
         switchedGameId={switched[source] ?? null}
         onSwitch={(id) => setSwitched((current) => ({ ...current, [source]: id ?? undefined }))}
-        importing={importing}
-        onPick={(image) => void pick(image)}
+        onPick={onPick}
       />
-
-      {error && (
-        <div className="shrink-0 border-t border-line px-4 py-3 sm:px-5">
-          <Notice tone="error">{error}</Notice>
-        </div>
-      )}
     </Dialog>
   )
 }
@@ -125,8 +102,6 @@ interface SourceImagesProps {
   switchedGameId: number | null
   /** Picks another match; null goes back to the first. */
   onSwitch: (id: number | null) => void
-  /** The image being imported, if any. Every image waits for it. */
-  importing: string | null
   onPick: (image: GameImage) => void
 }
 
@@ -136,7 +111,6 @@ function SourceImages({
   firstGameId,
   switchedGameId,
   onSwitch,
-  importing,
   onPick,
 }: SourceImagesProps) {
   // The first search brings the title's matches along. Switching to another
@@ -181,7 +155,7 @@ function SourceImages({
         ) : shown.data.images.length === 0 ? (
           <p className="text-sm text-ink-faint">{SOURCE_NAMES[source]} has no images of this game.</p>
         ) : (
-          <ImageGrid images={shown.data.images} importing={importing} onPick={onPick} />
+          <ImageGrid images={shown.data.images} onPick={onPick} />
         )}
       </div>
     </div>
@@ -194,12 +168,11 @@ function gameLabel(game: ImageSearchGame): string {
 
 interface ImageGridProps {
   images: GameImage[]
-  importing: string | null
   onPick: (image: GameImage) => void
 }
 
 /** The images, grouped by kind in the order the API gives them. */
-function ImageGrid({ images, importing, onPick }: ImageGridProps) {
+function ImageGrid({ images, onPick }: ImageGridProps) {
   const groups: { kind: ImageKind; images: GameImage[] }[] = []
   for (const image of images) {
     const group = groups.find((g) => g.kind === image.kind)
@@ -229,12 +202,7 @@ function ImageGrid({ images, importing, onPick }: ImageGridProps) {
                 // Among narrower ones, a wide image takes two columns, where
                 // one would leave it a sliver.
                 <li key={image.url} className={!allWide && isWide(image) ? 'col-span-2' : ''}>
-                  <ImageOption
-                    image={image}
-                    busy={importing === image.url}
-                    disabled={importing !== null}
-                    onPick={() => onPick(image)}
-                  />
+                  <ImageOption image={image} onPick={() => onPick(image)} />
                 </li>
               ))}
             </ul>
@@ -251,12 +219,10 @@ function isWide(image: GameImage): boolean {
 
 interface ImageOptionProps {
   image: GameImage
-  busy: boolean
-  disabled: boolean
   onPick: () => void
 }
 
-function ImageOption({ image, busy, disabled, onPick }: ImageOptionProps) {
+function ImageOption({ image, onPick }: ImageOptionProps) {
   const [failed, setFailed] = useState(false)
   const size = image.width && image.height ? `${image.width} × ${image.height}` : null
 
@@ -264,21 +230,20 @@ function ImageOption({ image, busy, disabled, onPick }: ImageOptionProps) {
     <button
       type="button"
       onClick={onPick}
-      disabled={disabled}
       title={size ? `Use this image (${size})` : 'Use this image'}
       className={[
         'group relative block w-full overflow-hidden rounded-[4px] bg-sunken',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',
-        'enabled:hover:ring-2 enabled:hover:ring-accent',
+        'hover:ring-2 hover:ring-accent',
       ].join(' ')}
       // The image's own shape, so that portrait covers and wide banners both
       // show whole. A source that does not say gets the shape of a cover.
       style={{ aspectRatio: image.width && image.height ? `${image.width} / ${image.height}` : '3 / 4' }}
     >
       {/* Shown straight from the source rather than through the API: only
-          the picked image is ever copied into the library. */}
-      {/* A thumbnail that does not load leaves the empty tile rather than a
-          broken image: the full-size one may well still import. */}
+          the picked image is ever copied into the library. One that does not
+          load leaves the empty tile rather than a broken image: the
+          full-size one may well still import. */}
       {!failed && (
         <img
           src={image.thumb_url}
@@ -293,12 +258,6 @@ function ImageOption({ image, busy, disabled, onPick }: ImageOptionProps) {
       {size && (
         <span className="pointer-events-none absolute right-1 bottom-1 rounded-[3px] bg-black/60 px-1 py-px text-[10px] font-medium text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100">
           {size}
-        </span>
-      )}
-      {busy && (
-        <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-xs font-medium text-white">
-          Importing
-          <Dots />
         </span>
       )}
     </button>
