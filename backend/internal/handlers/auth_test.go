@@ -1,9 +1,11 @@
 package handlers_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/mperezfo/gamelog/internal/auth"
 	"github.com/mperezfo/gamelog/internal/models"
@@ -368,6 +370,56 @@ func TestChangingAPasswordEndsTheOtherSessions(t *testing.T) {
 		http.StatusNoContent, "logging out")
 	expectStatus(t, requestAs(t, bare, replacement, http.MethodGet, "/api/auth/me", nil),
 		http.StatusUnauthorized, "after logging out")
+}
+
+// TestARenewedSessionSendsItsCookieAgain: a session renews itself in the
+// database while it is used, and the cookie has to follow, or the browser
+// drops it on the day it was first set to expire and the account is signed
+// out anyway.
+func TestARenewedSessionSendsItsCookieAgain(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	bare := newBareRouter(db, false)
+	signedIn(t, bare, db, "player", false)
+	cookie := login(t, bare, "player", testPassword)
+
+	rec := requestAs(t, bare, cookie, http.MethodGet, "/api/auth/me", nil)
+	expectStatus(t, rec, http.StatusOK, "a fresh session")
+	if sessionCookie(rec) != nil {
+		t.Fatal("a session with most of its lifetime ahead sent its cookie again")
+	}
+
+	// Past half its lifetime, which is when using it pushes the expiry back.
+	now := time.Now().UTC()
+	if err := newAuthService(db).Sessions().Refresh(context.Background(),
+		auth.HashToken(cookie.Value), now, now.Add(testSessionLifetime/4)); err != nil {
+		t.Fatalf("ageing the session: %v", err)
+	}
+
+	rec = requestAs(t, bare, cookie, http.MethodGet, "/api/auth/me", nil)
+	expectStatus(t, rec, http.StatusOK, "a session past half its lifetime")
+	renewed := sessionCookie(rec)
+	if renewed == nil {
+		t.Fatal("renewing a session did not send its cookie again")
+	}
+	if renewed.Value != cookie.Value {
+		t.Fatal("renewing a session changed its token")
+	}
+	if want := int(testSessionLifetime.Seconds()); renewed.MaxAge != want {
+		t.Fatalf("renewed cookie Max-Age = %d, want %d", renewed.MaxAge, want)
+	}
+	if !renewed.HttpOnly || renewed.SameSite != http.SameSiteLaxMode {
+		t.Fatal("the renewed cookie lost the attributes the session cookie is set with")
+	}
+}
+
+// sessionCookie returns the session cookie a response set, or nil.
+func sessionCookie(rec *httptest.ResponseRecorder) *http.Cookie {
+	for _, cookie := range rec.Result().Cookies() {
+		if cookie.Name == auth.CookieName {
+			return cookie
+		}
+	}
+	return nil
 }
 
 // TestNameDefaultsToUsernameButCanDiverge is the point of splitting the two:

@@ -68,7 +68,7 @@ func Middleware(api huma.API, service *Service) func(huma.Context, func(huma.Con
 			return
 		}
 
-		user, err := service.Resolve(ctx.Context(), cookie.Value)
+		user, renewed, err := service.Resolve(ctx.Context(), cookie.Value)
 		if err != nil {
 			if !errors.Is(err, ErrNoSession) {
 				slog.Error("could not resolve a session", "error", err)
@@ -77,6 +77,17 @@ func Middleware(api huma.API, service *Service) func(huma.Context, func(huma.Con
 			}
 			unauthorised(api, ctx)
 			return
+		}
+
+		// The session now outlives the cookie the browser holds, whose
+		// Max-Age was fixed when it was set: without a fresh one, the browser
+		// drops it on that date and the account is signed out all the same.
+		// A handler that opens a session of its own (a password change, a
+		// restore) sets the cookie after this, and its cookie is the one that
+		// stays.
+		if renewed != nil {
+			fresh := service.Cookie(*renewed)
+			ctx.AppendHeader("Set-Cookie", fresh.String())
 		}
 
 		// A password restored from a backup is not one the account chose just
