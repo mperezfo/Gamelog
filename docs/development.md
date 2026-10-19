@@ -55,7 +55,7 @@ Quick check that all three are talking to each other:
 
 ```sh
 curl http://localhost:5173/api/health
-# {"status":"ok","service":"gamelog","database":"ok","time":"..."}
+# {"status":"ok","service":"gamelog","version":"dev","database":"ok","time":"..."}
 ```
 
 The first time you open <http://localhost:5173> the database has no accounts, so the application asks you to choose a password for `admin`. See [Accounts](self-hosting.md#accounts).
@@ -97,15 +97,14 @@ The backend serves `/api/*` and nothing else — never a static file. The fronte
 
 The schema lives in [`backend/migrations`](../backend/migrations) as goose migrations, embedded into the binary. They are the single source of truth: GORM's `AutoMigrate` is disabled, so the structs in `internal/models` never change the schema on their own.
 
-Pending migrations are applied automatically at startup (unless `GAMELOG_MIGRATE=false`). To change the schema, add a file to `backend/migrations` named `<version>_<description>.sql` with both directions:
+Pending migrations are applied automatically at startup (unless `GAMELOG_MIGRATE=false`). To change the schema, add a file to `backend/migrations` named `<version>_<description>.sql`, numbered after the last one:
 
 ```sql
 -- +goose Up
 ALTER TABLE games ADD COLUMN notes TEXT NULL;
-
--- +goose Down
-ALTER TABLE games DROP COLUMN notes;
 ```
+
+Migrations only go forward: since the first two, none has a `Down` section, and a deployment is never migrated back. A version must never be reused or slotted in below the latest one, even one a branch reserved and never merged: goose refuses to start on a database that is already past a migration it has not applied.
 
 Adminer (<http://localhost:8081>) is the quickest way to inspect the data by hand.
 
@@ -195,6 +194,10 @@ backend/
     service/         business logic, import/export and backups
     handlers/        HTTP controllers
     router/          routes and the API documentation page
+    igdb/            IGDB client, for Identify and the image search
+    steamgriddb/     SteamGridDB client, for the image search
+    namematch/       matching IGDB companies and platforms to a library's own
+    imagefile/       stored images: formats, conversion, pruning
     slug/            URL slugs for games and lookups
     testsupport/     throwaway databases for tests
   migrations/        goose SQL migrations, embedded
