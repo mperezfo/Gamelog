@@ -70,9 +70,11 @@ func (s *imageStore) thumbnailPath(name, size string) (string, error) {
 	}
 	config, _, err := image.DecodeConfig(file)
 	file.Close()
-	if err != nil || min(config.Width, config.Height) <= thumbnailSizes[size] {
-		// Nothing to gain from a thumbnail, or a file the decoder does not
-		// understand, which the browser may still manage to show.
+	if err != nil || min(config.Width, config.Height) <= thumbnailSizes[size] ||
+		config.Width*config.Height > imagefile.MaxDecodePixels {
+		// Nothing to gain from a thumbnail, a file the decoder does not
+		// understand, which the browser may still manage to show, or one
+		// too large to decode here without risking the server's memory.
 		return original, nil
 	}
 

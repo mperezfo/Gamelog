@@ -10,13 +10,14 @@ import (
 	"golang.org/x/image/draw"
 )
 
-// MaxShrinkPixels caps the images Shrink takes on: decoded, one costs four
-// bytes a pixel, so this keeps a single one under 160 MiB of memory. A
-// banner or a cover is a fraction of it.
-const MaxShrinkPixels = 40_000_000
+// MaxDecodePixels caps the images the backend decodes, to reduce one (Shrink),
+// convert one (Normalize) or make its thumbnails: decoded, one costs four
+// bytes a pixel, so this keeps a single one under 160 MiB of memory, however
+// few bytes its file takes. A banner or a cover is a fraction of it.
+const MaxDecodePixels = 40_000_000
 
-// ErrTooManyPixels is returned for an image larger than MaxShrinkPixels.
-var ErrTooManyPixels = errors.New("the image has too many pixels to be reduced")
+// ErrTooManyPixels is returned for an image larger than MaxDecodePixels.
+var ErrTooManyPixels = errors.New("the image has too many pixels to be decoded")
 
 // Shrink re-encodes an image to take less space: scaled down so that its
 // longer side is at most maxSide pixels long, then encoded as a JPEG, or as
@@ -34,7 +35,7 @@ func Shrink(data []byte, maxSide int) ([]byte, error) {
 	}
 	// Checked before decoding: the header alone says how much memory the
 	// pixels would take.
-	if config.Width*config.Height > MaxShrinkPixels {
+	if config.Width*config.Height > MaxDecodePixels {
 		return nil, ErrTooManyPixels
 	}
 

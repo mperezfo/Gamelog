@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -44,6 +45,24 @@ func WriteFile(path string, src io.Reader) error {
 		return fmt.Errorf("finalising the image: %w", err)
 	}
 	return nil
+}
+
+// Store keeps data at path, written as WriteFile does unless a file is
+// already there, which, names being content-addressed, holds these very
+// bytes. Either way the file is left marked as modified now: -prune-images
+// spares an unused image by how recent it is (see PruneGrace), and one just
+// uploaded, picked or restored is about to be used, even when the same bytes
+// were stored, and left unused, long before.
+func Store(path string, data []byte) error {
+	now := time.Now()
+	err := os.Chtimes(path, now, now)
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("marking %s as just stored: %w", filepath.Base(path), err)
+	}
+	return WriteFile(path, bytes.NewReader(data))
 }
 
 // Conversion is one stored image NormalizeStored replaced, or would replace.

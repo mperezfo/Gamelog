@@ -151,6 +151,13 @@ func Normalize(data []byte) ([]byte, string, error) {
 		return data, s.ext, nil
 	}
 
+	// Checked before decoding, as Shrink does: the header alone says how
+	// much memory the pixels would take.
+	if config, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil &&
+		config.Width*config.Height > MaxDecodePixels {
+		return nil, "", ErrTooManyPixels
+	}
+
 	img, err := Decode(data)
 	if err != nil {
 		return nil, "", err

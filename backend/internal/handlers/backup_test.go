@@ -277,6 +277,32 @@ func TestImportBackupRejectsAnInvalidArchive(t *testing.T) {
 	expectStatus(t, rejected, http.StatusUnprocessableEntity, "restoring a file that is not a .zip")
 }
 
+// TestImportBackupRejectsAnArchiveThatDecompressesTooFar: a small archive can
+// hold a file that decompresses into far more than the server should hold.
+func TestImportBackupRejectsAnArchiveThatDecompressesTooFar(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	var archive bytes.Buffer
+	writer := zip.NewWriter(&archive)
+	entry, err := writer.Create("gamelog.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Valid JSON, all of it blank space, which compresses to almost nothing.
+	padding := bytes.Repeat([]byte(" "), 1<<20)
+	entry.Write([]byte("{"))
+	for range 65 {
+		entry.Write(padding)
+	}
+	entry.Write([]byte("}"))
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	rejected := uploadBackup(t, handler, archive.Bytes())
+	expectStatus(t, rejected, http.StatusUnprocessableEntity, "restoring a backup that decompresses past its cap")
+}
+
 func containsString(items []string, want string) bool {
 	for _, item := range items {
 		if item == want {
