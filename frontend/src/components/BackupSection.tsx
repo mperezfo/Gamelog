@@ -63,9 +63,10 @@ export function BackupSection() {
         <div className="rounded-control bg-danger-soft px-3 py-3 text-[13px]">
           <p className="font-medium text-ink">Replace everything with {pendingFile.name}?</p>
           <p className="mt-1 text-ink-muted">
-            Your games, genres, developers, publishers, platforms, profile and password are all
-            overwritten with what the backup holds. You will have to change your password
-            afterwards, and every other browser you are signed in on will be signed out.
+            Your games, profile and password are replaced with what the backup holds, and its
+            genres, developers, publishers and platforms are added to yours. You will have to
+            change your password afterwards, and every other browser you are signed in on will be
+            signed out.
           </p>
           <div className="mt-3 flex gap-2">
             <Button variant="danger" onClick={confirmImport} disabled={importBackup.isPending}>
