@@ -6,6 +6,7 @@ import { igdbPage } from '../api/metadata'
 import { Button } from '../components/Button'
 import { ColorField } from '../components/ColorField'
 import { Emoji } from '../components/Emoji'
+import { EmojiField } from '../components/EmojiField'
 import { Field } from '../components/Field'
 import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
@@ -447,13 +448,7 @@ function LookupForm({
         {kind === 'platforms' ? (
           <ColorField label="Color" value={color} onChange={setColor} />
         ) : (
-          <Field
-            label="Icon"
-            placeholder="None"
-            value={icon}
-            onChange={(event) => setIcon(event.target.value)}
-            className="w-16"
-          />
+          <EmojiField label="Icon" value={icon} onChange={setIcon} />
         )}
       </div>
       {item && kind !== 'genres' && (
