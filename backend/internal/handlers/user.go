@@ -18,7 +18,7 @@ const usersTag = "Users"
 
 type createUserInput struct {
 	Body struct {
-		Username string `json:"username" minLength:"1" maxLength:"64" doc:"Account name. Unique, and compared ignoring case and accents." example:"martin"`
+		Username string `json:"username" minLength:"1" maxLength:"64" pattern:"\\S" patternDescription:"more than blank space" doc:"Account name. Unique, and compared ignoring case and accents." example:"martin"`
 		Password string `json:"password" minLength:"8" maxLength:"72" doc:"Initial password. Between 8 and 72 characters. The account can change it afterwards."`
 	}
 }

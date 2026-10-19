@@ -248,3 +248,38 @@ func TestListGamesRejectsAnUnknownSortField(t *testing.T) {
 	rejected := request(t, handler, http.MethodGet, "/api/games?sort=drop%20table", nil)
 	expectStatus(t, rejected, http.StatusUnprocessableEntity, "sorting by an unknown field")
 }
+
+// TestNamesOfNothingButSpacesAreRejected: names are trimmed before they are
+// stored, so one of nothing but spaces would be stored empty.
+func TestNamesOfNothingButSpacesAreRejected(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	bare := newBareRouter(db, false)
+	player := signedIn(t, bare, db, "player", false)
+	admin := signedIn(t, bare, db, "boss", true)
+
+	for _, tc := range []struct {
+		handler      http.Handler
+		method, path string
+		body         map[string]any
+	}{
+		{player, http.MethodPost, "/api/games", map[string]any{"title": "   ", "status": models.StatusPending, "position": 0}},
+		{player, http.MethodPost, "/api/games", map[string]any{
+			"title": "Celeste", "status": models.StatusPending, "position": 0,
+			"new_developers": []map[string]any{{"name": " \t "}},
+		}},
+		{player, http.MethodPost, "/api/games", map[string]any{
+			"title": "Celeste", "status": models.StatusPending, "position": 0,
+			"new_platform": map[string]any{"name": "  "},
+		}},
+		{player, http.MethodPost, "/api/genres", map[string]any{"name": "  "}},
+		{player, http.MethodPut, "/api/auth/profile", map[string]any{"name": "  "}},
+		{admin, http.MethodPost, "/api/users", map[string]any{"username": "  ", "password": testPassword}},
+	} {
+		rec := request(t, tc.handler, tc.method, tc.path, tc.body)
+		expectStatus(t, rec, http.StatusUnprocessableEntity, tc.method+" "+tc.path+" with a blank name")
+	}
+
+	if games := listGames(t, player); len(games) != 0 {
+		t.Errorf("the library holds %d games, want none", len(games))
+	}
+}
