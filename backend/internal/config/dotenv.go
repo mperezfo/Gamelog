@@ -22,8 +22,9 @@ const DotEnvFile = ".env"
 // The format is the common subset every .env reader agrees on, which is also
 // what Docker Compose reads from the same kind of file: one KEY=VALUE per
 // line, blank lines and lines starting with # ignored, an optional "export "
-// in front, and a value optionally wrapped in single or double quotes, which
-// are dropped. There is no variable expansion and no multi-line value.
+// in front, a value optionally wrapped in single or double quotes, which are
+// dropped, and a comment after an unquoted value (see parseValue). There is
+// no variable expansion and no multi-line value.
 func readDotEnv(path string) (map[string]string, error) {
 	values := map[string]string{}
 	if path == "" {
@@ -52,7 +53,7 @@ func readDotEnv(path string) (map[string]string, error) {
 		if !ok || key == "" || strings.ContainsAny(key, " \t") {
 			return nil, fmt.Errorf("%s:%d: expected KEY=VALUE", path, number)
 		}
-		values[key] = unquote(strings.TrimSpace(value))
+		values[key] = parseValue(value)
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, fmt.Errorf("reading %s: %w", path, err)
@@ -60,12 +61,22 @@ func readDotEnv(path string) (map[string]string, error) {
 	return values, nil
 }
 
-// unquote drops one pair of matching quotes around a value.
-func unquote(value string) string {
-	if len(value) >= 2 {
-		first, last := value[0], value[len(value)-1]
-		if first == last && (first == '"' || first == '\'') {
-			return value[1 : len(value)-1]
+// parseValue reads what follows the = of a line, the way Docker Compose
+// does, so that the one file can serve both. A value in single or double
+// quotes is whatever is between them, # included, and anything after the
+// closing quote is ignored. An unquoted value ends at a # preceded by a space
+// or a tab, which starts a comment: "8080 # api" is 8080, while "pa#ss"
+// keeps its #.
+func parseValue(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 && (value[0] == '"' || value[0] == '\'') {
+		if end := strings.IndexByte(value[1:], value[0]); end >= 0 {
+			return value[1 : end+1]
+		}
+	}
+	for i := 1; i < len(value); i++ {
+		if value[i] == '#' && (value[i-1] == ' ' || value[i-1] == '\t') {
+			return strings.TrimSpace(value[:i])
 		}
 	}
 	return value
