@@ -58,7 +58,9 @@ type Config struct {
 	// GAMELOG_MIGRATE=false to take control of when the schema changes.
 	RunMigrations bool
 
-	// Grace period for in-flight requests to finish on SIGINT/SIGTERM.
+	// Grace period for in-flight requests to finish on SIGINT/SIGTERM. Under
+	// the 10 seconds Docker waits after asking a container to stop, before it
+	// kills what is left.
 	ShutdownTimeout time.Duration
 
 	// ImagesDir is where uploaded cover images are stored, content-addressed
@@ -164,7 +166,7 @@ func Load(dotEnvPath string) (Config, error) {
 		SessionLifetime: sessionLifetime,
 		SecureCookie:    secureCookie,
 		AdminPassword:   src.text("GAMELOG_ADMIN_PASSWORD", ""),
-		ShutdownTimeout: 10 * time.Second,
+		ShutdownTimeout: 8 * time.Second,
 		ImagesDir:       src.text("GAMELOG_IMAGES_DIR", "./data/images"),
 
 		IGDBClientID:     igdbClientID,
