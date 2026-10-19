@@ -366,7 +366,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
           zoom={coverZoom}
           onZoomChange={setCoverZoom}
           imageSearch={
-            capabilities.data?.image_sources.length && title.trim()
+            capabilities.data
               ? { title: title.trim(), igdbId, sources: capabilities.data.image_sources }
               : undefined
           }
