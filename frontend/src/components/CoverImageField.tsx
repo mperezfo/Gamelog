@@ -357,7 +357,9 @@ export function CoverImageField({
         <>
           <div
             ref={containerRef}
-            className="relative h-96 w-full touch-none cursor-crosshair overflow-hidden rounded-control bg-sunken"
+            // The crop window is moved by dragging it about: a hand that
+            // closes while the button is held, for as long as it is.
+            className="relative h-96 w-full touch-none cursor-grab overflow-hidden rounded-control bg-sunken active:cursor-grabbing"
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
