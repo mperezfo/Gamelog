@@ -145,22 +145,29 @@ func (s *Service) Open(ctx context.Context, userID uint64) (Session, error) {
 }
 
 // Resolve turns a token into the account it belongs to, or ErrNoSession.
-func (s *Service) Resolve(ctx context.Context, token string) (*models.User, error) {
+//
+// renewed is the session with its new expiry when resolving it pushed that
+// expiry back (see refresh), and nil otherwise. The cookie carrying the token
+// was given a lifetime of its own when it was set, so the caller has to send
+// it again for the browser to keep it as long as the session now lasts.
+func (s *Service) Resolve(ctx context.Context, token string) (user *models.User, renewed *Session, err error) {
 	if token == "" {
-		return nil, ErrNoSession
+		return nil, nil, ErrNoSession
 	}
 
 	now := time.Now().UTC()
 	session, user, err := s.sessions.Resolve(ctx, HashToken(token), now)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return nil, ErrNoSession
+			return nil, nil, ErrNoSession
 		}
-		return nil, err
+		return nil, nil, err
 	}
 
-	s.refresh(ctx, session, now)
-	return user, nil
+	if expiry, ok := s.refresh(ctx, session, now); ok {
+		renewed = &Session{Token: token, ExpiresAt: expiry}
+	}
+	return user, renewed, nil
 }
 
 // Logout ends the session a token names. Ending one that is not there is not
@@ -172,17 +179,18 @@ func (s *Service) Logout(ctx context.Context, token string) error {
 	return s.sessions.Delete(ctx, HashToken(token))
 }
 
-// refresh keeps a session that is in use alive.
+// refresh keeps a session that is in use alive, and reports the new expiry
+// when it pushed it back.
 //
 // The expiry is pushed back once more than half the lifetime has been spent,
 // which is what makes a session that is opened every few months never end.
 // Neither write happens on every request, and neither is worth failing a
 // request over: a session that could not be refreshed still works.
-func (s *Service) refresh(ctx context.Context, session *models.Session, now time.Time) {
+func (s *Service) refresh(ctx context.Context, session *models.Session, now time.Time) (time.Time, bool) {
 	renew := session.ExpiresAt.Sub(now) < s.options.Lifetime/2
 	stale := now.Sub(session.LastUsedAt) > refreshInterval
 	if !renew && !stale {
-		return
+		return time.Time{}, false
 	}
 
 	expiry := session.ExpiresAt
@@ -192,7 +200,9 @@ func (s *Service) refresh(ctx context.Context, session *models.Session, now time
 
 	if err := s.sessions.Refresh(ctx, session.TokenHash, now, expiry); err != nil {
 		slog.Warn("could not refresh a session", "error", err)
+		return time.Time{}, false
 	}
+	return expiry, renew
 }
 
 // Pending reports whether the first-run bootstrap is still available, which is
