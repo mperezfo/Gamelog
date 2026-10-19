@@ -865,6 +865,8 @@ function RecordChoice({
       {open && (
         <div className="absolute top-full right-0 z-10 mt-1 w-56 animate-[gl-appear_100ms_ease-out] overflow-hidden rounded-control bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.18)] motion-reduce:animate-none">
           <input
+            autoComplete="off"
+            spellCheck={false}
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}

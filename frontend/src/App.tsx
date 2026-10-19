@@ -10,6 +10,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { Tooltips } from './components/Tooltips'
 import { useReconnect } from './hooks/useOffline'
 import { useInlineValidation } from './hooks/useInlineValidation'
+import { useInputModality } from './hooks/useInputModality'
 import { useOfflineSync } from './hooks/useOfflineSync'
 import { useScrollbarFade } from './hooks/useScrollbarFade'
 import { useSession } from './hooks/useSession'
@@ -46,6 +47,7 @@ export default function App() {
   useScrollbarFade()
   useTapFeedback()
   useInlineValidation()
+  useInputModality()
 
   return (
     <PersistQueryClientProvider

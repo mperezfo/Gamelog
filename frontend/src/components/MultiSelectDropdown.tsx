@@ -147,6 +147,8 @@ export function MultiSelectDropdown({
       {open && (
         <div className="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-control bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
           <input
+            autoComplete="off"
+            spellCheck={false}
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}

@@ -68,6 +68,8 @@ function FilterOptionList({
     <>
       {field.options.length > SEARCHABLE_THRESHOLD && (
         <input
+          autoComplete="off"
+          spellCheck={false}
           autoFocus
           value={query}
           onChange={(event) => setQuery(event.target.value)}

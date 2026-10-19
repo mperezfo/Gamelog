@@ -379,6 +379,9 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Untitled"
+              // Game titles are proper names, which a spellchecker only
+              // underlines in red.
+              spellCheck={false}
               maxLength={MAX_TITLE}
               // Enter looks the title up, where Identify is available: it is
               // the one thing worth doing straight from the title. The form

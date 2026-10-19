@@ -175,7 +175,7 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                   onBlur={commitYearDraft}
                   className={[
                     'h-8 w-20 rounded-control bg-sunken py-0 pl-2 pr-6 text-sm text-ink outline-none',
-                    yearInvalid ? 'ring-1 ring-red-500' : '',
+                    yearInvalid ? 'ring-1 ring-danger' : '',
                   ].join(' ')}
                 />
                 <div className="absolute inset-y-0 right-1 flex flex-col justify-center">
