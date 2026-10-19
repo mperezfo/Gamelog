@@ -10,7 +10,7 @@ import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import type { CompanyMatch, GameCandidate, MatchTarget, PlatformMatch } from '../types/metadata'
 import { Button } from './Button'
 import { Dropdown } from './Dropdown'
-import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
+import { ArrowRightIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { Notice } from './Notice'
 import { Reveal } from './Reveal'
 import { Switch } from './Switch'
@@ -658,8 +658,12 @@ function PlatformSection({
               <Replaced>{current}</Replaced>
             </p>
           )}
-          <div className="flex items-center gap-3">
-            <div className="min-w-0 flex-1">
+          {/* IGDB's side reads as plain text, like a company's name, and only
+              the library's side is a field: what is picked on the left is
+              where the game comes from, the arrow says it becomes what the
+              right holds. The IGDB side takes no more room than its name. */}
+          <div className="flex items-center gap-2">
+            <div className="min-w-0">
               {igdbPlatforms.length === 1 ? (
                 <span className="block truncate text-sm text-ink" title={`${selected.name} on IGDB`}>
                   {selected.name}
@@ -676,10 +680,13 @@ function PlatformSection({
                     value: String(platform.igdb_platform_id),
                     label: platform.name,
                   }))}
-                  className="h-8 w-full rounded-control bg-surface px-2.5 text-sm text-ink"
+                  className="h-8 max-w-full rounded-control text-sm text-ink transition-colors duration-75 hover:text-ink-muted"
                 />
               )}
             </div>
+            <span title="Logged on this platform of your library" className="ml-auto flex shrink-0 pl-1 text-ink-faint">
+              <ArrowRightIcon className="size-3.5" />
+            </span>
             <RecordChoice
               // Remounted per IGDB platform, so that a search typed for one
               // does not linger for the next.
