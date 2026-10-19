@@ -212,7 +212,7 @@ The cover's **Search image** button looks the game's title up and shows its imag
 - **IGDB** needs nothing beyond the credentials of [Game metadata](#game-metadata-igdb).
 - **SteamGridDB** needs an API key: sign in to SteamGridDB (with a Steam account), open the [API page of your preferences](https://www.steamgriddb.com/profile/preferences/api), generate a key and set it as `GAMELOG_STEAMGRIDDB_API_KEY`. Animated images and those marked NSFW are left out.
 
-The thumbnails are loaded by the browser straight from IGDB and SteamGridDB, only to choose from. The picked image is downloaded by the backend and stored like an upload, so the library keeps its own copy and never depends on either site afterwards. The server needs outbound access to `www.steamgriddb.com` and its image CDN (`cdn2.steamgriddb.com`) for SteamGridDB, and to `images.igdb.com` for IGDB; images are only ever downloaded from those hosts.
+The thumbnails are loaded by the browser straight from IGDB and SteamGridDB, only to choose from. The picked image is downloaded by the backend and stored like an upload, so the library keeps its own copy and never depends on either site afterwards. An image over the 8 MiB an upload is capped at (some of SteamGridDB's banners are), up to 32 MiB, is stored reduced: at most 3840 pixels on its longer side, as a JPEG, or a PNG when it has transparency. The server needs outbound access to `www.steamgriddb.com` and its image CDN (`cdn2.steamgriddb.com`) for SteamGridDB, and to `images.igdb.com` for IGDB; images are only ever downloaded from those hosts.
 
 ## Accounts
 
