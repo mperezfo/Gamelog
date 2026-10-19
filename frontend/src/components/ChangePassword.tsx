@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 
 import { errorMessage } from '../api/client'
 import { useChangePassword } from '../hooks/useSession'
+import { MAX_PASSWORD } from '../types/auth'
 import { Button } from './Button'
 import { Field } from './Field'
 import { Notice } from './Notice'
@@ -50,6 +51,7 @@ export function ChangePassword() {
       <Field
         label="Current password"
         type="password"
+        maxLength={MAX_PASSWORD}
         autoComplete="current-password"
         value={current}
         onChange={(event) => setCurrent(event.target.value)}
@@ -58,6 +60,7 @@ export function ChangePassword() {
       <Field
         label="New password"
         type="password"
+        maxLength={MAX_PASSWORD}
         autoComplete="new-password"
         minLength={8}
         hint="At least 8 characters."
@@ -68,6 +71,7 @@ export function ChangePassword() {
       <Field
         label="Repeat the new password"
         type="password"
+        maxLength={MAX_PASSWORD}
         autoComplete="new-password"
         value={confirmation}
         onChange={(event) => setConfirmation(event.target.value)}

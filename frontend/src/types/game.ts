@@ -1,5 +1,9 @@
 import type { Lookup } from './lookup'
 
+/** The longest title and tagline the API takes, in characters. */
+export const MAX_TITLE = 255
+export const MAX_TAGLINE = 255
+
 /** Lifecycle stage of a game, in the order the dashboard columns follow. */
 export type GameStatus = 'wishlist' | 'pending' | 'playing' | 'played'
 

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 
 import { errorMessage } from '../api/client'
 import { useUpdateProfile } from '../hooks/useSession'
-import type { User } from '../types/auth'
+import { MAX_NAME, type User } from '../types/auth'
 import { AvatarField } from './AvatarField'
 import { Button } from './Button'
 import { Field } from './Field'
@@ -24,7 +24,13 @@ export function ProfileForm({ user }: { user: User }) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4 sm:max-w-[320px]">
       <AvatarField value={avatarUrl} onChange={setAvatarUrl} />
-      <Field label="Name" value={name} onChange={(event) => setName(event.target.value)} required />
+      <Field
+        label="Name"
+        value={name}
+        onChange={(event) => setName(event.target.value)}
+        required
+        maxLength={MAX_NAME}
+      />
 
       {update.isError && <Notice tone="error">{errorMessage(update.error)}</Notice>}
       {update.isSuccess && <Notice tone="ok">Saved.</Notice>}
