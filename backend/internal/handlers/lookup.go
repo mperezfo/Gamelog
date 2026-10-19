@@ -20,7 +20,7 @@ import (
 // limit keeps a single schema in the documentation and makes it impossible for
 // a request to reach the database and fail there on length.
 type lookupBody struct {
-	Name string  `json:"name" minLength:"1" maxLength:"100" doc:"Name. Unique, and compared ignoring case and accents." example:"Metroidvania"`
+	Name string  `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name. Unique, and compared ignoring case and accents." example:"Metroidvania"`
 	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Emoji or short icon shown next to the name." example:"🗺️"`
 	// Color only has a column on platforms (migration 00003): genres,
 	// developers and publishers accept it in the same shared body but the

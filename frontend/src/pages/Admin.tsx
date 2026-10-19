@@ -191,6 +191,7 @@ function CreateUser() {
 
   function submit(event: FormEvent) {
     event.preventDefault()
+    if (!username.trim()) return
     create.mutate(
       { username, password },
       {
@@ -238,7 +239,7 @@ function CreateUser() {
       {create.isError && <Notice tone="error">{errorMessage(create.error)}</Notice>}
 
       <div className="flex gap-2">
-        <Button type="submit" variant="primary" disabled={create.isPending}>
+        <Button type="submit" variant="primary" disabled={create.isPending || !username.trim()}>
           {create.isPending ? 'Creating…' : 'Create account'}
         </Button>
         <Button onClick={() => setOpen(false)}>Cancel</Button>

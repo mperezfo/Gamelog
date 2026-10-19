@@ -21,7 +21,7 @@ import (
 // explicit: new_developers, new_publishers and new_platform, created along
 // with the game.
 type gameBody struct {
-	Title  string        `json:"title" minLength:"1" maxLength:"255" doc:"Title of the game." example:"Hollow Knight"`
+	Title  string        `json:"title" minLength:"1" maxLength:"255" pattern:"\\S" patternDescription:"more than blank space" doc:"Title of the game. Leading and trailing spaces are dropped." example:"Hollow Knight"`
 	Status models.Status `json:"status" doc:"Lifecycle stage of the game."`
 
 	// Required rather than omitempty: leaving it out of a PUT would silently
@@ -79,7 +79,7 @@ type gameBody struct {
 // newLookupBody is a developer or publisher a game write names rather than
 // numbers. The name has the same limits as POST /api/developers.
 type newLookupBody struct {
-	Name          string  `json:"name" minLength:"1" maxLength:"100" doc:"Name of the developer or publisher." example:"Team Cherry"`
+	Name          string  `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name of the developer or publisher." example:"Team Cherry"`
 	IGDBCompanyID *uint64 `json:"igdb_company_id,omitempty" doc:"IGDB company the record stands for, to link it to. See GET /api/metadata/games." example:"9346"`
 }
 
@@ -91,7 +91,7 @@ type companyLinkBody struct {
 
 // newPlatformBody is the platform a game write names rather than numbers.
 type newPlatformBody struct {
-	Name           string  `json:"name" minLength:"1" maxLength:"100" doc:"Name of the platform." example:"PS5"`
+	Name           string  `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name of the platform." example:"PS5"`
 	IGDBPlatformID *uint64 `json:"igdb_platform_id,omitempty" doc:"IGDB platform it stands for, to link it to. See GET /api/metadata/games." example:"167"`
 }
 

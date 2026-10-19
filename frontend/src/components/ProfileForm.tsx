@@ -17,6 +17,7 @@ export function ProfileForm({ user }: { user: User }) {
 
   function submit(event: FormEvent) {
     event.preventDefault()
+    if (!name.trim()) return
     update.mutate({ name, avatarUrl: avatarUrl || null })
   }
 
@@ -29,7 +30,7 @@ export function ProfileForm({ user }: { user: User }) {
       {update.isSuccess && <Notice tone="ok">Saved.</Notice>}
 
       <div>
-        <Button type="submit" variant="primary" disabled={update.isPending}>
+        <Button type="submit" variant="primary" disabled={update.isPending || !name.trim()}>
           {update.isPending ? 'Saving…' : 'Save'}
         </Button>
       </div>

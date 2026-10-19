@@ -65,7 +65,7 @@ type changePasswordInput struct {
 
 type updateProfileInput struct {
 	Body struct {
-		Name string `json:"name" minLength:"1" maxLength:"100" doc:"Name shown in the application. The username used to sign in is unaffected." example:"Martín"`
+		Name string `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name shown in the application. The username used to sign in is unaffected." example:"Martín"`
 		// uri-reference rather than uri: an avatar almost always points at
 		// this deployment's own /api/images/{name} (see the Images tag),
 		// which has no scheme of its own to be absolute with.
