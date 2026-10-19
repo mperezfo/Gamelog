@@ -18,11 +18,11 @@ Here are [more screenshots](docs/screenshots.md), in desktop and phone formats.
 
 - **Upcoming releases and calendar**: The dashboard lists the next games due out, and a monthly calendar shows either release dates or the dates each game was logged.
 
-- **Image covers**: Each game can have an uploaded cover, with a portrait crop and zoom so it is framed well in portrait views across the app.
+- **Image covers**: Each game can have an uploaded cover, with a portrait crop and zoom so it is framed well in portrait views across the app. Lists load small thumbnails as they scroll into view, so a large library stays quick on a phone.
 
 - **Search for a cover**: With IGDB or SteamGridDB configured, the cover's **Search image** button shows the game's covers and artwork from either one, and the picked image is stored as the game's cover like an upload. See [Cover image search](docs/self-hosting.md#cover-image-search).
 
-- **Identify from IGDB**: With IGDB credentials configured, a game's title, release date, developers and publishers can be filled in from [IGDB](https://www.igdb.com), confirming how each company maps onto your own developers and publishers. See [Game metadata](docs/self-hosting.md#game-metadata-igdb).
+- **Identify from IGDB**: With IGDB credentials configured, a game's title, release date, platform, developers and publishers can be filled in from [IGDB](https://www.igdb.com), confirming how each company and platform maps onto your own records. Those choices are remembered, so the next game from the same company or on the same platform is matched outright, and the game links to its page on IGDB. See [Game metadata](docs/self-hosting.md#game-metadata-igdb).
 
 - **Search and filters**: A search box is available from every page, and the games list (as a table or a cover grid) can be filtered by status, platform, genre, developer, publisher, year, or by a field that is still empty, such as the score or the cover.
 
