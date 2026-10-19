@@ -267,6 +267,31 @@
     background-color: rgb(35 131 226 / 0.25);
   }
 
+  /* Edge's own eye and clear buttons on inputs. Field draws its own eye for
+     a password, the same in every browser. */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
+
+  /* A field the browser filled in from its saved logins keeps the theme
+   * rather than turning the browser's own pale blue or yellow, which on the
+   * dark theme was a glaring box. The browser marks that background
+   * !important, so it is painted over instead, with an inset shadow the size
+   * of the field. That shadow is also what a focus ring is drawn with, so a
+   * focused one gets both. */
+  input:-webkit-autofill {
+    -webkit-text-fill-color: var(--gl-ink);
+    caret-color: var(--gl-ink);
+    box-shadow: inset 0 0 0 100vmax var(--gl-sunken) !important;
+  }
+
+  input:-webkit-autofill:focus-visible {
+    box-shadow:
+      inset 0 0 0 100vmax var(--gl-sunken),
+      0 0 0 2px rgb(35 131 226 / 0.4) !important;
+  }
+
   /* A click leaves whatever it hit focused, and the browser's own default
    * outline does not know the difference between that and a Tab press — so
    * a clicked button or dropdown was staying ringed until something else was

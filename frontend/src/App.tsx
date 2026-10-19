@@ -9,6 +9,7 @@ import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Tooltips } from './components/Tooltips'
 import { useReconnect } from './hooks/useOffline'
+import { useInlineValidation } from './hooks/useInlineValidation'
 import { useOfflineSync } from './hooks/useOfflineSync'
 import { useScrollbarFade } from './hooks/useScrollbarFade'
 import { useSession } from './hooks/useSession'
@@ -44,6 +45,7 @@ const queryClient = new QueryClient({
 export default function App() {
   useScrollbarFade()
   useTapFeedback()
+  useInlineValidation()
 
   return (
     <PersistQueryClientProvider
