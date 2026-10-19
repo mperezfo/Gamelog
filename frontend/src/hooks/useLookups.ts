@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { createLookup, deleteLookup, listLookups, updateLookup } from '../api/lookups'
+import { createLookup, deleteLookup, listLookups, unlinkLookupFromIgdb, updateLookup } from '../api/lookups'
 import type { LookupInput, LookupKind } from '../types/lookup'
 
 const lookupKey = (kind: LookupKind) => [kind] as const
@@ -28,7 +28,13 @@ export function useUpdateLookup(kind: LookupKind) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, input }: { id: number; input: LookupInput }) => updateLookup(kind, id, input),
+    // unlink lists IGDB ids to forget along with the edit, one request each:
+    // a record rarely has more than one or two.
+    mutationFn: async ({ id, input, unlink = [] }: { id: number; input: LookupInput; unlink?: number[] }) => {
+      const updated = await updateLookup(kind, id, input)
+      for (const igdbId of unlink) await unlinkLookupFromIgdb(kind, id, igdbId)
+      return updated
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: lookupKey(kind) })
       void queryClient.invalidateQueries({ queryKey: ['games'] })
