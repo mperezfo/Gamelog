@@ -1,4 +1,11 @@
-import type { GameCandidate, IgdbKind, IgdbNamed, MetadataCapabilities } from '../types/metadata'
+import type {
+  GameCandidate,
+  IgdbKind,
+  IgdbNamed,
+  ImageSearchResult,
+  ImageSource,
+  MetadataCapabilities,
+} from '../types/metadata'
 import { apiFetch } from './client'
 
 export function getMetadataCapabilities(): Promise<MetadataCapabilities> {
@@ -23,4 +30,18 @@ export async function searchGameMetadata(title: string): Promise<GameCandidate[]
   const params = new URLSearchParams({ title })
   const { candidates } = await apiFetch<{ candidates: GameCandidate[] }>(`/metadata/games?${params}`)
   return candidates
+}
+
+/** The images of a game on one source: the one with `gameId`, or else the
+ * first match for `title`. The title's matches come along, for switching to
+ * another one. */
+export function searchGameImages(
+  source: ImageSource,
+  title: string | null,
+  gameId: number | null,
+): Promise<ImageSearchResult> {
+  const params = new URLSearchParams({ source })
+  if (title) params.set('title', title)
+  if (gameId !== null) params.set('game_id', String(gameId))
+  return apiFetch<ImageSearchResult>(`/metadata/images?${params}`)
 }

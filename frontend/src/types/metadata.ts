@@ -2,6 +2,48 @@
 export interface MetadataCapabilities {
   /** Games can be looked up on IGDB (the game form's Identify button). */
   identify: boolean
+  /** Where cover images can be searched for, in the order to offer them.
+   * Empty when the deployment is configured for neither. */
+  image_sources: ImageSource[]
+}
+
+/** A place cover images are searched for. */
+export type ImageSource = 'igdb' | 'steamgriddb'
+
+/** What an image is: IGDB's box art (cover) or other official art
+ * (artwork), or SteamGridDB's library art (grid, portrait or landscape) or
+ * page banner (hero). */
+export type ImageKind = 'cover' | 'artwork' | 'grid' | 'hero'
+
+/** One image of a game, hosted by its source. */
+export interface GameImage {
+  /** The image at full size. Never stored as it is: picking it imports a
+   * copy into the library. */
+  url: string
+  /** A smaller copy, to choose from. */
+  thumb_url: string
+  /** In pixels, 0 when the source does not say. */
+  width: number
+  height: number
+  kind: ImageKind
+}
+
+/** A game an image search may refer to. */
+export interface ImageSearchGame {
+  /** The source's own id for it. */
+  id: number
+  name: string
+  /** RFC 3339 at midnight UTC, or null when the source does not know it. */
+  release_date: string | null
+}
+
+/** The games a title may refer to, and the images of one of them. */
+export interface ImageSearchResult {
+  /** Empty when the search was by id alone. */
+  games: ImageSearchGame[]
+  /** The game the images are of, or null when the title matched nothing. */
+  game_id: number | null
+  images: GameImage[]
 }
 
 /** How a company or platform from IGDB was matched to a record of the

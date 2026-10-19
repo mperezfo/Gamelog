@@ -4,8 +4,10 @@ import { uploadImage } from '../api/images'
 import { errorMessage } from '../api/client'
 import { coverFitStyle, cropSize } from '../lib/cover'
 import { Button } from './Button'
+import type { ImageSource } from '../types/metadata'
 import { CoverImage } from './CoverImage'
 import { ImageIcon, TrashIcon } from './icons'
+import { ImageSearch } from './ImageSearch'
 import { Notice } from './Notice'
 
 interface CoverImageFieldProps {
@@ -23,6 +25,14 @@ interface CoverImageFieldProps {
   onZoomChange: (zoom: number | null) => void
   /** Shows the cover without any way to replace, crop or remove it. */
   readOnly?: boolean
+  /** What the Search image button looks the game up with. Left out, there
+   * is no such button: the deployment has no image source, or the game no
+   * title to search for yet. */
+  imageSearch?: {
+    title: string
+    igdbId: number | null
+    sources: ImageSource[]
+  }
 }
 
 const MIN_ZOOM = 1
@@ -66,6 +76,7 @@ export function CoverImageField({
   zoom,
   onZoomChange,
   readOnly = false,
+  imageSearch,
 }: CoverImageFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -99,6 +110,7 @@ export function CoverImageField({
   const dragCounter = useRef(0)
 
   const [cropping, setCropping] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [draftX, setDraftX] = useState(focalX ?? 0.5)
   const [draftY, setDraftY] = useState(focalY ?? 0.5)
   const [draftZoom, setDraftZoom] = useState(zoom ?? MIN_ZOOM)
@@ -126,19 +138,29 @@ export function CoverImageField({
     setCoverAspect({ url: value, aspect: image.naturalWidth / image.naturalHeight })
   }
 
-  // Rerun on leaving the crop editor, which unmounts the banner.
+  // Rerun on leaving the crop editor or the image search, which unmount the
+  // banner.
   useEffect(() => {
     const box = coverBoxRef.current
     if (!box) return
     const observer = new ResizeObserver(() => setBoxAspect(box.clientWidth / box.clientHeight))
     observer.observe(box)
     return () => observer.disconnect()
-  }, [cropping])
+  }, [cropping, searching])
 
   const coverStyle =
     coverAspect?.url === value && boxAspect
       ? coverFitStyle({ cover_focal_x: focalX, cover_focal_y: focalY, cover_zoom: zoom }, coverAspect.aspect, boxAspect)
       : undefined
+
+  /** Makes url the cover. A new image starts uncropped: the old crop was
+   * chosen for another picture. */
+  function applyImage(url: string) {
+    onChange(url)
+    onFocalChange(null, null)
+    onZoomChange(null)
+    setShowOverlay(false)
+  }
 
   async function handleFile(file: File | undefined) {
     if (!file) return
@@ -146,10 +168,7 @@ export function CoverImageField({
     setError(null)
     try {
       const { url } = await uploadImage(file)
-      onChange(url)
-      onFocalChange(null, null)
-      onZoomChange(null)
-      setShowOverlay(false)
+      applyImage(url)
     } catch (err) {
       setError(errorMessage(err))
     } finally {
@@ -282,7 +301,18 @@ export function CoverImageField({
         onChange={(event) => void handleFile(event.target.files?.[0])}
       />
 
-      {cropping ? (
+      {searching && imageSearch ? (
+        <ImageSearch
+          title={imageSearch.title}
+          igdbId={imageSearch.igdbId}
+          sources={imageSearch.sources}
+          onPick={(url) => {
+            applyImage(url)
+            setSearching(false)
+          }}
+          onClose={() => setSearching(false)}
+        />
+      ) : cropping ? (
         <>
           <div
             ref={containerRef}
@@ -416,7 +446,8 @@ export function CoverImageField({
               {!readOnly && (
                 <div
                   className={[
-                    'absolute inset-0 flex items-center justify-center gap-2 bg-black/45 transition-opacity duration-75',
+                    // Wrapping, as four buttons do not fit across a phone.
+                    'absolute inset-0 flex flex-wrap content-center items-center justify-center gap-2 bg-black/45 px-4 transition-opacity duration-75',
                     showOverlay
                       ? 'pointer-events-auto opacity-100'
                       : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100',
@@ -434,6 +465,20 @@ export function CoverImageField({
                   >
                     {uploading ? 'Uploading…' : 'Replace'}
                   </Button>
+                  {!uploading && imageSearch && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="bg-surface/90 hover:bg-surface"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        setError(null)
+                        setSearching(true)
+                      }}
+                    >
+                      Search image
+                    </Button>
+                  )}
                   {!uploading && (
                     <Button
                       type="button"
@@ -471,9 +516,22 @@ export function CoverImageField({
             <div className="flex size-full flex-col items-center justify-center gap-2">
               <ImageIcon className="size-5 text-ink-faint" />
               {!readOnly && (
-                <Button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}>
-                  {uploading ? 'Uploading…' : 'Add a cover'}
-                </Button>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button type="button" disabled={uploading} onClick={() => inputRef.current?.click()}>
+                    {uploading ? 'Uploading…' : 'Add a cover'}
+                  </Button>
+                  {!uploading && imageSearch && (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setError(null)
+                        setSearching(true)
+                      }}
+                    >
+                      Search image
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           )}
