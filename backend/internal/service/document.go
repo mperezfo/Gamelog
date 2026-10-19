@@ -67,6 +67,7 @@ type LookupEntry struct {
 type GameEntry struct {
 	Title         string   `json:"title" doc:"Title of the game." example:"Hollow Knight"`
 	Status        string   `json:"status" doc:"Lifecycle stage: wishlist, pending, playing or played." example:"played"`
+	Position      float64  `json:"position" doc:"Manual order within its status column on the dashboard board, among the games logged on the same date (or with none): lower comes first." example:"3"`
 	Score         *float64 `json:"score" doc:"Personal score from 0 to 10, with one decimal. Null while the game is unplayed." example:"9.2"`
 	Tagline       *string  `json:"tagline" doc:"Very short personal description." example:"Lonely bug, big map"`
 	Notes         *string  `json:"notes" doc:"Free-form notes."`

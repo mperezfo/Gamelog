@@ -314,6 +314,9 @@ func TestImportMergeOnlyWritesWhatTheDocumentCarries(t *testing.T) {
 	if len(game.Genres) != 1 {
 		t.Errorf("genres = %+v, want the stored one kept", game.Genres)
 	}
+	if game.Position != 1 {
+		t.Errorf("position = %v, want the stored one kept", game.Position)
+	}
 
 	// A field sent empty, on the other hand, is a field being cleared.
 	importLibrary(t, handler, "/api/import", map[string]any{
