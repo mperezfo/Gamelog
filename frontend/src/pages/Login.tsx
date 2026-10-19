@@ -7,6 +7,7 @@ import { Field } from '../components/Field'
 import { Notice } from '../components/Notice'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useLogin } from '../hooks/useSession'
+import { MAX_PASSWORD } from '../types/auth'
 
 /**
  * The only door. There is no sign-up link because there is no self
@@ -43,6 +44,7 @@ export function Login() {
         <Field
           label="Password"
           type="password"
+          maxLength={MAX_PASSWORD}
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}

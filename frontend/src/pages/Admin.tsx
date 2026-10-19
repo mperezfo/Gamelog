@@ -13,7 +13,7 @@ import { useDateFormat } from '../hooks/useSession'
 import { useCreateUser, useDeleteUser, useResetUserPassword, useUsers } from '../hooks/useUsers'
 import { dayKey } from '../lib/calendar'
 import { formatDate } from '../lib/format'
-import type { User } from '../types/auth'
+import { MAX_PASSWORD, MAX_USERNAME, type User } from '../types/auth'
 
 /**
  * What the admin sees: the accounts, and nothing else.
@@ -135,6 +135,7 @@ function ResetPassword({ user, onDone }: { user: User; onDone: () => void }) {
       <Field
         label={`New password for ${user.username}`}
         type="password"
+        maxLength={MAX_PASSWORD}
         autoComplete="new-password"
         minLength={8}
         hint="At least 8 characters. Every session this account had ends."
@@ -224,10 +225,12 @@ function CreateUser() {
         onChange={(event) => setUsername(event.target.value)}
         autoFocus
         required
+        maxLength={MAX_USERNAME}
       />
       <Field
         label="Initial password"
         type="password"
+        maxLength={MAX_PASSWORD}
         autoComplete="new-password"
         minLength={8}
         hint="At least 8 characters. Its owner can change it once they are in."

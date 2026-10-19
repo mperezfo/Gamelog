@@ -1,3 +1,12 @@
+/** The longest password the API takes: bcrypt reads no further than 72
+ * bytes, so a longer one is refused rather than cut short. */
+export const MAX_PASSWORD = 72
+
+/** The longest account name, and the longest name shown in the application,
+ * the API takes. */
+export const MAX_USERNAME = 64
+export const MAX_NAME = 100
+
 /** Which theme the application renders in. */
 export type Theme = 'light' | 'dark' | 'system'
 

@@ -9,7 +9,7 @@ import { useMetadataCapabilities } from '../hooks/useMetadata'
 import { useOffline } from '../hooks/useOffline'
 import { foldCase } from '../lib/fuzzy'
 import type { CompanyLink, Game, GameInput, GameStatus, NewLookup, NewPlatform, PlatformLink } from '../types/game'
-import { GAME_STATUSES, STATUS_LABELS } from '../types/game'
+import { GAME_STATUSES, MAX_TAGLINE, MAX_TITLE, STATUS_LABELS } from '../types/game'
 import { Button } from './Button'
 import { ChipMultiSelect } from './ChipMultiSelect'
 import { CoverImageField } from './CoverImageField'
@@ -379,6 +379,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Untitled"
+              maxLength={MAX_TITLE}
               // Enter looks the title up, where Identify is available: it is
               // the one thing worth doing straight from the title. The form
               // itself never saves on Enter (see guardEnter).
@@ -524,6 +525,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
         <Field
           label="Tagline"
           placeholder="A short, witty summary"
+          maxLength={MAX_TAGLINE}
           value={tagline}
           onChange={(event) => setTagline(event.target.value)}
         />

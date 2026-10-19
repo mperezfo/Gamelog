@@ -7,6 +7,7 @@ import { Field } from '../components/Field'
 import { Notice } from '../components/Notice'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useRunSetup } from '../hooks/useSetup'
+import { MAX_PASSWORD } from '../types/auth'
 
 interface SetupProps {
   adminUsername: string
@@ -58,6 +59,7 @@ export function Setup({ adminUsername }: SetupProps) {
         <Field
           label="Admin password"
           type="password"
+          maxLength={MAX_PASSWORD}
           autoComplete="new-password"
           minLength={8}
           hint="At least 8 characters. There is no way to recover it from the browser."
@@ -69,6 +71,7 @@ export function Setup({ adminUsername }: SetupProps) {
         <Field
           label="Repeat the password"
           type="password"
+          maxLength={MAX_PASSWORD}
           autoComplete="new-password"
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
