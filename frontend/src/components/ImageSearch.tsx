@@ -209,29 +209,44 @@ function ImageGrid({ images, importing, onPick }: ImageGridProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {groups.map((group) => (
-        <section key={group.kind} className="flex flex-col gap-1.5">
-          <h3 className="text-xs font-medium text-ink-faint">{KIND_NAMES[group.kind]}</h3>
-          {/* Dense, so that a portrait image fills the gap a wide one
-              leaves behind it. */}
-          <ul className="grid grid-flow-row-dense grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 md:grid-cols-5 lg:grid-cols-6">
-            {group.images.map((image) => (
-              // A wide image takes two columns, where one would leave it a
-              // sliver.
-              <li key={image.url} className={image.width > image.height * 1.2 ? 'col-span-2' : ''}>
-                <ImageOption
-                  image={image}
-                  busy={importing === image.url}
-                  disabled={importing !== null}
-                  onPick={() => onPick(image)}
-                />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+      {groups.map((group) => {
+        // A group of nothing but wide images (heroes, most artworks) gets
+        // half the columns instead, which spanning two would leave a gap
+        // beside on a row of three.
+        const allWide = group.images.every(isWide)
+        return (
+          <section key={group.kind} className="flex flex-col gap-1.5">
+            <h3 className="text-xs font-medium text-ink-faint">{KIND_NAMES[group.kind]}</h3>
+            {/* Dense, so that a portrait image fills the gap a wide one
+                leaves behind it. */}
+            <ul
+              className={[
+                'grid grid-flow-row-dense gap-2 sm:gap-3',
+                allWide ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6',
+              ].join(' ')}
+            >
+              {group.images.map((image) => (
+                // Among narrower ones, a wide image takes two columns, where
+                // one would leave it a sliver.
+                <li key={image.url} className={!allWide && isWide(image) ? 'col-span-2' : ''}>
+                  <ImageOption
+                    image={image}
+                    busy={importing === image.url}
+                    disabled={importing !== null}
+                    onPick={() => onPick(image)}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      })}
     </div>
   )
+}
+
+function isWide(image: GameImage): boolean {
+  return image.width > image.height * 1.2
 }
 
 interface ImageOptionProps {
