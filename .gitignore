@@ -4,14 +4,6 @@
 # Uploaded cover images (see GAMELOG_IMAGES_DIR)
 backend/data/
 
-# Working notes kept out of the repository
-game-tracker-spec.md
-todo.md
-
-# Personal Notion export and its one-off import script
-notion_export/
-import_notion.py
-
 # Dependencies and build artifacts
 node_modules/
 dist/
