@@ -35,7 +35,7 @@ type imageSearchGame struct {
 
 type gameImage struct {
 	URL      string `json:"url" doc:"The image at full size, hosted by the source. Not meant to be stored as it is: import-image copies it into the library." example:"https://images.igdb.com/igdb/image/upload/t_original/co6bo0.jpg"`
-	ThumbURL string `json:"thumb_url" doc:"A smaller copy, hosted by the source, to choose from." example:"https://images.igdb.com/igdb/image/upload/t_cover_big/co6bo0.jpg"`
+	ThumbURL string `json:"thumb_url" doc:"A smaller copy, hosted by the source, to choose from." example:"https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co6bo0.jpg"`
 	Width    int    `json:"width" doc:"Width of the full-size image in pixels, 0 when the source does not say." example:"1200"`
 	Height   int    `json:"height" doc:"Its height in pixels, 0 when the source does not say." example:"1600"`
 	Kind     string `json:"kind" enum:"cover,artwork,grid,hero" doc:"What the image is: IGDB's box art (cover) or other official art (artwork), or SteamGridDB's library art (grid, portrait or landscape) or page banner (hero)." example:"cover"`

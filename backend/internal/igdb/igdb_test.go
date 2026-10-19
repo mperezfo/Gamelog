@@ -321,12 +321,12 @@ func TestImages(t *testing.T) {
 	want := []Image{
 		{
 			URL:      "https://images.igdb.com/igdb/image/upload/t_original/co6bo0.jpg",
-			ThumbURL: "https://images.igdb.com/igdb/image/upload/t_cover_big/co6bo0.jpg",
+			ThumbURL: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co6bo0.jpg",
 			Width:    1200, Height: 1600, Kind: KindCover,
 		},
 		{
 			URL:      "https://images.igdb.com/igdb/image/upload/t_original/ar1.jpg",
-			ThumbURL: "https://images.igdb.com/igdb/image/upload/t_screenshot_med/ar1.jpg",
+			ThumbURL: "https://images.igdb.com/igdb/image/upload/t_screenshot_big/ar1.jpg",
 			Width:    3840, Height: 2160, Kind: KindArtwork,
 		},
 	}

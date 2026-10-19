@@ -100,7 +100,7 @@ func (f *fakeSearcher) Images(_ context.Context, id uint64) ([]igdb.Image, error
 	if id == 26192 {
 		return []igdb.Image{{
 			URL:      "https://images.igdb.com/igdb/image/upload/t_original/co6bo0.jpg",
-			ThumbURL: "https://images.igdb.com/igdb/image/upload/t_cover_big/co6bo0.jpg",
+			ThumbURL: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co6bo0.jpg",
 			Width:    1200,
 			Height:   1600,
 			Kind:     igdb.KindCover,

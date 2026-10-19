@@ -172,15 +172,17 @@ func (c *Client) Images(ctx context.Context, gameID uint64) ([]Image, error) {
 	result := results[0]
 	images := make([]Image, 0, len(result.Artworks)+1)
 	if result.Cover != nil && result.Cover.ImageID != "" {
-		// t_cover_big is 264x374, the size covers are made for.
-		images = append(images, result.Cover.image(KindCover, "t_cover_big"))
+		// t_cover_big_2x is 528x748: a cover as large as the search shows
+		// one, sharp on a high-density screen.
+		images = append(images, result.Cover.image(KindCover, "t_cover_big_2x"))
 	}
 	for _, artwork := range result.Artworks {
 		if artwork.ImageID == "" {
 			continue
 		}
-		// t_screenshot_med is 569x320, landscape like most artworks.
-		images = append(images, artwork.image(KindArtwork, "t_screenshot_med"))
+		// t_screenshot_big is 889x500, landscape like most artworks, which
+		// the search shows twice as wide as a cover.
+		images = append(images, artwork.image(KindArtwork, "t_screenshot_big"))
 	}
 	return images, nil
 }

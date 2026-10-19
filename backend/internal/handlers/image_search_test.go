@@ -104,7 +104,7 @@ func TestImageSearch(t *testing.T) {
 		t.Fatalf("search by title = %+v, want both games and the images of 26192", byTitle)
 	}
 	if len(byTitle.Images) != 1 || byTitle.Images[0].Kind != "cover" || byTitle.Images[0].Width != 1200 ||
-		byTitle.Images[0].ThumbURL != "https://images.igdb.com/igdb/image/upload/t_cover_big/co6bo0.jpg" {
+		byTitle.Images[0].ThumbURL != "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co6bo0.jpg" {
 		t.Errorf("images = %+v", byTitle.Images)
 	}
 
