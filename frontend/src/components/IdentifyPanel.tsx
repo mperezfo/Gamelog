@@ -19,6 +19,8 @@ export interface IdentifyCurrent {
   title: string
   /** yyyy-mm-dd, or empty. */
   releaseDate: string
+  /** The IGDB game the form is linked to, or null. */
+  igdbId: number | null
   /** Names of the developers and publishers on the form, pending ones
    * included. */
   developers: string[]
@@ -36,6 +38,8 @@ export interface CompanyResolution {
 /** What Apply hands back to the form: every field present replaces what the
  * form holds, and every field left out is kept. */
 export interface IdentifyResult {
+  /** The IGDB game picked, when it is not the one the form is linked to. */
+  igdbId?: number
   title?: string
   /** yyyy-mm-dd, the form's own date shape. */
   releaseDate?: string
@@ -46,6 +50,8 @@ export interface IdentifyResult {
 interface IdentifyPanelProps {
   title: string
   current: IdentifyCurrent
+  /** IGDB games other games of the library are linked to. */
+  libraryIgdbIds: ReadonlySet<number>
   developers: Lookup[]
   publishers: Lookup[]
   onApply: (result: IdentifyResult) => void
@@ -61,9 +67,26 @@ interface IdentifyPanelProps {
  * only changes the form; nothing is created or linked until the game is
  * saved.
  */
-export function IdentifyPanel({ title, current, developers, publishers, onApply, onClose }: IdentifyPanelProps) {
+export function IdentifyPanel({
+  title,
+  current,
+  libraryIgdbIds,
+  developers,
+  publishers,
+  onApply,
+  onClose,
+}: IdentifyPanelProps) {
   const candidates = useGameCandidates(title)
   const [picked, setPicked] = useState<GameCandidate | null>(null)
+
+  // The game the form is linked to already goes first, to confirm in one
+  // click; the rest keep IGDB's order.
+  const ordered = candidates.data
+    ? [
+        ...candidates.data.filter((c) => c.igdb_id === current.igdbId),
+        ...candidates.data.filter((c) => c.igdb_id !== current.igdbId),
+      ]
+    : []
 
   return (
     <div className="flex flex-col gap-3 rounded-control bg-sunken p-3">
@@ -115,13 +138,23 @@ export function IdentifyPanel({ title, current, developers, publishers, onApply,
           </p>
         ) : candidates.isError ? (
           <Notice tone="error">{errorMessage(candidates.error)}</Notice>
-        ) : candidates.data.length === 0 ? (
+        ) : ordered.length === 0 ? (
           <p className="text-sm text-ink-faint">No games found on IGDB.</p>
         ) : (
           <ul className="-mx-1 flex max-h-80 flex-col overflow-y-auto">
-            {candidates.data.map((candidate) => (
+            {ordered.map((candidate) => (
               <li key={candidate.igdb_id}>
-                <CandidateRow candidate={candidate} onPick={() => setPicked(candidate)} />
+                <CandidateRow
+                  candidate={candidate}
+                  mark={
+                    candidate.igdb_id === current.igdbId
+                      ? 'linked'
+                      : libraryIgdbIds.has(candidate.igdb_id)
+                        ? 'library'
+                        : undefined
+                  }
+                  onPick={() => setPicked(candidate)}
+                />
               </li>
             ))}
           </ul>
@@ -154,7 +187,15 @@ function releaseYear(candidate: GameCandidate): string | null {
   return candidate.release_date ? candidate.release_date.slice(0, 4) : null
 }
 
-function CandidateRow({ candidate, onPick }: { candidate: GameCandidate; onPick: () => void }) {
+interface CandidateRowProps {
+  candidate: GameCandidate
+  /** linked: the game the form is linked to. library: one another game of
+   * the library is linked to. */
+  mark?: 'linked' | 'library'
+  onPick: () => void
+}
+
+function CandidateRow({ candidate, mark, onPick }: CandidateRowProps) {
   const details = [releaseYear(candidate), candidate.platforms.join(', ')].filter(Boolean).join(' · ')
 
   return (
@@ -177,7 +218,15 @@ function CandidateRow({ candidate, onPick }: { candidate: GameCandidate; onPick:
         <span className="h-12 w-9 shrink-0 rounded-[3px] bg-hover" />
       )}
       <span className="flex min-w-0 flex-col">
-        <span className="truncate text-sm font-medium text-ink">{candidate.name}</span>
+        <span className="flex min-w-0 items-baseline gap-1.5">
+          <span className="truncate text-sm font-medium text-ink">{candidate.name}</span>
+          {mark === 'linked' && <LinkMark title="The IGDB game this game is linked to">linked</LinkMark>}
+          {mark === 'library' && (
+            <span title="Another game of your library is linked to it" className="shrink-0 text-xs text-ink-faint">
+              In library
+            </span>
+          )}
+        </span>
         {details && <span className="truncate text-xs text-ink-faint">{details}</span>}
       </span>
     </button>
@@ -268,12 +317,15 @@ function IdentifyConfirm({ candidate, current, developers, publishers, onApply, 
   const publisherResolution = resolve(candidate.publishers, publisherChoices)
 
   const result: IdentifyResult = {}
+  // Picking a game is saying that this is the game, switches or not.
+  if (candidate.igdb_id !== current.igdbId) result.igdbId = candidate.igdb_id
   if (applyTitle && igdbTitle && igdbTitle !== currentTitle) result.title = igdbTitle
   if (applyDate && igdbDate && igdbDate !== current.releaseDate) result.releaseDate = igdbDate
   // Skipping every company applies nothing, rather than clearing the field.
   if (applyDevelopers && !isEmpty(developerResolution)) result.developers = developerResolution
   if (applyPublishers && !isEmpty(publisherResolution)) result.publishers = publisherResolution
   const changesSomething = Object.keys(result).length > 0
+  const onlyLinks = result.igdbId !== undefined && Object.keys(result).length === 1
 
   const date = (value: string) => formatDate(value, dateFormat)
 
@@ -318,11 +370,14 @@ function IdentifyConfirm({ candidate, current, developers, publishers, onApply, 
         onApplyChange={setApplyPublishers}
       />
 
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <Button variant="primary" disabled={!changesSomething} onClick={() => onApply(result)}>
           Apply
         </Button>
         <Button onClick={onCancel}>Cancel</Button>
+        {/* Otherwise an Apply with every switch off would seem to do
+            nothing at all. */}
+        {onlyLinks && <span className="min-w-0 text-xs text-ink-faint">Only links the game to IGDB</span>}
       </div>
     </div>
   )
@@ -570,17 +625,7 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
     label = (
       <span className="flex min-w-0 items-baseline gap-1.5">
         <span className="truncate">{records.find((r) => r.id === choice.id)?.name ?? company.match?.name}</span>
-        {linking && (
-          // On the baseline its capitals are shorter than the name's and
-          // read as sitting low; lifted by 1.5px (measured), they centre on
-          // the name's capitals instead.
-          <span
-            title="Linked to this IGDB company when the game is saved"
-            className="relative -top-[1px] shrink-0 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase"
-          >
-            link
-          </span>
-        )}
+        {linking && <LinkMark title="Linked to this IGDB company when the game is saved">link</LinkMark>}
       </span>
     )
   } else if (choice.kind === 'create') {
@@ -639,6 +684,21 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
         </div>
       )}
     </div>
+  )
+}
+
+/** A small accent word next to a name, about its link to IGDB. */
+function LinkMark({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    // On the baseline its capitals are shorter than the name's and read as
+    // sitting low; lifted by 1.5px (measured), they centre on the name's
+    // capitals instead.
+    <span
+      title={title}
+      className="relative -top-[1px] shrink-0 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase"
+    >
+      {children}
+    </span>
   )
 }
 

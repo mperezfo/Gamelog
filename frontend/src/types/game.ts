@@ -49,6 +49,8 @@ export interface Game {
   logged_date: string | null
   platform_id: number | null
   platform?: Lookup | null
+  /** The IGDB game it was identified as, or null. */
+  igdb_id: number | null
   genres?: Lookup[]
   developers?: Lookup[]
   publishers?: Lookup[]
@@ -74,6 +76,8 @@ export interface GameInput {
   release_date?: string | null
   logged_date?: string | null
   platform_id?: number | null
+  /** Like every other field, left out unlinks it: always echo it back. */
+  igdb_id?: number | null
   genre_ids?: number[]
   developer_ids?: number[]
   publisher_ids?: number[]

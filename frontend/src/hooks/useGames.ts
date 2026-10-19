@@ -80,6 +80,7 @@ function patchGame(game: Game, input: GameInput): Game {
     release_date: input.release_date ?? null,
     logged_date: input.logged_date ?? null,
     platform_id: input.platform_id ?? null,
+    igdb_id: input.igdb_id ?? null,
   }
 }
 

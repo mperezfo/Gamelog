@@ -11,6 +11,11 @@ export function igdbCompanyPage(id: number): string {
   return `/api/metadata/companies/${id}/page`
 }
 
+/** Where a game's page on IGDB opens, the same way as a company's. */
+export function igdbGamePage(id: number): string {
+  return `/api/metadata/games/${id}/page`
+}
+
 /** The names IGDB gives companies, in the order of `ids`. The library only
  * keeps the ids it is linked to. */
 export async function listIgdbCompanies(ids: number[]): Promise<IgdbCompany[]> {

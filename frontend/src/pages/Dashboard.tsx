@@ -198,6 +198,7 @@ export function Dashboard() {
         release_date: game.release_date,
         logged_date: game.logged_date,
         platform_id: game.platform_id,
+        igdb_id: game.igdb_id,
         genre_ids: (game.genres ?? []).map((g) => g.id),
         developer_ids: (game.developers ?? []).map((d) => d.id),
         publisher_ids: (game.publishers ?? []).map((p) => p.id),
