@@ -11,6 +11,10 @@
 # background job on its own before a script line gets a chance to wait for it,
 # and if that happens to the only job still running, `wait -n` blocks forever
 # waiting for a SIGCHLD that already fired.
+#
+# On a stop signal, both are asked to stop and waited for before this script
+# exits: once it is gone the container is, and every process still in it is
+# killed outright, a backend finishing its in-flight requests included.
 
 /app/server &
 server_pid=$!
@@ -18,7 +22,7 @@ server_pid=$!
 caddy run --config /etc/caddy/Caddyfile --adapter caddyfile &
 caddy_pid=$!
 
-trap 'kill -TERM "$server_pid" "$caddy_pid" 2>/dev/null; exit 143' INT TERM
+trap 'kill -TERM "$server_pid" "$caddy_pid" 2>/dev/null; wait "$server_pid" "$caddy_pid"; exit 143' INT TERM
 
 while kill -0 "$server_pid" 2>/dev/null && kill -0 "$caddy_pid" 2>/dev/null; do
 	sleep 1
