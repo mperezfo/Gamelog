@@ -114,3 +114,30 @@ func TestGameSlugsDoNotCollideAcrossLibraries(t *testing.T) {
 		t.Errorf("bob's slug = %q, want %q (his own library, no collision with alice's)", bobsDoom.Slug, "doom")
 	}
 }
+
+// TestReservedGameSlugsGetSuffixed covers the titles whose bare slug
+// something else already answers at: "1942" would be read as the id 1942,
+// and "new" is the frontend's form for a new game.
+func TestReservedGameSlugsGetSuffixed(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	for title, want := range map[string]string{"New": "new-2", "1942": "1942-2"} {
+		created := request(t, handler, http.MethodPost, "/api/games", map[string]any{
+			"title": title, "status": models.StatusPending, "position": 1,
+		})
+		expectStatus(t, created, http.StatusCreated, "creating "+title)
+		var game models.Game
+		decode(t, created, &game)
+		if game.Slug != want {
+			t.Errorf("slug of %q = %q, want %q", title, game.Slug, want)
+		}
+
+		byRef := request(t, handler, http.MethodGet, "/api/games/"+game.Slug, nil)
+		expectStatus(t, byRef, http.StatusOK, "reading "+title+" by its slug")
+		var reread models.Game
+		decode(t, byRef, &reread)
+		if reread.ID != game.ID {
+			t.Errorf("read %q by slug returned id %d, want %d", title, reread.ID, game.ID)
+		}
+	}
+}

@@ -23,3 +23,22 @@ func TestMake(t *testing.T) {
 		}
 	}
 }
+
+func TestReserved(t *testing.T) {
+	cases := map[string]bool{
+		"new":                     true,
+		"1942":                    true,
+		"0":                       true,
+		"new-game":                false,
+		"1942-2":                  false,
+		"2064-read-only-memories": false,
+		"doom":                    false,
+		"":                        false,
+	}
+
+	for s, want := range cases {
+		if got := slug.Reserved(s); got != want {
+			t.Errorf("Reserved(%q) = %v, want %v", s, got, want)
+		}
+	}
+}

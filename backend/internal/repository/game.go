@@ -247,6 +247,13 @@ func (r *GameRepository) assignSlug(ctx context.Context, tx *gorm.DB, title stri
 	candidate := base
 
 	for suffix := 2; ; suffix++ {
+		// A reserved slug is as good as taken: the suffix makes it the
+		// game's own. Only the bare base can be one, never a suffixed form.
+		if slug.Reserved(candidate) {
+			candidate = fmt.Sprintf("%s-%d", base, suffix)
+			continue
+		}
+
 		query := tx.WithContext(ctx).Model(&models.Game{}).Where("user_id = ? AND slug = ?", r.userID, candidate)
 		if excludeID != 0 {
 			query = query.Where("id != ?", excludeID)
@@ -264,14 +271,23 @@ func (r *GameRepository) assignSlug(ctx context.Context, tx *gorm.DB, title stri
 }
 
 // BackfillSlugs assigns a slug to any of this user's games that do not have
-// one yet. Migration 00005 adds the column but leaves existing rows NULL,
-// since computing a unique value needs assignSlug's collision handling
-// rather than anything a SQL migration can do on its own; see
-// cmd/server/main.go, which calls this once per account at startup.
+// one yet, or have one that slug.Reserved has since ruled out. Migration
+// 00005 adds the column but leaves existing rows NULL, since computing a
+// unique value needs assignSlug's collision handling rather than anything a
+// SQL migration can do on its own; see cmd/server/main.go, which calls this
+// once per account at startup.
 func (r *GameRepository) BackfillSlugs(ctx context.Context) (int, error) {
-	var games []models.Game
-	if err := r.scoped(ctx).Where("slug IS NULL OR slug = ?", "").Find(&games).Error; err != nil {
+	// Every game's slug, and only that: telling a reserved one apart is
+	// slug.Reserved's job, not something to repeat in SQL.
+	var all []models.Game
+	if err := r.scoped(ctx).Select("id", "title", "slug").Find(&all).Error; err != nil {
 		return 0, translate(err)
+	}
+	var games []models.Game
+	for _, game := range all {
+		if game.Slug == "" || slug.Reserved(game.Slug) {
+			games = append(games, game)
+		}
 	}
 
 	count := 0
