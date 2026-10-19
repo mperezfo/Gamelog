@@ -855,10 +855,10 @@ function RecordChoice({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-8 w-full items-center gap-1.5 rounded-control bg-surface px-2.5 text-left text-sm text-ink"
+        className="group/trigger flex h-8 w-full items-center gap-1.5 rounded-control bg-surface px-2.5 text-left text-sm text-ink"
       >
         <span className="flex min-w-0 flex-1 items-center gap-1.5">{label}</span>
-        <ChevronDownIcon className="size-3.5 shrink-0 text-ink-faint" />
+        <ChevronDownIcon className="size-3.5 shrink-0 text-ink-faint transition-colors duration-75 group-hover/trigger:text-ink" />
       </button>
 
       {open && (

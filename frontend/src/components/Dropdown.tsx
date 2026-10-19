@@ -152,13 +152,15 @@ export function Dropdown<T extends string>({
         onClick={() => setOpen((o) => !o)}
         onKeyDown={handleTriggerKeyDown}
         className={[
-          'flex items-center justify-between gap-1.5 text-left outline-none',
+          'group/trigger flex items-center justify-between gap-1.5 text-left outline-none',
           'focus-visible:ring-2 focus-visible:ring-accent/40 disabled:opacity-50',
           className,
         ].join(' ')}
       >
         <span className={`truncate ${selected ? '' : 'text-ink-faint'}`}>{selected?.label ?? placeholder}</span>
-        {chevron && <ChevronDownIcon className="size-3.5 shrink-0 text-ink-faint" />}
+        {chevron && (
+          <ChevronDownIcon className="size-3.5 shrink-0 text-ink-faint transition-colors duration-75 group-hover/trigger:text-ink group-disabled/trigger:text-ink-faint" />
+        )}
       </button>
 
       {open && (
