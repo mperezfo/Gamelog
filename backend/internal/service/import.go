@@ -267,13 +267,17 @@ func (r *importRun) importLookups(ctx context.Context, section section) error {
 			*section.updated++
 		}
 
-		if len(entry.IGDBCompanyIDs) > 0 {
+		if ids := entry.IGDBCompanyIDs; ids != nil && (len(ids.Values) > 0 || ids.Dropped > 0) {
 			if !section.linkable {
 				r.warn(section.name, index, name,
 					"only a developer or a publisher can be linked to IGDB companies, so its igdb_company_ids were left out")
 				continue
 			}
-			if err := section.port.link(ctx, id, entry.IGDBCompanyIDs); err != nil {
+			if ids.Dropped > 0 {
+				r.warn(section.name, index, name, fmt.Sprintf(
+					"%d of its igdb_company_ids were not IGDB ids, so they were left out", ids.Dropped))
+			}
+			if err := section.port.link(ctx, id, ids.Values); err != nil {
 				return err
 			}
 		}

@@ -379,4 +379,14 @@ func TestGameWriteCreatesAndLinksCompanies(t *testing.T) {
 	if len(report.Warnings) != 1 || report.Warnings[0].Section != "genres" {
 		t.Errorf("warnings = %+v, want one about the genre's igdb_company_ids", report.Warnings)
 	}
+
+	// An odd value from another tool is reported, not a reason to refuse the
+	// whole file: the request passes validation and the rest still imports.
+	report = importLibrary(t, bob, "/api/import", map[string]any{
+		"developers": []map[string]any{{"name": "Grasshopper", "IGDB IDs": "77, not an id"}},
+		"games":      []map[string]any{{"title": "Killer7"}},
+	})
+	if report.Created.Games != 1 || len(report.Warnings) != 1 || report.Warnings[0].Section != "developers" {
+		t.Errorf("report = %+v, want the game imported and one warning about the dropped id", report)
+	}
 }
