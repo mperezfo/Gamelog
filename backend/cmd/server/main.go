@@ -48,8 +48,11 @@ func main() {
 	flag.BoolVar(&tasks.normalizeImages, "normalize-images", false,
 		"Convert every stored image the backend cannot read (AVIF, typically) to JPEG or PNG, "+
 			"move the games and accounts that use it to the new file, and exit.")
+	flag.BoolVar(&tasks.pruneImages, "prune-images", false,
+		"Delete every stored image no game cover or account picture uses, with its thumbnails, "+
+			"and exit. Images from the last hour are kept, as they may be about to be used.")
 	flag.BoolVar(&tasks.dryRun, "dry-run", false,
-		"With -normalize-images: list what would be converted, and change nothing.")
+		"With -normalize-images or -prune-images: list what would change, and change nothing.")
 	flag.Parse()
 
 	if err := run(tasks); err != nil {
@@ -62,15 +65,22 @@ func main() {
 type maintenance struct {
 	resetAdmin      bool
 	normalizeImages bool
+	pruneImages     bool
 	dryRun          bool
 }
 
 func run(tasks maintenance) error {
-	if tasks.resetAdmin && tasks.normalizeImages {
-		return errors.New("-reset-admin-password and -normalize-images are separate runs: pick one")
+	picked := 0
+	for _, task := range []bool{tasks.resetAdmin, tasks.normalizeImages, tasks.pruneImages} {
+		if task {
+			picked++
+		}
 	}
-	if tasks.dryRun && !tasks.normalizeImages {
-		return errors.New("-dry-run only applies to -normalize-images")
+	if picked > 1 {
+		return errors.New("-reset-admin-password, -normalize-images and -prune-images are separate runs: pick one")
+	}
+	if tasks.dryRun && !tasks.normalizeImages && !tasks.pruneImages {
+		return errors.New("-dry-run only applies to -normalize-images and -prune-images")
 	}
 
 	cfg, err := config.Load(config.DotEnvFile)
@@ -120,6 +130,9 @@ func run(tasks maintenance) error {
 	}
 	if tasks.normalizeImages {
 		return normalizeImages(ctx, db, cfg.ImagesDir, tasks.dryRun)
+	}
+	if tasks.pruneImages {
+		return pruneImages(ctx, db, cfg.ImagesDir, tasks.dryRun)
 	}
 
 	if err := bootstrapAdmin(ctx, authentication, cfg.AdminPassword); err != nil {
@@ -339,5 +352,30 @@ func normalizeImages(ctx context.Context, db *gorm.DB, dir string, dryRun bool) 
 	}
 	slog.Info("images checked", "checked", report.Checked, "converted", len(report.Converted),
 		"unreadable", len(report.Failed), "dry_run", dryRun)
+	return nil
+}
+
+// pruneImages deletes the stored images nothing uses (see
+// imagefile.PruneStored), or with dryRun lists them, and logs what it did.
+func pruneImages(ctx context.Context, db *gorm.DB, dir string, dryRun bool) error {
+	report, err := imagefile.PruneStored(ctx, db, dir, time.Now(), dryRun)
+	if err != nil {
+		return err
+	}
+
+	verb := "deleted"
+	if dryRun {
+		verb = "would delete"
+	}
+	for _, image := range report.Pruned {
+		slog.Info(verb, "image", image.Name, "thumbnails", image.Thumbnails, "bytes", image.Size)
+	}
+	if report.StrayThumbnails > 0 {
+		slog.Info(verb+" thumbnails of images already gone", "thumbnails", report.StrayThumbnails,
+			"bytes", report.StraySize)
+	}
+	slog.Info("images checked", "checked", report.Checked, "unused", len(report.Pruned),
+		"kept_recent", report.Recent, "freed_mib", fmt.Sprintf("%.1f", float64(report.Freed())/(1<<20)),
+		"dry_run", dryRun)
 	return nil
 }

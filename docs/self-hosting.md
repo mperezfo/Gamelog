@@ -252,3 +252,16 @@ docker compose exec gamelog /app/server -normalize-images
 ```
 
 Every converted image gets a new name, and the games and accounts that used it are moved to it; the old file and its thumbnails are deleted. A JPEG, PNG, WebP or GIF that was merely misnamed is renamed, never re-encoded. Running it again once there is nothing left to convert changes nothing.
+
+### Unused images
+
+An image is stored as soon as it is uploaded, before the game or account it is for is saved, and nothing deletes it afterwards: replacing or removing a cover, or discarding a form after uploading one, leaves the file behind. To delete the images no game and no account uses, see what would go first, then run it:
+
+```sh
+docker compose exec gamelog /app/server -prune-images -dry-run
+docker compose exec gamelog /app/server -prune-images
+```
+
+Each image is checked against every game cover and account picture of every account, since the same bytes are one file whoever uploaded them. An unused image goes with its thumbnails, and so do thumbnails left of images that are already gone. Images from the last hour are kept, used or not: one of them may be in a form that is still open, or in a backup that is being restored. Running it again once there is nothing left to delete changes nothing.
+
+A backup only carries the images its games and account use, so pruning changes nothing it would restore.
