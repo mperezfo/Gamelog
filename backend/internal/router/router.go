@@ -53,7 +53,7 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.Timeout(30 * time.Second))
+	r.Use(requestTimeout(RequestTimeout))
 
 	// Huma owns the routes below this point: every operation is registered
 	// against the OpenAPI description of the API, which is generated from the
@@ -72,6 +72,35 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	}
 
 	return r
+}
+
+// RequestTimeout is how long a request may take before its context is
+// cancelled and it is answered 504, except for the ones requestTimeout lets
+// run.
+const RequestTimeout = 30 * time.Second
+
+// untimed are the requests that load a whole library, which requestTimeout
+// leaves without a deadline: a backup carries every game and every image, an
+// import every game, and both are written in one transaction that a large
+// library cannot be expected to finish in the time any other request gets.
+var untimed = map[string]bool{
+	http.MethodPost + " /api/backup": true,
+	http.MethodPost + " /api/import": true,
+}
+
+// requestTimeout bounds every request to timeout, but those in untimed.
+func requestTimeout(timeout time.Duration) func(http.Handler) http.Handler {
+	bounded := middleware.Timeout(timeout)
+	return func(next http.Handler) http.Handler {
+		limited := bounded(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if untimed[r.Method+" "+r.URL.Path] {
+				next.ServeHTTP(w, r)
+				return
+			}
+			limited.ServeHTTP(w, r)
+		})
+	}
 }
 
 // igdbSource builds the IGDB client when the deployment has credentials for
