@@ -345,20 +345,26 @@
    * visible scrollbar so the page never reads as unscrollable.
    *
    * `scrollbar-color` covers Firefox and `::-webkit-scrollbar-thumb` covers
-   * Chromium — the two don't share a mechanism, so both are written. */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-    transition: scrollbar-color 200ms ease;
-  }
+   * Chromium and Safari — the two don't share a mechanism, so both are
+   * written. The standard properties are kept to Firefox alone: since
+   * Chromium 121, an element with either of them set draws the browser's
+   * own scrollbar, little arrow buttons at both ends included, and ignores
+   * every ::-webkit-scrollbar rule below. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: transparent transparent;
+      transition: scrollbar-color 200ms ease;
+    }
 
-  *:hover,
-  .gl-scrolling {
-    scrollbar-color: var(--gl-line-strong) transparent;
-  }
+    *:hover,
+    .gl-scrolling {
+      scrollbar-color: var(--gl-line-strong) transparent;
+    }
 
-  .scrollbar-persistent {
-    scrollbar-color: var(--gl-line-strong) transparent !important;
+    .scrollbar-persistent {
+      scrollbar-color: var(--gl-line-strong) transparent !important;
+    }
   }
 
   ::-webkit-scrollbar {
