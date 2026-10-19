@@ -10,7 +10,7 @@ import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import type { CompanyMatch, GameCandidate, MatchTarget, PlatformMatch } from '../types/metadata'
 import { Button } from './Button'
 import { Dropdown } from './Dropdown'
-import { ArrowRightIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
+import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { Notice } from './Notice'
 import { Reveal } from './Reveal'
 import { Switch } from './Switch'
@@ -659,9 +659,8 @@ function PlatformSection({
             </p>
           )}
           {/* IGDB's side reads as plain text, like a company's name, and only
-              the library's side is a field: what is picked on the left is
-              where the game comes from, the arrow says it becomes what the
-              right holds. The IGDB side takes no more room than its name. */}
+              the library's side is a field. The IGDB side takes no more room
+              than its name. */}
           <div className="flex items-center gap-2">
             <div className="min-w-0">
               {igdbPlatforms.length === 1 ? (
@@ -684,9 +683,7 @@ function PlatformSection({
                 />
               )}
             </div>
-            <span title="Logged on this platform of your library" className="ml-auto flex shrink-0 pl-1 text-ink-faint">
-              <ArrowRightIcon className="size-3.5" />
-            </span>
+            <Leader />
             <RecordChoice
               // Remounted per IGDB platform, so that a search typed for one
               // does not linger for the next.
@@ -754,16 +751,17 @@ function CompanySection({
             {companies.map((company, index) => {
               const skipped = choices[index].kind === 'skip'
               return (
-                <li key={company.igdb_company_id} className="flex items-center gap-3">
+                <li key={company.igdb_company_id} className="flex items-center gap-2">
                   <span
                     className={[
-                      'min-w-0 flex-1 truncate text-sm transition-colors duration-150',
+                      'min-w-0 truncate text-sm transition-colors duration-150',
                       skipped ? 'text-ink-faint line-through decoration-ink-faint' : 'text-ink',
                     ].join(' ')}
                     title={`${company.name} on IGDB`}
                   >
                     {company.name}
                   </span>
+                  <Leader />
                   <RecordChoice
                     match={company.match}
                     createName={recordName(company.name)}
@@ -915,6 +913,17 @@ function RecordChoice({
       )}
     </div>
   )
+}
+
+/**
+ * The dotted line from what IGDB says to where it goes in the library, the
+ * way a table of contents leads from a chapter to its page: it reads as
+ * "this one is that one" without a word, and fills the gap between the two
+ * sides whatever their widths. At least a few dots long, so that it never
+ * disappears next to a long name.
+ */
+function Leader() {
+  return <span aria-hidden="true" className="min-w-4 flex-1 self-center border-t-2 border-dotted border-line-strong" />
 }
 
 /** A small accent word next to a name, about its link to IGDB. */
