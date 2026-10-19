@@ -26,6 +26,10 @@ services:
       GAMELOG_DB_HOST: db
       GAMELOG_DB_PASSWORD: change-me
       GAMELOG_SECURE_COOKIE: "true" # if served over HTTPS
+      # Optional, see "Game metadata" and "Cover image search" below.
+      # GAMELOG_IGDB_CLIENT_ID: your-twitch-client-id
+      # GAMELOG_IGDB_CLIENT_SECRET: your-twitch-client-secret
+      # GAMELOG_STEAMGRIDDB_API_KEY: your-steamgriddb-api-key
     ports:
       - "9999:9999"
     volumes:
@@ -193,7 +197,7 @@ The defaults are local development credentials. Change them before deploying any
 
 ## Game metadata (IGDB)
 
-The game form's **Identify** button looks the title up on [IGDB](https://www.igdb.com) and fills in the title, release date, developers and publishers. An empty field is filled in by default, and one already set is only replaced if you say so. It is optional and off by default: it only appears once the deployment has IGDB credentials.
+The game form's **Identify** button looks the title up on [IGDB](https://www.igdb.com) and fills in the title, release date, platform, developers and publishers. An empty field is filled in by default, and one already set is only replaced if you say so. Applying a result also links the game to that IGDB game, shown as a "Linked to IGDB" line under the title that opens its page and can unlink it. It is optional and off by default: until the deployment has IGDB credentials the button is shown disabled, and its tooltip says why.
 
 IGDB is run by Twitch and authenticates through a Twitch application:
 
@@ -203,11 +207,11 @@ IGDB is run by Twitch and authenticates through a Twitch application:
 
 The backend exchanges them for an access token on its own and renews it when it runs out, so there is nothing else to maintain. One application serves every account of the deployment, and the server needs outbound access to `id.twitch.tv` and `api.igdb.com`. The covers shown next to each result are loaded by the browser straight from `images.igdb.com`, only to tell the results apart: nothing from IGDB is stored but the fields you apply, and the cover you pick in the [image search](#cover-image-search).
 
-When a developer or publisher is applied, Gamelog remembers which IGDB company it stands for, so the next game from the same company is recognised outright instead of guessed from its name. Several IGDB companies can point at the same record, which is how "Sony Computer Entertainment" and "Sony Interactive Entertainment" can both be your "Sony". These links travel with an [export](import-export.md) and a backup.
+When a developer or publisher is applied, Gamelog remembers which IGDB company it stands for, so the next game from the same company is recognised outright instead of guessed from its name. Several IGDB companies can point at the same record, which is how "Sony Computer Entertainment" and "Sony Interactive Entertainment" can both be your "Sony". Platforms are remembered the same way, except that one IGDB platform can stand for several of yours: IGDB's PC can be both your "PC" and your "Steam Deck", and the one with the most games is suggested. A link that turns out wrong can be removed from the developer's, publisher's or platform's edit form. These links travel with an [export](import-export.md) and a backup.
 
 ## Cover image search
 
-The cover's **Search image** button looks the game's title up and shows its images to pick a cover from: heroes and grids (portrait and landscape) from [SteamGridDB](https://www.steamgriddb.com), and covers and artworks from IGDB. Each source configured gets a tab of its own, SteamGridDB's first and open by default, and the button only appears once at least one is. A game identified on IGDB shows the images of that game first; otherwise the top match for the title is shown, with the other matches a click away.
+The cover's **Search image** button looks the game's title up and shows its images to pick a cover from: heroes and grids (portrait and landscape) from [SteamGridDB](https://www.steamgriddb.com), and covers and artworks from IGDB. Each source configured gets a tab of its own, SteamGridDB's first and open by default, and the button stays disabled until at least one is. A game identified on IGDB shows the images of that game first; otherwise the top match for the title is shown, with the other matches a click away.
 
 - **IGDB** needs nothing beyond the credentials of [Game metadata](#game-metadata-igdb).
 - **SteamGridDB** needs an API key: sign in to SteamGridDB (with a Steam account), open the [API page of your preferences](https://www.steamgriddb.com/profile/preferences/api), generate a key and set it as `GAMELOG_STEAMGRIDDB_API_KEY`. Animated images and those marked NSFW are left out.
