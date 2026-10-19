@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 
 import { QueryClient, useQueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 
 import { errorMessage, UnreachableError } from './api/client'
 import { AppShell } from './components/AppShell'
@@ -152,6 +152,9 @@ function UserRoutes() {
       <Route path="/publishers" element={<LookupPage kind="publishers" title="Publishers" />} />
       <Route path="/platforms" element={<LookupPage kind="platforms" title="Platforms" />} />
       <Route path="/account" element={<Account />} />
+      {/* A mistyped or outdated address lands on the dashboard rather than
+          on an empty page. */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }
