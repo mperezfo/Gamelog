@@ -207,12 +207,8 @@ func readCapped(reader io.Reader) ([]byte, error) {
 
 // restoreImage writes one image from a backup into dir. The name is
 // content-addressed and already validated by readBackupZip, so a file
-// already on disk under it is left alone — its bytes are already right,
-// exactly like a duplicate upload.
+// already on disk under it keeps its bytes, which are already right, exactly
+// like a duplicate upload.
 func restoreImage(dir, name string, data []byte) error {
-	path := filepath.Join(dir, name)
-	if _, err := os.Stat(path); err == nil {
-		return nil
-	}
-	return imagefile.WriteFile(path, bytes.NewReader(data))
+	return imagefile.Store(filepath.Join(dir, name), data)
 }

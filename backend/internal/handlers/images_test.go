@@ -9,8 +9,11 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gen2brain/avif"
 
@@ -96,6 +99,19 @@ func TestImageUploadAndRetrieval(t *testing.T) {
 	}
 	if bodyAgain.URL != body.URL {
 		t.Errorf("re-uploading the same bytes got %q, want the same URL %q", bodyAgain.URL, body.URL)
+	}
+
+	// The file is marked as just stored all the same: -prune-images spares an
+	// unused image by how recent it is, and this one is about to be used.
+	path := filepath.Join(os.TempDir(), strings.TrimPrefix(body.URL, "/api/images/"))
+	long := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(path, long, long); err != nil {
+		t.Fatalf("ageing the stored image: %v", err)
+	}
+	expectStatus(t, uploadFile(t, handler, onePixelPNG, "cover.png", "image/png"),
+		http.StatusCreated, "uploading an image stored long ago")
+	if info, err := os.Stat(path); err != nil || time.Since(info.ModTime()) > time.Hour {
+		t.Errorf("re-uploading an image left it marked as stored at %v", info.ModTime())
 	}
 }
 

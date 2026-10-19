@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -147,11 +146,8 @@ func storeImage(dir string, data []byte) (*uploadImageOutput, error) {
 	// Content-addressed: identical bytes already on disk need no second write,
 	// and two uploads of the same cover image collapse onto the same URL.
 	name := imagefile.Name(data, ext)
-	path := filepath.Join(dir, name)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		if err := imagefile.WriteFile(path, bytes.NewReader(data)); err != nil {
-			return nil, err
-		}
+	if err := imagefile.Store(filepath.Join(dir, name), data); err != nil {
+		return nil, err
 	}
 
 	out := &uploadImageOutput{}
