@@ -1,4 +1,5 @@
 import type { Lookup } from '../types/lookup'
+import { Emoji } from './Emoji'
 
 interface PlatformBadgeProps {
   platform: Lookup | null | undefined
@@ -21,7 +22,7 @@ export function PlatformBadge({ platform, className = '' }: PlatformBadgeProps) 
       } ${className}`}
       style={platform.color ? { backgroundColor: `${platform.color}22`, color: platform.color } : undefined}
     >
-      {platform.icon && <span aria-hidden="true">{platform.icon}</span>}
+      {platform.icon && <span aria-hidden="true"><Emoji value={platform.icon} /></span>}
       <span className="truncate">{platform.name}</span>
     </span>
   )
