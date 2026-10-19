@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -18,6 +19,19 @@ import (
 // backupFilename is the library and account document inside a backup .zip.
 // Everything else in the archive is an image, under images/.
 const backupFilename = "gamelog.json"
+
+// maxBackupEntry caps one file of a backup once decompressed, and
+// maxBackupContents all of them together, so that a small archive cannot
+// decompress into more than the server can hold. An image is at most what an
+// upload or an import stores, and the images, already compressed, take about
+// as much room in the archive as out of it.
+const (
+	maxBackupEntry    = 64 << 20 // 64 MiB
+	maxBackupContents = 4 * maxBackupSize
+)
+
+// errBackupTooLarge is a backup whose files decompress past those caps.
+var errBackupTooLarge = errors.New("the backup decompresses into more than a backup can hold")
 
 // buildBackupZip writes a Document and its account as gamelog.json, plus
 // every cover and avatar either of them names, into a .zip.
@@ -113,9 +127,13 @@ func readBackupZip(data []byte) (service.ImportDocument, service.AccountEntry, m
 	}
 
 	body, err := readZipFile(archive, backupFilename)
+	if errors.Is(err, errBackupTooLarge) {
+		return empty, emptyAccount, nil, err
+	}
 	if err != nil {
 		return empty, emptyAccount, nil, fmt.Errorf("the archive has no %s: %w", backupFilename, err)
 	}
+	total := len(body)
 
 	var importDoc service.ImportDocument
 	if err := json.Unmarshal(body, &importDoc); err != nil {
@@ -140,8 +158,14 @@ func readBackupZip(data []byte) (service.ImportDocument, service.AccountEntry, m
 		}
 
 		content, err := readZipEntry(file)
+		if errors.Is(err, errBackupTooLarge) {
+			return empty, emptyAccount, nil, err
+		}
 		if err != nil {
 			return empty, emptyAccount, nil, fmt.Errorf("reading %s: %w", file.Name, err)
+		}
+		if total += len(content); total > maxBackupContents {
+			return empty, emptyAccount, nil, errBackupTooLarge
 		}
 		images[name] = content
 	}
@@ -155,7 +179,7 @@ func readZipFile(archive *zip.Reader, name string) ([]byte, error) {
 		return nil, err
 	}
 	defer file.Close()
-	return io.ReadAll(file)
+	return readCapped(file)
 }
 
 func readZipEntry(file *zip.File) ([]byte, error) {
@@ -164,7 +188,21 @@ func readZipEntry(file *zip.File) ([]byte, error) {
 		return nil, err
 	}
 	defer reader.Close()
-	return io.ReadAll(reader)
+	return readCapped(reader)
+}
+
+// readCapped reads one decompressed file of a backup, up to maxBackupEntry.
+// The sizes the archive declares are not trusted: they are whatever whoever
+// made it wrote.
+func readCapped(reader io.Reader) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(reader, maxBackupEntry+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxBackupEntry {
+		return nil, errBackupTooLarge
+	}
+	return data, nil
 }
 
 // restoreImage writes one image from a backup into dir. The name is
