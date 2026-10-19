@@ -28,7 +28,7 @@ type gameBody struct {
 	// reset it to zero (PUT replaces the whole game), which is the one field where
 	// that would visibly reshuffle the dashboard's board. A client that does
 	// not care about manual order can always echo back what it last read.
-	Position float64 `json:"position" doc:"Manual order within its status column, for drag-and-drop; lower sorts first among games tied on release date (or with none)."`
+	Position float64 `json:"position" doc:"Manual order within its status column, for drag-and-drop; lower sorts first among games logged on the same date (or with none)."`
 
 	// Scores are stored as DECIMAL(3,1): anything beyond one decimal is
 	// rounded by the database.
