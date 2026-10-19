@@ -43,6 +43,10 @@ interface CoverImageFieldProps {
 const MIN_ZOOM = 1
 const MAX_ZOOM = 3
 
+/** How long a picked image's blurred preview takes to clear off the cover:
+ * the duration-500 of its transitions. */
+const REVEAL_MS = 500
+
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
@@ -119,9 +123,10 @@ export function CoverImageField({
   const [searching, setSearching] = useState(false)
   // An image picked in the search, shown from the thumbnail the browser
   // already has while a copy is imported, so that a pick takes effect at
-  // once rather than after the download. `stored` is where the copy landed,
-  // and the preview stays until that has loaded in its place, so that the
-  // cover never blinks out in between.
+  // once rather than after the download. Blurred, as it is a stand-in: a
+  // small copy, and not the cover yet. `stored` is where the copy landed,
+  // and the preview stays until that has loaded underneath, then clears
+  // away, so that the cover never blinks out in between.
   const [preview, setPreview] = useState<{ thumb: string; stored: string | null } | null>(null)
   const [draftX, setDraftX] = useState(focalX ?? 0.5)
   const [draftY, setDraftY] = useState(focalY ?? 0.5)
@@ -165,8 +170,18 @@ export function CoverImageField({
       : undefined
 
   const importing = preview !== null && preview.stored === null
-  const showPreview =
-    preview !== null && (importing || (value === preview.stored && loadedCover !== value && failedCover !== value))
+  const showPreview = preview !== null && (importing || value === preview.stored)
+  // The stored copy is in place under the preview, which fades out and
+  // sharpens as it goes: the blur reads as clearing off the cover.
+  const revealing = showPreview && !importing && (loadedCover === value || failedCover === value)
+
+  // Gone once it has faded. A timer rather than transitionend, which does
+  // not always come: not without the motion, nor for an interrupted fade.
+  useEffect(() => {
+    if (!revealing) return
+    const timer = window.setTimeout(() => setPreview(null), REVEAL_MS + 100)
+    return () => clearTimeout(timer)
+  }, [revealing])
   const busy = uploading || importing
 
   /** Makes url the cover. A new image starts uncropped: the old crop was
@@ -571,13 +586,26 @@ export function CoverImageField({
               the image and the hover overlay regardless. */}
           {/* Over the cover and its buttons, which wait for the import. */}
           {showPreview && preview && (
-            <div className="absolute inset-0 bg-sunken">
+            <div
+              className={[
+                'absolute inset-0 overflow-hidden bg-sunken transition-opacity duration-500 ease-out motion-reduce:duration-0',
+                revealing ? 'pointer-events-none opacity-0' : '',
+              ].join(' ')}
+            >
               <img
                 src={preview.thumb}
                 alt=""
                 referrerPolicy="no-referrer"
                 draggable={false}
-                className="absolute -top-px -left-px h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none object-cover object-top select-none"
+                // Scaled up while blurred, so that the blur does not fray
+                // into the background at the edges, and back down as it
+                // clears, to land where the cover underneath is.
+                style={{ filter: revealing ? 'blur(0px)' : 'blur(12px)' }}
+                className={[
+                  'absolute -top-px -left-px h-[calc(100%+2px)] w-[calc(100%+2px)] max-w-none object-cover object-top select-none',
+                  'transition-[filter,scale] duration-500 ease-out motion-reduce:duration-0',
+                  revealing ? 'scale-100' : 'scale-110',
+                ].join(' ')}
               />
               {importing && (
                 <span className="absolute right-2 bottom-2 rounded-[4px] bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white">
