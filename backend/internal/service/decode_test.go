@@ -291,3 +291,15 @@ func TestImportReadsIGDBCompanyIDsInEveryShape(t *testing.T) {
 		}
 	}
 }
+
+// A game's IGDB id is read with the same leniency as a developer's, under
+// the names a spreadsheet would give the column.
+func TestImportReadsAGamesIGDBID(t *testing.T) {
+	for _, field := range []string{`"igdb_id": 26192`, `"IGDB ID": "26192"`, `"IGDB": 26192`} {
+		document := decodeDocument(t, `{"games": [{"title": "Resident Evil 4", `+field+`}]}`)
+		ids := document.Games[0].IGDBID
+		if ids == nil || fmt.Sprint(ids.Values) != "[26192]" || ids.Dropped != 0 {
+			t.Errorf("%s: read %+v, want the id 26192", field, ids)
+		}
+	}
+}

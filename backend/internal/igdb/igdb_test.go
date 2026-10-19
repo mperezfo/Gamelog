@@ -242,6 +242,40 @@ func TestCompanyURL(t *testing.T) {
 	}
 }
 
+// A game's page comes from the games endpoint, and has to be a game page:
+// the prefix differs from a company's.
+func TestGameURL(t *testing.T) {
+	fake := newFakeIGDB(t, `[]`)
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /token", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, `{"access_token":"t","expires_in":5000000}`)
+	})
+	mux.HandleFunc("POST /v4/games", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		switch query := string(body); {
+		case strings.Contains(query, "where id = 26192;"):
+			_, _ = io.WriteString(w, `[{"id":26192,"url":"https://www.igdb.com/games/resident-evil-4--1"}]`)
+		case strings.Contains(query, "where id = 37;"):
+			_, _ = io.WriteString(w, `[{"id":37,"url":"https://www.igdb.com/companies/capcom"}]`)
+		default:
+			_, _ = io.WriteString(w, `[]`)
+		}
+	})
+	fake.server.Config.Handler = mux
+	client := fake.client()
+
+	url, err := client.GameURL(context.Background(), 26192)
+	if err != nil || url != "https://www.igdb.com/games/resident-evil-4--1" {
+		t.Errorf("GameURL(26192) = %q, %v", url, err)
+	}
+	if _, err := client.GameURL(context.Background(), 1); !errors.Is(err, ErrNotFound) {
+		t.Errorf("GameURL(1) err = %v, want ErrNotFound", err)
+	}
+	if _, err := client.GameURL(context.Background(), 37); err == nil {
+		t.Error("GameURL(37) followed a URL that is not a game page")
+	}
+}
+
 func TestCompanies(t *testing.T) {
 	fake := newFakeIGDB(t, `[]`)
 	mux := http.NewServeMux()

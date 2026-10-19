@@ -161,25 +161,35 @@ func (c *Client) Companies(ctx context.Context, ids []uint64) ([]Company, error)
 // ErrNotFound is returned when IGDB has no record with the id asked for.
 var ErrNotFound = errors.New("igdb: not found")
 
-// companyPagePrefix is where every company page on IGDB lives. A URL from
-// the API outside it is not followed: redirecting a browser is only safe to
-// a place known in advance.
-const companyPagePrefix = "https://www.igdb.com/companies/"
-
-// CompanyURL returns the page of a company on igdb.com. Pages are addressed
-// by a slug rather than the id, so the id alone is not enough to link to one.
+// CompanyURL returns the page of a company on igdb.com.
 func (c *Client) CompanyURL(ctx context.Context, id uint64) (string, error) {
+	return c.pageURL(ctx, "companies", "https://www.igdb.com/companies/", id)
+}
+
+// GameURL returns the page of a game on igdb.com.
+func (c *Client) GameURL(ctx context.Context, id uint64) (string, error) {
+	return c.pageURL(ctx, "games", "https://www.igdb.com/games/", id)
+}
+
+// pageURL returns the page on igdb.com of the record with the given id on
+// one endpoint. Pages are addressed by a slug rather than the id, so the id
+// alone is not enough to link to one.
+//
+// prefix is where every page of that endpoint lives. A URL from the API
+// outside it is not followed: redirecting a browser is only safe to a place
+// known in advance.
+func (c *Client) pageURL(ctx context.Context, endpoint, prefix string, id uint64) (string, error) {
 	var results []struct {
 		URL string `json:"url"`
 	}
-	if err := c.query(ctx, "companies", fmt.Sprintf("fields url; where id = %d;", id), &results); err != nil {
+	if err := c.query(ctx, endpoint, fmt.Sprintf("fields url; where id = %d;", id), &results); err != nil {
 		return "", err
 	}
 	if len(results) == 0 {
 		return "", ErrNotFound
 	}
-	if !strings.HasPrefix(results[0].URL, companyPagePrefix) {
-		return "", fmt.Errorf("igdb: company %d has an unexpected URL %q", id, results[0].URL)
+	if !strings.HasPrefix(results[0].URL, prefix) {
+		return "", fmt.Errorf("igdb: %s %d has an unexpected URL %q", endpoint, id, results[0].URL)
 	}
 	return results[0].URL, nil
 }

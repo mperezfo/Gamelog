@@ -64,6 +64,7 @@ GET    /api/metadata/capabilities           which metadata lookups this deployme
 GET    /api/metadata/games?title=           looks a game up on IGDB
 GET    /api/metadata/companies?ids=         names IGDB companies by id
 GET    /api/metadata/companies/{id}/page    redirects to a company's page on IGDB
+GET    /api/metadata/games/{id}/page        redirects to a game's page on IGDB
 ```
 
 `/api/docs` is the authoritative list, with every parameter and schema.
@@ -72,7 +73,7 @@ Listing the games of a genre, a developer, a publisher or a platform is a filter
 
 A game is written with its relations as ids (`platform_id`, `genre_ids`, `developer_ids`, `publisher_ids`) and read back with them loaded, so saving a game can never create or rename a genre by accident. `PUT` replaces the whole record: anything left out of the body is cleared.
 
-The one way a game write creates records is on request: `new_developers` and `new_publishers` name developers and publishers to attach, created if the library does not have them yet, and `developer_links` and `publisher_links` tie existing ones to the IGDB company each stands for. Developers and publishers are read back with the `igdb_company_ids` they are linked to. All of it is written in the same transaction as the game, so a write that fails, or a form that is abandoned, leaves nothing behind.
+The one way a game write creates records is on request: `new_developers` and `new_publishers` name developers and publishers to attach, created if the library does not have them yet, and `developer_links` and `publisher_links` tie existing ones to the IGDB company each stands for. Developers and publishers are read back with the `igdb_company_ids` they are linked to. A game carries the `igdb_id` of the IGDB game it was identified as; like every other field of a write, leaving it out unlinks the game. All of it is written in the same transaction as the game, so a write that fails, or a form that is abandoned, leaves nothing behind.
 
 `GET /api/metadata/games` searches IGDB by title and answers with the candidate games, their release date, developers and publishers. Each developer and publisher comes with the record of your library it most likely is: the one already linked to that IGDB company, or a guess from the name, which the game form shows as a suggestion to confirm. It needs IGDB credentials (see [Self-hosting](self-hosting.md#game-metadata-igdb)): without them it answers `501`, and `GET /api/metadata/capabilities` reports `identify: false`. When IGDB itself fails, the answer is `424`.
 

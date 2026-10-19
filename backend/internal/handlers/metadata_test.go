@@ -55,6 +55,17 @@ func (f *fakeSearcher) CompanyURL(_ context.Context, id uint64) (string, error) 
 	return "", igdb.ErrNotFound
 }
 
+// GameURL knows Resident Evil 4 (26192) and nothing else.
+func (f *fakeSearcher) GameURL(_ context.Context, id uint64) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	if id == 26192 {
+		return "https://www.igdb.com/games/resident-evil-4--1", nil
+	}
+	return "", igdb.ErrNotFound
+}
+
 // newMetadataRouter builds the API around games, which router.New would
 // otherwise build from real IGDB credentials. A nil games is a deployment
 // without them.
@@ -225,6 +236,15 @@ func TestMetadataSearchMatchesCompanies(t *testing.T) {
 	}
 	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/companies/1/page", nil),
 		http.StatusNotFound, "opening a company IGDB does not have")
+
+	// So is a game's.
+	rec = request(t, handler, http.MethodGet, "/api/metadata/games/26192/page", nil)
+	expectStatus(t, rec, http.StatusFound, "opening Resident Evil 4's page")
+	if location := rec.Header().Get("Location"); location != "https://www.igdb.com/games/resident-evil-4--1" {
+		t.Errorf("Location = %q, want Resident Evil 4's page", location)
+	}
+	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/games/1/page", nil),
+		http.StatusNotFound, "opening a game IGDB does not have")
 
 	// Companies are named in the order asked for, and unknown ones left out.
 	rec = request(t, handler, http.MethodGet, "/api/metadata/companies?ids=70,1,37", nil)

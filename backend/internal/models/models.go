@@ -55,6 +55,10 @@ type Game struct {
 	PlatformID *uint64   `gorm:"column:platform_id" json:"platform_id"`
 	Platform   *Platform `gorm:"foreignKey:PlatformID" json:"platform,omitempty"`
 
+	// IGDBID is the IGDB game this game was identified as, or nil. See
+	// migration 00017.
+	IGDBID *uint64 `gorm:"column:igdb_id" json:"igdb_id"`
+
 	Genres     []Genre     `gorm:"many2many:game_genres" json:"genres,omitempty"`
 	Developers []Developer `gorm:"many2many:game_developers" json:"developers,omitempty"`
 	Publishers []Publisher `gorm:"many2many:game_publishers" json:"publishers,omitempty"`

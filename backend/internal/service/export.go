@@ -99,6 +99,7 @@ func exportGame(game models.Game) GameEntry {
 		CoverZoom:     game.CoverZoom,
 		ReleaseDate:   exportDate(game.ReleaseDate),
 		LoggedDate:    exportDate(game.LoggedDate),
+		IGDBID:        game.IGDBID,
 		Genres:        make([]string, 0, len(game.Genres)),
 		Developers:    make([]string, 0, len(game.Developers)),
 		Publishers:    make([]string, 0, len(game.Publishers)),

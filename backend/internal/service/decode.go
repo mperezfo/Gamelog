@@ -173,6 +173,8 @@ type ImportGame struct {
 	ReleaseDate *Date `json:"release_date,omitempty" doc:"Release date of the game."`
 	LoggedDate  *Date `json:"logged_date,omitempty" doc:"When the game was started, logged or finished."`
 
+	IGDBID *IDList `json:"igdb_id,omitempty" doc:"IGDB game the game was identified as, as a number or a string. Empty unlinks it; anything that is not one id is left out, with a warning."`
+
 	Platform   *string `json:"platform,omitempty" nullable:"true" doc:"Name of the platform. Created if the library does not have it yet." example:"Nintendo Switch"`
 	Genres     Names   `json:"genres,omitempty" doc:"Names of the genres. Any that the library does not have yet are created."`
 	Developers Names   `json:"developers,omitempty" doc:"Names of the developers. Any that the library does not have yet are created."`
@@ -255,6 +257,8 @@ var gameFields = map[string]string{
 	"portada": "cover_image_url", "caratula": "cover_image_url", "imagen": "cover_image_url",
 
 	"coverfocalx": "cover_focal_x", "coverfocaly": "cover_focal_y", "coverzoom": "cover_zoom",
+
+	"igdbid": "igdb_id", "igdb": "igdb_id", "igdbgameid": "igdb_id",
 
 	"releasedate": "release_date", "release": "release_date",
 	"released": "release_date", "launchdate": "release_date",
