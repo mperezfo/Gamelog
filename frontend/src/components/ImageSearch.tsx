@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
 import { errorMessage } from '../api/client'
+import { SOURCE_NAMES } from '../lib/imageSources'
 import { useGameImages } from '../hooks/useMetadata'
 import type { GameImage, ImageKind, ImageSearchGame, ImageSource } from '../types/metadata'
 import { Button } from './Button'
@@ -9,11 +10,6 @@ import { Dots } from './Dots'
 import { Dropdown } from './Dropdown'
 import { XIcon } from './icons'
 import { Notice } from './Notice'
-
-const SOURCE_NAMES: Record<ImageSource, string> = {
-  igdb: 'IGDB',
-  steamgriddb: 'SteamGridDB',
-}
 
 const KIND_NAMES: Record<ImageKind, string> = {
   cover: 'Cover',

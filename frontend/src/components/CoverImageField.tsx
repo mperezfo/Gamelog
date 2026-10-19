@@ -1,13 +1,22 @@
-import { useEffect, useRef, useState, type CSSProperties, type DragEvent, type PointerEvent } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+  type DragEvent,
+  type PointerEvent,
+} from 'react'
 
 import { importImage, uploadImage } from '../api/images'
 import { errorMessage } from '../api/client'
 import { coverFitStyle, cropSize } from '../lib/cover'
+import { SOURCE_NAMES } from '../lib/imageSources'
 import { Button } from './Button'
 import type { GameImage, ImageSource } from '../types/metadata'
 import { CoverImage } from './CoverImage'
 import { Dots } from './Dots'
-import { ImageIcon, TrashIcon } from './icons'
+import { CropIcon, ImageIcon, SearchIcon, TrashIcon, UploadIcon } from './icons'
 import { ImageSearch } from './ImageSearch'
 import { Notice } from './Notice'
 
@@ -26,9 +35,9 @@ interface CoverImageFieldProps {
   onZoomChange: (zoom: number | null) => void
   /** Shows the cover without any way to replace, crop or remove it. */
   readOnly?: boolean
-  /** What the Search image button looks the game up with. Left out, there
-   * is no such button: the deployment has no image source, or the game no
-   * title to search for yet. */
+  /** What the Search image button looks the game up with. The button is
+   * disabled, saying why, while the deployment has no image source or the
+   * game no title to search for, and left out until the sources are known. */
   imageSearch?: {
     title: string
     igdbId: number | null
@@ -46,6 +55,19 @@ const MAX_ZOOM = 3
 /** How long a picked image's blurred preview takes to clear off the cover:
  * the duration-500 of its transitions. */
 const REVEAL_MS = 500
+
+/**
+ * One of the cover's icon buttons. On a solid square of its own: a button's
+ * hover is a faint tint, which straight over a picture would all but clear
+ * the button away instead of marking it.
+ */
+function CoverButton({ label, ...props }: ComponentProps<typeof Button> & { label: string }) {
+  return (
+    <span className="flex rounded-control bg-surface">
+      <Button className="px-2" title={label} aria-label={label} {...props} />
+    </span>
+  )
+}
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
@@ -93,7 +115,7 @@ export function CoverImageField({
   const coverBoxRef = useRef<HTMLDivElement>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // The Replace/Remove overlay is hover-only, which leaves no way to reach it
+  // The buttons overlay is hover-only, which leaves no way to reach it
   // on a touch screen. `showOverlay` covers that case: a tap on the cover
   // toggles it, on top of (not instead of) the existing `group-hover`.
   const [showOverlay, setShowOverlay] = useState(false)
@@ -183,6 +205,17 @@ export function CoverImageField({
     return () => clearTimeout(timer)
   }, [revealing])
   const busy = uploading || importing
+
+  const canSearch = Boolean(imageSearch && imageSearch.sources.length > 0 && imageSearch.title)
+
+  function searchLabel(): string {
+    if (!imageSearch) return 'Search an image'
+    if (imageSearch.sources.length === 0) {
+      return 'Search an image (IGDB or SteamGridDB credentials not set up on this server)'
+    }
+    if (!imageSearch.title) return "Search an image (type the game's title first)"
+    return `Search an image on ${imageSearch.sources.map((source) => SOURCE_NAMES[source]).join(' or ')}`
+  }
 
   /** Makes url the cover. A new image starts uncropped: the old crop was
    * chosen for another picture. */
@@ -343,6 +376,56 @@ export function CoverImageField({
     return () => observer.disconnect()
   }, [cropping, natural, draftX, draftY, draftZoom])
 
+  // The same four in the same places with or without a cover, so that each
+  // is always where it was: getting a picture on top, then what to do with
+  // the one there is. Delete goes last, away from the main action.
+  const actions = (
+    // Clicks stop here: one in a gap between the buttons would otherwise
+    // toggle the overlay they sit in.
+    <div className="grid grid-cols-2 gap-2" onClick={(event) => event.stopPropagation()}>
+      <CoverButton
+        variant="ghost"
+        label="Upload an image"
+        disabled={busy}
+        onClick={() => inputRef.current?.click()}
+      >
+        <UploadIcon />
+      </CoverButton>
+      <CoverButton
+        variant="ghost"
+        label={searchLabel()}
+        disabled={busy || !canSearch}
+        onClick={() => {
+          setError(null)
+          setSearching(true)
+        }}
+      >
+        <SearchIcon />
+      </CoverButton>
+      <CoverButton
+        variant="ghost"
+        label="Set the portrait crop"
+        disabled={busy || !value}
+        onClick={startCropping}
+      >
+        <CropIcon />
+      </CoverButton>
+      <CoverButton
+        variant="danger"
+        label="Remove the cover"
+        disabled={busy || !value}
+        onClick={() => {
+          onChange('')
+          onFocalChange(null, null)
+          onZoomChange(null)
+          setShowOverlay(false)
+        }}
+      >
+        <TrashIcon />
+      </CoverButton>
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-1.5">
       <input
@@ -479,7 +562,7 @@ export function CoverImageField({
                   style={coverStyle}
                 />
               )}
-              {coverNatural && (
+              {coverNatural && !uploading && (
                 <span className="pointer-events-none absolute right-2 bottom-2 rounded-[4px] bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100">
                   {coverNatural.w} × {coverNatural.h}
                 </span>
@@ -487,94 +570,27 @@ export function CoverImageField({
               {!readOnly && (
                 <div
                   className={[
-                    // Wrapping, as four buttons do not fit across a phone.
-                    'absolute inset-0 flex flex-wrap content-center items-center justify-center gap-2 bg-black/45 px-4 transition-opacity duration-75',
+                    'absolute inset-0 flex items-center justify-center bg-black/45 transition-opacity duration-75',
                     showOverlay
                       ? 'pointer-events-auto opacity-100'
                       : 'pointer-events-none opacity-0 group-hover:pointer-events-auto group-hover:opacity-100',
                   ].join(' ')}
                 >
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={busy}
-                    className="bg-surface/90 hover:bg-surface"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      inputRef.current?.click()
-                    }}
-                  >
-                    {uploading ? 'Uploading…' : 'Replace'}
-                  </Button>
-                  {!busy && imageSearch && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="bg-surface/90 hover:bg-surface"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setError(null)
-                        setSearching(true)
-                      }}
-                    >
-                      Search image
-                    </Button>
-                  )}
-                  {!busy && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="bg-surface/90 hover:bg-surface"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        startCropping()
-                      }}
-                    >
-                      Set portrait crop
-                    </Button>
-                  )}
-                  {!busy && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="bg-surface/90 px-2 hover:bg-surface"
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        onChange('')
-                        onFocalChange(null, null)
-                        onZoomChange(null)
-                        setShowOverlay(false)
-                      }}
-                      aria-label="Remove cover"
-                    >
-                      <TrashIcon className="size-3.5" />
-                    </Button>
-                  )}
+                  {actions}
                 </div>
               )}
             </>
           ) : (
-            <div className="flex size-full flex-col items-center justify-center gap-2">
-              <ImageIcon className="size-5 text-ink-faint" />
-              {!readOnly && (
-                <div className="flex flex-wrap justify-center gap-2">
-                  <Button type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
-                    {uploading ? 'Uploading…' : 'Add a cover'}
-                  </Button>
-                  {!busy && imageSearch && (
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setError(null)
-                        setSearching(true)
-                      }}
-                    >
-                      Search image
-                    </Button>
-                  )}
-                </div>
-              )}
+            <div className="flex size-full items-center justify-center">
+              {readOnly ? <ImageIcon className="size-5 text-ink-faint" /> : actions}
             </div>
+          )}
+
+          {uploading && (
+            <span className="pointer-events-none absolute right-2 bottom-2 rounded-[4px] bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white">
+              Uploading
+              <Dots />
+            </span>
           )}
 
           {/* A real border painted as the last child, not a CSS outline on
