@@ -15,6 +15,7 @@ import (
 	"github.com/mperezfo/gamelog/internal/config"
 	"github.com/mperezfo/gamelog/internal/handlers"
 	"github.com/mperezfo/gamelog/internal/igdb"
+	"github.com/mperezfo/gamelog/internal/steamgriddb"
 )
 
 // Version is the version of the API reported in the OpenAPI document. It is
@@ -58,7 +59,10 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	// against the OpenAPI description of the API, which is generated from the
 	// same Go types that validate the requests (see the handlers package).
 	api := humachi.New(r, openAPIConfig())
-	handlers.Register(api, db, authentication, cfg.ImagesDir, version, igdbSource(cfg))
+	handlers.Register(api, db, authentication, cfg.ImagesDir, version, handlers.Sources{
+		IGDB:        igdbSource(cfg),
+		SteamGridDB: steamGridDBSource(cfg),
+	})
 
 	// Outside Huma, since the page is ours. Left out, the route simply does
 	// not exist: the documentation is what grants a stranger a console onto
@@ -79,6 +83,16 @@ func igdbSource(cfg config.Config) handlers.IGDB {
 		return nil
 	}
 	return igdb.New(cfg.IGDBClientID, cfg.IGDBClientSecret)
+}
+
+// steamGridDBSource builds the SteamGridDB client when the deployment has a
+// key for it, and returns an untyped nil otherwise, for the same reason as
+// igdbSource.
+func steamGridDBSource(cfg config.Config) handlers.SteamGridDB {
+	if !cfg.SteamGridDBEnabled() {
+		return nil
+	}
+	return steamgriddb.New(cfg.SteamGridDBAPIKey)
 }
 
 // openAPIConfig describes the API document itself.

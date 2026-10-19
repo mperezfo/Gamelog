@@ -11,6 +11,7 @@ package handlers
 import (
 	"errors"
 	"log/slog"
+	"net/http"
 	"reflect"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -28,9 +29,8 @@ import (
 // mounted sub-router, and the OpenAPI document then describes the same paths
 // the frontend and the reverse proxy use.
 //
-// source is IGDB for the metadata operations, and is nil when the deployment
-// has no IGDB credentials.
-func Register(api huma.API, db *gorm.DB, authentication *auth.Service, imagesDir, version string, source IGDB) {
+// sources are the outside services games and their images are looked up on.
+func Register(api huma.API, db *gorm.DB, authentication *auth.Service, imagesDir, version string, sources Sources) {
 	// Schema aliases have to be registered before the first operation, since
 	// Huma builds each schema as the operation using it is registered.
 	api.OpenAPI().Components.Schemas.RegisterTypeAlias(
@@ -53,8 +53,23 @@ func Register(api huma.API, db *gorm.DB, authentication *auth.Service, imagesDir
 	registerGames(api, db)
 	registerLookups(api, db)
 	registerPortability(api, db, authentication, imagesDir)
-	registerImages(api, imagesDir)
-	registerMetadata(api, db, source)
+	registerImages(api, imagesDir, sources.ImageClient)
+	registerMetadata(api, db, sources)
+}
+
+// Sources are the outside services the API looks games and their images up
+// on. A service is nil when the deployment is not configured for it, and the
+// operations that need it say so rather than fail.
+type Sources struct {
+	// IGDB is behind the game form's Identify button, and is one of the
+	// places cover images are searched for.
+	IGDB IGDB
+	// SteamGridDB is the other place cover images are searched for.
+	SteamGridDB SteamGridDB
+	// ImageClient downloads the image picked in a search, which only ever
+	// comes from one of the hosts in importHosts. Nil uses a client of its
+	// own; tests pass one that answers for those hosts.
+	ImageClient *http.Client
 }
 
 // statusSchema documents models.Status as an enum whose values come from

@@ -303,3 +303,50 @@ func TestCompanies(t *testing.T) {
 		t.Errorf("companies = %v, want Nintendo then Capcom, in the order asked for", companies)
 	}
 }
+
+func TestImages(t *testing.T) {
+	fake := newFakeIGDB(t, `[{
+		"id": 26192,
+		"cover": {"id": 1, "image_id": "co6bo0", "width": 1200, "height": 1600},
+		"artworks": [
+			{"id": 2, "image_id": "ar1", "width": 3840, "height": 2160},
+			{"id": 3, "image_id": ""}
+		]
+	}]`)
+
+	images, err := fake.client().Images(context.Background(), 26192)
+	if err != nil {
+		t.Fatalf("Images: %v", err)
+	}
+	want := []Image{
+		{
+			URL:      "https://images.igdb.com/igdb/image/upload/t_original/co6bo0.jpg",
+			ThumbURL: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co6bo0.jpg",
+			Width:    1200, Height: 1600, Kind: KindCover,
+		},
+		{
+			URL:      "https://images.igdb.com/igdb/image/upload/t_original/ar1.jpg",
+			ThumbURL: "https://images.igdb.com/igdb/image/upload/t_screenshot_big/ar1.jpg",
+			Width:    3840, Height: 2160, Kind: KindArtwork,
+		},
+	}
+	if len(images) != len(want) {
+		t.Fatalf("images = %+v, want %+v", images, want)
+	}
+	for i := range want {
+		if images[i] != want[i] {
+			t.Errorf("images[%d] = %+v, want %+v", i, images[i], want[i])
+		}
+	}
+	if !strings.Contains(fake.queries[0], "where id = 26192;") {
+		t.Errorf("query = %q, want it to ask for the game by id", fake.queries[0])
+	}
+}
+
+func TestImagesOfAnUnknownGame(t *testing.T) {
+	fake := newFakeIGDB(t, `[]`)
+
+	if _, err := fake.client().Images(context.Background(), 1); !errors.Is(err, ErrNotFound) {
+		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+}

@@ -54,6 +54,7 @@ GET/PUT/DELETE      /api/genres/{id}
 DELETE              /api/developers/{id}/igdb/{igdb_id}   (same for publishers, platforms)
 
 POST   /api/images                          uploads a cover or avatar
+POST   /api/images/import                   copies an image from the image search
 GET    /api/images/{name}?size=             sm or md for a thumbnail, made once
 
 GET    /api/export                          the library as one JSON document
@@ -68,6 +69,7 @@ GET    /api/metadata/companies/{id}/page    redirects to a company's page on IGD
 GET    /api/metadata/platforms?ids=         names IGDB platforms by id
 GET    /api/metadata/platforms/{id}/page    redirects to a platform's page on IGDB
 GET    /api/metadata/games/{id}/page        redirects to a game's page on IGDB
+GET    /api/metadata/images?source=&title=&game_id=   a game's images on IGDB or SteamGridDB
 ```
 
 `/api/docs` is the authoritative list, with every parameter and schema.
@@ -79,6 +81,8 @@ A game is written with its relations as ids (`platform_id`, `genre_ids`, `develo
 The one way a game write creates records is on request: `new_developers` and `new_publishers` name developers and publishers to attach, created if the library does not have them yet, and `developer_links` and `publisher_links` tie existing ones to the IGDB company each stands for. `new_platform` and `platform_link` do the same for the game's platform. Developers and publishers are read back with the `igdb_company_ids` they are linked to, and platforms with their `igdb_platform_ids`. An IGDB company stands for one developer (or publisher) at most, so linking it again moves it; an IGDB platform can stand for several platforms (a library's "PC" and "Steam Deck" are both IGDB's PC), so a new link adds to the ones it has. `DELETE /api/developers/{id}/igdb/{igdb_id}` (and its publisher and platform equivalents) forgets one link. A game carries the `igdb_id` of the IGDB game it was identified as; like every other field of a write, leaving it out unlinks the game. All of it is written in the same transaction as the game, so a write that fails, or a form that is abandoned, leaves nothing behind.
 
 `GET /api/metadata/games` searches IGDB by title and answers with the candidate games, their release date, platforms, developers and publishers. Each platform, developer and publisher comes with the record of your library it most likely is: the one already linked to it on IGDB (for a platform linked to several, the one with the most games), or a guess from the name, which the game form shows as a suggestion to confirm. A platform is guessed from IGDB's abbreviation ("PS5") before its full name. It needs IGDB credentials (see [Self-hosting](self-hosting.md#game-metadata-igdb)): without them it answers `501`, and `GET /api/metadata/capabilities` reports `identify: false`. When IGDB itself fails, the answer is `424`.
+
+`GET /api/metadata/images` looks a game up on IGDB or SteamGridDB (`source`) and answers with its images, grouped by kind (heroes before grids on SteamGridDB, the cover before the artworks on IGDB), along with the other games the title may refer to. `game_id` asks for one game's images by the source's own id, such as a game's `igdb_id`; without it, the first match for the title is used. `GET /api/metadata/capabilities` lists the sources configured as `image_sources`, and a source that is not answers `501`. The images stay on the source: `POST /api/images/import` takes the `url` of one, downloads it (only from IGDB's and SteamGridDB's image hosts) and stores it as an upload would, reduced when it is over the 8 MiB an upload is capped at, answering with the URL to use as a game's `cover_image_url`.
 
 An uploaded image is stored as what its bytes say it is, whatever the file was called. `POST /api/images` accepts PNG, JPEG, WebP, GIF and AVIF, and converts AVIF to JPEG (or PNG, when it has transparency), so the URL it answers with can end in a different extension from the file sent.
 

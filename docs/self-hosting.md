@@ -186,6 +186,7 @@ Everything is configured through environment variables. Every variable has a def
 | `GAMELOG_DOCS` | `true` | Serve the interactive API documentation at `/api/docs` |
 | `GAMELOG_IGDB_CLIENT_ID` | — | Client ID of a Twitch application, for looking games up on IGDB. See [Game metadata](#game-metadata-igdb) |
 | `GAMELOG_IGDB_CLIENT_SECRET` | — | Its client secret. Set both or neither |
+| `GAMELOG_STEAMGRIDDB_API_KEY` | — | A SteamGridDB API key, for searching cover images there as well. See [Cover image search](#cover-image-search) |
 | `GAMELOG_PORT` | `8080` | Backend port. Inside the image it is an internal detail between Caddy and the backend: the container's public port is always 9999 |
 
 The defaults are local development credentials. Change them before deploying anywhere, even behind Tailscale.
@@ -200,9 +201,18 @@ IGDB is run by Twitch and authenticates through a Twitch application:
 2. Register an application. Any name will do; `http://localhost` is fine as the OAuth redirect URL, since it is never used; pick the _Confidential_ client type.
 3. Copy its **Client ID**, generate a **Client Secret**, and set them as `GAMELOG_IGDB_CLIENT_ID` and `GAMELOG_IGDB_CLIENT_SECRET`.
 
-The backend exchanges them for an access token on its own and renews it when it runs out, so there is nothing else to maintain. One application serves every account of the deployment, and the server needs outbound access to `id.twitch.tv` and `api.igdb.com`. The covers shown next to each result are loaded by the browser straight from `images.igdb.com`, only to tell the results apart: nothing from IGDB is stored but the fields you apply.
+The backend exchanges them for an access token on its own and renews it when it runs out, so there is nothing else to maintain. One application serves every account of the deployment, and the server needs outbound access to `id.twitch.tv` and `api.igdb.com`. The covers shown next to each result are loaded by the browser straight from `images.igdb.com`, only to tell the results apart: nothing from IGDB is stored but the fields you apply, and the cover you pick in the [image search](#cover-image-search).
 
 When a developer or publisher is applied, Gamelog remembers which IGDB company it stands for, so the next game from the same company is recognised outright instead of guessed from its name. Several IGDB companies can point at the same record, which is how "Sony Computer Entertainment" and "Sony Interactive Entertainment" can both be your "Sony". These links travel with an [export](import-export.md) and a backup.
+
+## Cover image search
+
+The cover's **Search image** button looks the game's title up and shows its images to pick a cover from: heroes and grids (portrait and landscape) from [SteamGridDB](https://www.steamgriddb.com), and covers and artworks from IGDB. Each source configured gets a tab of its own, SteamGridDB's first and open by default, and the button only appears once at least one is. A game identified on IGDB shows the images of that game first; otherwise the top match for the title is shown, with the other matches a click away.
+
+- **IGDB** needs nothing beyond the credentials of [Game metadata](#game-metadata-igdb).
+- **SteamGridDB** needs an API key: sign in to SteamGridDB (with a Steam account), open the [API page of your preferences](https://www.steamgriddb.com/profile/preferences/api), generate a key and set it as `GAMELOG_STEAMGRIDDB_API_KEY`. Animated images and those marked NSFW are left out.
+
+The thumbnails are loaded by the browser straight from IGDB and SteamGridDB, only to choose from. The picked image is downloaded by the backend and stored like an upload, so the library keeps its own copy and never depends on either site afterwards. An image over the 8 MiB an upload is capped at (some of SteamGridDB's banners are), up to 32 MiB, is stored reduced: at most 3840 pixels on its longer side, as a JPEG, or a PNG when it has transparency. The server needs outbound access to `www.steamgriddb.com` and its image CDN (`cdn2.steamgriddb.com`) for SteamGridDB, and to `images.igdb.com` for IGDB; images are only ever downloaded from those hosts.
 
 ## Accounts
 

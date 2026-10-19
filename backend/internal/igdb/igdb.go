@@ -30,6 +30,11 @@ const (
 	// 90x128: enough to tell two candidates apart, which is all it is for.
 	coverURL = "https://images.igdb.com/igdb/image/upload/t_cover_small/%s.jpg"
 
+	// imageURL is where IGDB serves an image by size and image id, for the
+	// image search: t_original for the image itself, and a size for its
+	// thumbnail that suits its kind (see Images).
+	imageURL = "https://images.igdb.com/igdb/image/upload/%s/%s.jpg"
+
 	// searchLimit is how many games a search returns. A title rarely needs
 	// more than a handful to find the right one among remakes and remasters.
 	searchLimit = 10
@@ -125,6 +130,61 @@ func (c *Client) Search(ctx context.Context, title string) ([]Game, error) {
 		games = append(games, result.game())
 	}
 	return games, nil
+}
+
+// Kinds of image a game has on IGDB.
+const (
+	// KindCover is the game's box art.
+	KindCover = "cover"
+	// KindArtwork is official art of the game, most often landscape.
+	KindArtwork = "artwork"
+)
+
+// Image is one image of a game.
+type Image struct {
+	// URL is the image at full size, and ThumbURL a smaller copy of it.
+	URL      string
+	ThumbURL string
+	Width    int
+	Height   int
+	// Kind is KindCover or KindArtwork.
+	Kind string
+}
+
+// Images returns the cover and the artworks of a game, the cover first.
+func (c *Client) Images(ctx context.Context, gameID uint64) ([]Image, error) {
+	query := fmt.Sprintf(
+		"fields cover.image_id,cover.width,cover.height,"+
+			"artworks.image_id,artworks.width,artworks.height; where id = %d;",
+		gameID,
+	)
+	var results []struct {
+		Cover    *apiImage  `json:"cover"`
+		Artworks []apiImage `json:"artworks"`
+	}
+	if err := c.query(ctx, "games", query, &results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return nil, ErrNotFound
+	}
+
+	result := results[0]
+	images := make([]Image, 0, len(result.Artworks)+1)
+	if result.Cover != nil && result.Cover.ImageID != "" {
+		// t_cover_big_2x is 528x748: a cover as large as the search shows
+		// one, sharp on a high-density screen.
+		images = append(images, result.Cover.image(KindCover, "t_cover_big_2x"))
+	}
+	for _, artwork := range result.Artworks {
+		if artwork.ImageID == "" {
+			continue
+		}
+		// t_screenshot_big is 889x500, landscape like most artworks, which
+		// the search shows twice as wide as a cover.
+		images = append(images, artwork.image(KindArtwork, "t_screenshot_big"))
+	}
+	return images, nil
 }
 
 // maxByID caps one lookup of records by id, which IGDB answers in a single
@@ -373,6 +433,23 @@ func (p apiPlatform) id() uint64 { return p.ID }
 
 func (p apiPlatform) platform() Platform {
 	return Platform{ID: p.ID, Name: p.Name, Abbreviation: strings.TrimSpace(p.Abbreviation)}
+}
+
+// apiImage is a cover or an artwork as the API returns it.
+type apiImage struct {
+	ImageID string `json:"image_id"`
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+}
+
+func (i apiImage) image(kind, thumbSize string) Image {
+	return Image{
+		URL:      fmt.Sprintf(imageURL, "t_original", i.ImageID),
+		ThumbURL: fmt.Sprintf(imageURL, thumbSize, i.ImageID),
+		Width:    i.Width,
+		Height:   i.Height,
+		Kind:     kind,
+	}
 }
 
 // apiGame is a game as the search query above returns it.

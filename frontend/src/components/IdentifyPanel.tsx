@@ -9,6 +9,7 @@ import type { CompanyLink, NewLookup, NewPlatform, PlatformLink } from '../types
 import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import type { CompanyMatch, GameCandidate, MatchTarget, PlatformMatch } from '../types/metadata'
 import { Button } from './Button'
+import { Dots } from './Dots'
 import { Dropdown } from './Dropdown'
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { Notice } from './Notice'
@@ -179,25 +180,6 @@ export function IdentifyPanel({
         )}
       </div>
     </div>
-  )
-}
-
-/** An ellipsis whose dots bob in turn, to show the search is under way. */
-function Dots() {
-  return (
-    // A little apart from the word and from each other: set as tight as a
-    // typed ellipsis, the moving dots read as crowding the text.
-    <span aria-hidden="true" className="ml-0.5 inline-flex gap-px">
-      {[0, 150, 300].map((delay) => (
-        <span
-          key={delay}
-          className="inline-block animate-[gl-bob_1.2s_ease-in-out_infinite] motion-reduce:animate-none"
-          style={{ animationDelay: `${delay}ms` }}
-        >
-          .
-        </span>
-      ))}
-    </span>
   )
 }
 

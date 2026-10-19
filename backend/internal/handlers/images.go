@@ -35,6 +35,12 @@ type uploadImageOutput struct {
 	}
 }
 
+type importImageInput struct {
+	Body struct {
+		URL string `json:"url" format:"uri" maxLength:"2048" doc:"The image to copy, one of the url of a search-game-images result." example:"https://images.igdb.com/igdb/image/upload/t_original/co6bo0.jpg"`
+	}
+}
+
 type getImageInput struct {
 	Name string `path:"name" doc:"Filename returned by the upload." example:"3f2504e....jpg"`
 	Size string `query:"size" enum:"sm,md" doc:"A smaller copy whose shorter side is 160 (sm) or 640 (md) pixels long, made on the first request for it. Left out, the original is served. An original that is already smaller is served as it is."`
@@ -54,8 +60,9 @@ type getImageOutput struct {
 // Notion-style external URLs are not supported here on purpose: a game's
 // cover_image_url only ever points at a file this deployment has a copy of,
 // so the library survives the day the original hosting page does not.
-func registerImages(api huma.API, dir string) {
+func registerImages(api huma.API, dir string, client *http.Client) {
 	store := newImageStore(dir)
+	importer := newImageImporter(client)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "upload-image",
@@ -69,6 +76,27 @@ func registerImages(api huma.API, dir string) {
 		Errors:        []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusRequestEntityTooLarge},
 	}, func(ctx context.Context, input *uploadImageInput) (*uploadImageOutput, error) {
 		return uploadImage(dir, input)
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "import-image",
+		Method:      http.MethodPost,
+		Path:        "/api/images/import",
+		Summary:     "Import a cover image from a search",
+		Description: "Downloads an image found with search-game-images and stores it as upload-image does, " +
+			"returning the URL to use as a game's cover_image_url. Only images hosted by IGDB or " +
+			"SteamGridDB are accepted. One over 8 MiB, up to 32 MiB, is stored reduced: at most 3840 " +
+			"pixels on its longer side, as a JPEG (a PNG if it has transparency).",
+		Tags:          []string{"Images"},
+		DefaultStatus: http.StatusCreated,
+		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusRequestEntityTooLarge,
+			http.StatusFailedDependency},
+	}, func(ctx context.Context, input *importImageInput) (*uploadImageOutput, error) {
+		data, err := importer.download(ctx, input.Body.URL)
+		if err != nil {
+			return nil, err
+		}
+		return storeImage(dir, data)
 	})
 
 	huma.Register(api, huma.Operation{
@@ -100,7 +128,12 @@ func uploadImage(dir string, input *uploadImageInput) (*uploadImageOutput, error
 	if len(data) > maxImageSize {
 		return nil, huma.Error413RequestEntityTooLarge("images are capped at 8 MiB")
 	}
+	return storeImage(dir, data)
+}
 
+// storeImage keeps an image under dir, whether uploaded or imported, and
+// returns the URL it is served from.
+func storeImage(dir string, data []byte) (*uploadImageOutput, error) {
 	data, ext, err := imagefile.Normalize(data)
 	if err != nil {
 		return nil, huma.Error422UnprocessableEntity(
