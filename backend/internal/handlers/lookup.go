@@ -60,6 +60,14 @@ type lookupMeta struct {
 	plural string
 	// tag is the group the operations appear under in the documentation.
 	tag string
+	// igdb names what the entity links to on IGDB ("IGDB company"), or is
+	// empty for an entity that links to nothing there.
+	igdb string
+}
+
+type unlinkIGDBInput struct {
+	ID     uint64 `path:"id" doc:"Id of the record." example:"1"`
+	IGDBID uint64 `path:"igdb_id" doc:"IGDB's id for the company or platform to unlink it from." example:"9346"`
 }
 
 // registerLookups registers the CRUD of the four simple entities.
@@ -75,19 +83,19 @@ func registerLookups(api huma.API, db *gorm.DB) {
 		})
 
 	registerLookup(api, db,
-		lookupMeta{singular: "developer", plural: "developers", tag: "Developers"},
+		lookupMeta{singular: "developer", plural: "developers", tag: "Developers", igdb: "IGDB company"},
 		func(id uint64, body lookupBody) models.Developer {
 			return models.Developer{ID: id, Name: body.name(), Icon: body.Icon}
 		})
 
 	registerLookup(api, db,
-		lookupMeta{singular: "publisher", plural: "publishers", tag: "Publishers"},
+		lookupMeta{singular: "publisher", plural: "publishers", tag: "Publishers", igdb: "IGDB company"},
 		func(id uint64, body lookupBody) models.Publisher {
 			return models.Publisher{ID: id, Name: body.name(), Icon: body.Icon}
 		})
 
 	registerLookup(api, db,
-		lookupMeta{singular: "platform", plural: "platforms", tag: "Platforms"},
+		lookupMeta{singular: "platform", plural: "platforms", tag: "Platforms", igdb: "IGDB platform"},
 		func(id uint64, body lookupBody) models.Platform {
 			return models.Platform{ID: id, Name: body.name(), Icon: body.Icon, Color: body.Color}
 		})
@@ -222,6 +230,30 @@ func registerLookup[T repository.Lookup](
 		}
 		if err := repo.Delete(ctx, input.ID); err != nil {
 			return nil, apiError(err, notFound)
+		}
+		return nil, nil
+	})
+
+	if meta.igdb == "" {
+		return
+	}
+	huma.Register(api, huma.Operation{
+		OperationID: "unlink-" + meta.singular + "-from-igdb",
+		Method:      http.MethodDelete,
+		Path:        item + "/igdb/{igdb_id}",
+		Summary:     "Unlink a " + meta.singular + " from an " + meta.igdb,
+		Description: "Forgets that the " + meta.singular + " stands for that " + meta.igdb + ", which a game's " +
+			"Identify would otherwise suggest it for. Neither the " + meta.singular + " nor its games change.",
+		Tags:          tags,
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusNotFound},
+	}, func(ctx context.Context, input *unlinkIGDBInput) (*struct{}, error) {
+		repo, err := lookupRepo[T](ctx, db)
+		if err != nil {
+			return nil, err
+		}
+		if err := repo.UnlinkIGDB(ctx, input.ID, input.IGDBID); err != nil {
+			return nil, apiError(err, "no "+meta.singular+" with that id linked to that "+meta.igdb)
 		}
 		return nil, nil
 	})

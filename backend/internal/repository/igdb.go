@@ -148,6 +148,30 @@ func (r *LookupRepository[T]) LinkIGDB(ctx context.Context, links []IGDBLink) er
 	return translate(err)
 }
 
+// UnlinkIGDB unties one of the owner's records from one IGDB record. It
+// returns ErrNotFound when the record is not the owner's, or not linked to
+// that IGDB record.
+func (r *LookupRepository[T]) UnlinkIGDB(ctx context.Context, id, igdbID uint64) error {
+	spec, ok := igdbLinkTable[T]()
+	if !ok {
+		return errNotLinkable
+	}
+
+	// The owner is part of the key, so another account's record, or a
+	// link of someone else's, simply matches nothing.
+	result := r.db.WithContext(ctx).Exec(
+		"DELETE FROM "+spec.table+" WHERE user_id = ? AND "+spec.recordColumn+" = ? AND "+spec.igdbColumn+" = ?",
+		r.userID, id, igdbID,
+	)
+	if result.Error != nil {
+		return translate(result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // attachIGDBLinks fills in the IGDB ids of developers, publishers and
 // platforms, sorted, so that a read hands back the links along with the
 // records. It does nothing for genres, which have none.

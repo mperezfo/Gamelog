@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -129,5 +130,53 @@ func TestLookupColorIsIgnoredOutsidePlatforms(t *testing.T) {
 	decode(t, created, &genre)
 	if genre.ID == 0 {
 		t.Fatal("the created genre came back without an id")
+	}
+}
+
+// TestLookupUnlinksFromIGDB: a developer or a platform can be untied from
+// one IGDB record and keep the rest; a genre has nothing to untie.
+func TestLookupUnlinksFromIGDB(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	developer := createLookup(t, handler, "/api/developers", "Capcom")
+	platform := createLookup(t, handler, "/api/platforms", "VR")
+	created := request(t, handler, http.MethodPost, "/api/games", map[string]any{
+		"title": "Resident Evil 4", "status": models.StatusPlayed, "position": 1,
+		"developer_ids":   []uint64{developer},
+		"developer_links": []map[string]any{{"id": developer, "igdb_company_id": 37}},
+		"platform_id":     platform,
+		"platform_link":   map[string]any{"id": platform, "igdb_platform_id": 386},
+	})
+	expectStatus(t, created, http.StatusCreated, "creating a game that links both")
+	again := request(t, handler, http.MethodPost, "/api/games", map[string]any{
+		"title": "Half-Life: Alyx", "status": models.StatusPlayed, "position": 1,
+		"platform_id":   platform,
+		"platform_link": map[string]any{"id": platform, "igdb_platform_id": 163},
+	})
+	expectStatus(t, again, http.StatusCreated, "creating a game that links a second IGDB platform")
+
+	unlink := func(path string, want int, what string) {
+		t.Helper()
+		expectStatus(t, request(t, handler, http.MethodDelete, path, nil), want, what)
+	}
+	unlink(fmt.Sprintf("/api/developers/%d/igdb/37", developer), http.StatusNoContent, "unlinking Capcom")
+	unlink(fmt.Sprintf("/api/developers/%d/igdb/37", developer), http.StatusNotFound, "unlinking Capcom twice")
+	unlink(fmt.Sprintf("/api/platforms/%d/igdb/386", platform), http.StatusNoContent, "unlinking one VR headset")
+	unlink(fmt.Sprintf("/api/developers/%d/igdb/37", developer+1000), http.StatusNotFound, "unlinking a missing developer")
+
+	var readDeveloper models.Developer
+	decode(t, request(t, handler, http.MethodGet, fmt.Sprintf("/api/developers/%d", developer), nil), &readDeveloper)
+	if len(readDeveloper.IGDBCompanyIDs) != 0 {
+		t.Errorf("igdb_company_ids = %v, want none left", readDeveloper.IGDBCompanyIDs)
+	}
+	var readPlatform models.Platform
+	decode(t, request(t, handler, http.MethodGet, fmt.Sprintf("/api/platforms/%d", platform), nil), &readPlatform)
+	if fmt.Sprint(readPlatform.IGDBPlatformIDs) != "[163]" {
+		t.Errorf("igdb_platform_ids = %v, want the other one kept", readPlatform.IGDBPlatformIDs)
+	}
+
+	genre := createLookup(t, handler, "/api/genres", "Horror")
+	if rec := request(t, handler, http.MethodDelete, fmt.Sprintf("/api/genres/%d/igdb/1", genre), nil); rec.Code < 400 {
+		t.Errorf("unlinking a genre answered %d, want an error", rec.Code)
 	}
 }
