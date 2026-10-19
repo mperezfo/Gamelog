@@ -2,9 +2,13 @@ package handlers_test
 
 import (
 	"bytes"
+	"image"
+	"image/png"
+	"math/rand/v2"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/mperezfo/gamelog/internal/handlers"
@@ -36,7 +40,11 @@ func TestImageImport(t *testing.T) {
 		_, _ = w.Write([]byte("<!doctype html><title>not an image</title>"))
 	})
 	mux.HandleFunc("/huge.png", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(append(onePixelPNG, bytes.Repeat([]byte{0}, 9<<20)...))
+		_, _ = w.Write(append(onePixelPNG, bytes.Repeat([]byte{0}, 33<<20)...))
+	})
+	heavy := noisePNG(t, 4800, 600)
+	mux.HandleFunc("/heavy.png", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(heavy)
 	})
 	mux.HandleFunc("/within", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "https://cdn2.steamgriddb.com/cover.png", http.StatusFound)
@@ -92,4 +100,42 @@ func TestImageImport(t *testing.T) {
 	importImage("https://images.igdb.com/missing.png", http.StatusFailedDependency)
 	importImage("https://images.igdb.com/page.html", http.StatusUnprocessableEntity)
 	importImage("https://images.igdb.com/huge.png", http.StatusRequestEntityTooLarge)
+
+	// Over the upload cap, but not the download one: stored reduced.
+	if len(heavy) <= 8<<20 {
+		t.Fatalf("the heavy image is %d bytes, which does not test the reduction", len(heavy))
+	}
+	reduced := importImage("https://cdn2.steamgriddb.com/heavy.png", http.StatusCreated)
+	if !strings.HasSuffix(reduced, ".jpg") {
+		t.Errorf("reduced image = %q, want a JPEG", reduced)
+	}
+	fetched = request(t, handler, http.MethodGet, reduced, nil)
+	expectStatus(t, fetched, http.StatusOK, "fetching the reduced image")
+	config, _, err := image.DecodeConfig(bytes.NewReader(fetched.Body.Bytes()))
+	if err != nil {
+		t.Fatalf("decoding the reduced image: %v", err)
+	}
+	if config.Width != 3840 || config.Height != 480 || fetched.Body.Len() > 8<<20 {
+		t.Errorf("reduced image is %dx%d and %d bytes, want 3840x480 and under 8 MiB",
+			config.Width, config.Height, fetched.Body.Len())
+	}
+}
+
+// noisePNG encodes an opaque image of random pixels, which PNG cannot
+// compress: about four bytes a pixel.
+func noisePNG(t *testing.T, width, height int) []byte {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, width, height))
+	random := rand.New(rand.NewPCG(1, 2))
+	for i := range img.Pix {
+		img.Pix[i] = byte(random.Uint32())
+	}
+	for i := 3; i < len(img.Pix); i += 4 {
+		img.Pix[i] = 0xff
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encoding the noise image: %v", err)
+	}
+	return buf.Bytes()
 }

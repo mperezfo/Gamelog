@@ -12,11 +12,24 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/mperezfo/gamelog/internal/imagefile"
 )
 
 // importTimeout bounds the download of an imported image. Like searchTimeout,
 // it stays under the frontend's own wait for an answer.
 const importTimeout = 8 * time.Second
+
+// maxImportSize caps the download of an imported image, which can be larger
+// than an upload: one over maxImageSize is reduced to importMaxSide before it
+// is stored (see imageImporter.download), so that what is kept stays under
+// the same cap as an upload. SteamGridDB's banners are what needs it: PNGs of
+// up to 3840 pixels wide, some of them past 8 MiB.
+const maxImportSize = 32 << 20 // 32 MiB
+
+// importMaxSide is how long the longer side of a reduced image is at most:
+// a 4K screen's width, more than any view of the app shows a cover at.
+const importMaxSide = 3840
 
 // importHosts are the only hosts an image is imported from: those the image
 // search returns images on. Anything else is turned down, so that the
@@ -75,8 +88,9 @@ func newImageImporter(client *http.Client) *imageImporter {
 	return &imageImporter{client: &own}
 }
 
-// download fetches the image at raw, up to maxImageSize, failing with the
-// error the operation answers.
+// download fetches the image at raw, up to maxImportSize, and reduces it
+// when it is over maxImageSize, failing with the error the operation
+// answers.
 func (i *imageImporter) download(ctx context.Context, raw string) ([]byte, error) {
 	u, err := url.Parse(raw)
 	if err != nil || !importHostAllowed(u) {
@@ -100,19 +114,41 @@ func (i *imageImporter) download(ctx context.Context, raw string) ([]byte, error
 		slog.Warn("downloading an image to import failed", "url", raw, "status", resp.StatusCode)
 		return nil, errImportFailed(u)
 	}
-	if resp.ContentLength > maxImageSize {
-		return nil, huma.Error413RequestEntityTooLarge("images are capped at 8 MiB")
+	if resp.ContentLength > maxImportSize {
+		return nil, errImportTooLarge()
 	}
 
-	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImageSize+1))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxImportSize+1))
 	if err != nil {
 		slog.Warn("downloading an image to import failed", "url", raw, "error", err)
 		return nil, errImportFailed(u)
 	}
-	if len(data) > maxImageSize {
-		return nil, huma.Error413RequestEntityTooLarge("images are capped at 8 MiB")
+	if len(data) > maxImportSize {
+		return nil, errImportTooLarge()
 	}
-	return data, nil
+	if len(data) <= maxImageSize {
+		return data, nil
+	}
+
+	shrunk, err := imagefile.Shrink(data, importMaxSide)
+	if errors.Is(err, imagefile.ErrTooManyPixels) {
+		return nil, errImportTooLarge()
+	}
+	if err != nil {
+		return nil, huma.Error422UnprocessableEntity(
+			"unsupported image type: only PNG, JPEG, WEBP, GIF and AVIF are accepted")
+	}
+	// Still too heavy, which only a large image with transparency to keep
+	// can be.
+	if len(shrunk) > maxImageSize {
+		return nil, errImportTooLarge()
+	}
+	slog.Info("reduced an imported image", "url", raw, "from", len(data), "to", len(shrunk))
+	return shrunk, nil
+}
+
+func errImportTooLarge() error {
+	return huma.Error413RequestEntityTooLarge("this image is too large to import, even reduced")
 }
 
 // errImportFailed is a download that failed through no fault of the request.

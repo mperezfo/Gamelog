@@ -85,7 +85,8 @@ func registerImages(api huma.API, dir string, client *http.Client) {
 		Summary:     "Import a cover image from a search",
 		Description: "Downloads an image found with search-game-images and stores it as upload-image does, " +
 			"returning the URL to use as a game's cover_image_url. Only images hosted by IGDB or " +
-			"SteamGridDB are accepted.",
+			"SteamGridDB are accepted. One over 8 MiB, up to 32 MiB, is stored reduced: at most 3840 " +
+			"pixels on its longer side, as a JPEG (a PNG if it has transparency).",
 		Tags:          []string{"Images"},
 		DefaultStatus: http.StatusCreated,
 		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusRequestEntityTooLarge,
