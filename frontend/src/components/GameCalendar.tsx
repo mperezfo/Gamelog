@@ -141,7 +141,12 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
               <Dropdown
                 aria-label="Month"
                 value={String(month.getMonth())}
-                onChange={(value) => setMonth((m) => new Date(m.getFullYear(), Number(value), 1))}
+                onChange={(value) => {
+                  setMonth((m) => new Date(m.getFullYear(), Number(value), 1))
+                  // A year left half typed gives way to the one shown.
+                  setYearDraft(String(month.getFullYear()))
+                  setYearInvalid(false)
+                }}
                 options={MONTH_OPTIONS}
                 className="h-8 rounded-control bg-sunken px-2 text-sm text-ink"
               />
