@@ -303,3 +303,14 @@ func TestImportReadsAGamesIGDBID(t *testing.T) {
 		}
 	}
 }
+
+// TestImportRefusesNumbersNoColumnCanHold: strconv reads "NaN" and "Inf" as
+// numbers, which would reach the database and fail the whole import there.
+func TestImportRefusesNumbersNoColumnCanHold(t *testing.T) {
+	for _, value := range []string{"NaN", "Inf", "-infinity"} {
+		var number service.Number
+		if err := json.Unmarshal([]byte(`"`+value+`"`), &number); err == nil {
+			t.Errorf("%q was read as %v, want it refused", value, number.Value)
+		}
+	}
+}
