@@ -72,11 +72,21 @@ type Config struct {
 	// with: left out, the feature is simply not offered. Set both or neither.
 	IGDBClientID     string
 	IGDBClientSecret string
+
+	// SteamGridDBAPIKey is a SteamGridDB API key (steamgriddb.com, under the
+	// account's preferences), which the cover image search looks games up
+	// with alongside IGDB. Left out, SteamGridDB is simply not offered.
+	SteamGridDBAPIKey string
 }
 
 // IGDBEnabled reports whether IGDB credentials are configured.
 func (c Config) IGDBEnabled() bool {
 	return c.IGDBClientID != "" && c.IGDBClientSecret != ""
+}
+
+// SteamGridDBEnabled reports whether a SteamGridDB API key is configured.
+func (c Config) SteamGridDBEnabled() bool {
+	return c.SteamGridDBAPIKey != ""
 }
 
 // DSN returns the connection string for the MySQL/MariaDB driver.
@@ -159,6 +169,8 @@ func Load(dotEnvPath string) (Config, error) {
 
 		IGDBClientID:     igdbClientID,
 		IGDBClientSecret: igdbClientSecret,
+
+		SteamGridDBAPIKey: src.text("GAMELOG_STEAMGRIDDB_API_KEY", ""),
 	}, nil
 }
 

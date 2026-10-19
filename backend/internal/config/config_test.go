@@ -27,3 +27,17 @@ func TestIGDBCredentialsGoTogether(t *testing.T) {
 		}
 	}
 }
+
+func TestSteamGridDBKeyIsOptional(t *testing.T) {
+	for _, key := range []string{"", "key"} {
+		t.Setenv("GAMELOG_STEAMGRIDDB_API_KEY", key)
+
+		cfg, err := Load("")
+		if err != nil {
+			t.Fatalf("key %q: %v", key, err)
+		}
+		if want := key != ""; cfg.SteamGridDBEnabled() != want {
+			t.Errorf("key %q: SteamGridDBEnabled = %v, want %v", key, cfg.SteamGridDBEnabled(), want)
+		}
+	}
+}
