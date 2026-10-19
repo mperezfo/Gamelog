@@ -16,9 +16,10 @@ import (
 	"github.com/mperezfo/gamelog/internal/imagefile"
 )
 
-// importTimeout bounds the download of an imported image. Like searchTimeout,
-// it stays under the frontend's own wait for an answer.
-const importTimeout = 8 * time.Second
+// importTimeout bounds the download of an imported image, up to 32 MiB from
+// a CDN, leaving time to reduce it within the 30 seconds a request gets (see
+// router.RequestTimeout).
+const importTimeout = 20 * time.Second
 
 // maxImportSize caps the download of an imported image, which can be larger
 // than an upload: one over maxImageSize is reduced to importMaxSide before it
