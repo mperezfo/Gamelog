@@ -285,6 +285,17 @@ func TestLookupsAreSeparate(t *testing.T) {
 		"genre_ids": []uint64{genre.ID},
 	})
 	expectStatus(t, rec, http.StatusUnprocessableEntity, "bob creating a game with alice's genre id")
+
+	// Nor does one of alice's games make her genre any less missing to bob.
+	rec = request(t, alice, http.MethodPost, "/api/games", map[string]any{
+		"title":     "Hollow Knight",
+		"status":    "played",
+		"position":  1,
+		"genre_ids": []uint64{genre.ID},
+	})
+	expectStatus(t, rec, http.StatusCreated, "alice creating a game with her genre")
+	expectStatus(t, request(t, bob, http.MethodDelete, target, nil),
+		http.StatusNotFound, "bob deleting alice's genre, which a game of hers uses")
 }
 
 func TestDeletingALookupInUseIsRefused(t *testing.T) {

@@ -250,9 +250,16 @@ func (r *LookupRepository[T]) InUse(ctx context.Context, id uint64) (bool, error
 // side effect.
 //
 // The check and the delete share a transaction so that a game created in
-// between cannot lose its genre to a delete that read a stale count.
+// between cannot lose its genre to a delete that read a stale count. The
+// record is looked up as the owner's first, so that another account's id is
+// ErrNotFound, as it is everywhere else, whether or not its games use it.
 func (r *LookupRepository[T]) Delete(ctx context.Context, id uint64) error {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var entity T
+		if err := tx.Where("user_id = ?", r.userID).First(&entity, id).Error; err != nil {
+			return err
+		}
+
 		inUse, err := lookupInUse[T](tx, id)
 		if err != nil {
 			return err
@@ -261,7 +268,6 @@ func (r *LookupRepository[T]) Delete(ctx context.Context, id uint64) error {
 			return ErrInUse
 		}
 
-		var entity T
 		result := tx.Where("user_id = ?", r.userID).Delete(&entity, id)
 		if result.Error != nil {
 			return result.Error
