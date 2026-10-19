@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { errorMessage } from '../api/client'
 import { igdbPage } from '../api/metadata'
 import { Button } from '../components/Button'
+import { Emoji } from '../components/Emoji'
 import { Field } from '../components/Field'
 import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
@@ -331,7 +332,7 @@ function LookupRow({
             </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2 text-sm text-ink">
-              {item.icon && <span aria-hidden="true">{item.icon}</span>}
+              {item.icon && <span aria-hidden="true"><Emoji value={item.icon} /></span>}
               {/* The link to IGDB hangs off the name itself, the way an
                   external link is usually marked, rather than trailing the
                   count. */}

@@ -19,6 +19,12 @@ const SHELL_FILES = ['__SHELL_FILES__']
 // Bumping the version drops every image cached under the previous one.
 const IMAGES_CACHE = 'gamelog-images-v1'
 
+// The emoji images (see emojiPlugin in vite.config.ts), kept as each is first
+// shown rather than precached with the shell: there are close to four
+// thousand. Bumped along with the emoji-datasource-google package, whose
+// images keep their names when they are redrawn.
+const EMOJI_CACHE = 'gamelog-emoji-v16'
+
 // How long a page load waits for the server before falling back to the
 // cached shell. An unreachable host often does not fail outright, it just
 // never answers.
@@ -44,6 +50,7 @@ self.addEventListener('activate', (event) => {
       const stale = names.filter(
         (name) =>
           (name.startsWith('gamelog-images-') && name !== IMAGES_CACHE) ||
+          (name.startsWith('gamelog-emoji-') && name !== EMOJI_CACHE) ||
           (name.startsWith('gamelog-shell-') && name !== SHELL_CACHE)
       )
       await Promise.all(stale.map((name) => caches.delete(name)))
@@ -62,6 +69,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(cachedImage(event, request))
   } else if (url.pathname.startsWith('/api/')) {
     return
+  } else if (url.pathname.startsWith('/emoji/')) {
+    event.respondWith(cachedEmoji(event, request))
   } else if (request.mode === 'navigate') {
     event.respondWith(navigation(request))
   } else if (shellFiles.has(url.pathname)) {
@@ -111,6 +120,21 @@ async function cachedImage(event, request) {
 
   const response = await fetch(request)
   if (isStorable(response)) {
+    event.waitUntil(cache.put(request, response.clone()))
+  }
+  return response
+}
+
+/** Only an image is kept: a name the set has no file for is answered with
+ * index.html (see try_files in the Caddyfile), which must not be stored as
+ * if it were one. */
+async function cachedEmoji(event, request) {
+  const cache = await caches.open(EMOJI_CACHE)
+  const cached = await cache.match(request)
+  if (cached) return cached
+
+  const response = await fetch(request)
+  if (isStorable(response) && response.headers.get('Content-Type')?.startsWith('image/')) {
     event.waitUntil(cache.put(request, response.clone()))
   }
   return response

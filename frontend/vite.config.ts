@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto'
-import { readdir, readFile, writeFile } from 'node:fs/promises'
-import { join, relative, resolve, sep } from 'node:path'
+import { createReadStream } from 'node:fs'
+import { cp, readdir, readFile, writeFile } from 'node:fs/promises'
+import { createRequire } from 'node:module'
+import { dirname, join, relative, resolve, sep } from 'node:path'
 
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -8,7 +10,7 @@ import { defineConfig, type Plugin, type ProxyOptions } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), serviceWorkerPlugin()],
+  plugins: [react(), tailwindcss(), emojiPlugin(), fontPreloadPlugin(), serviceWorkerPlugin()],
   define: {
     // Identifies the build, so that the offline copy of the query cache an
     // older one wrote can be told apart and dropped (src/lib/offlineCache.ts).
@@ -68,6 +70,9 @@ function serviceWorkerPlugin(): Plugin {
         .filter((entry) => entry.isFile())
         .map((entry) => '/' + relative(outDir, join(entry.parentPath, entry.name)).split(sep).join('/'))
         .filter((path) => path !== '/sw.js')
+        // Close to four thousand of them, so the worker keeps each one as
+        // it is first shown instead (see emojiPlugin).
+        .filter((path) => !path.startsWith(EMOJI_PATH))
         .sort()
 
       const hash = createHash('sha256')
@@ -84,6 +89,92 @@ function serviceWorkerPlugin(): Plugin {
         .replace('__SHELL_VERSION__', hash.digest('hex').slice(0, 12))
         .replace("['__SHELL_FILES__']", JSON.stringify(shell))
       await writeFile(join(outDir, 'sw.js'), output)
+    },
+  }
+}
+
+/** Where the emoji images are served from, by the dev server and the build. */
+const EMOJI_PATH = '/emoji/'
+
+/**
+ * Serves Google's Noto emoji as images under /emoji/, one PNG per emoji named
+ * after its code points (see src/components/Emoji.tsx), so that an icon
+ * looks the same on every system instead of in whichever emoji font it
+ * ships. A font was tried first, but the only self-hostable Noto colour font
+ * is drawn with SVG glyphs, which Chromium does not render.
+ *
+ * Also provides `virtual:emoji-aliases`: the few hundred emoji commonly typed
+ * without their U+FE0F (a bare heart, say), mapped to the image of the full
+ * sequence, which is the only one the set has a file for.
+ */
+function emojiPlugin(): Plugin {
+  const require = createRequire(import.meta.url)
+  const packageDir = dirname(require.resolve('emoji-datasource-google/package.json'))
+  const imagesDir = join(packageDir, 'img/google/64')
+  const aliasesId = 'virtual:emoji-aliases'
+  let outDir = ''
+
+  return {
+    name: 'gamelog-emoji',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir)
+    },
+    resolveId(id) {
+      return id === aliasesId ? '\0' + aliasesId : undefined
+    },
+    async load(id) {
+      if (id !== '\0' + aliasesId) return undefined
+      const emoji: { unified: string; non_qualified: string | null }[] = JSON.parse(
+        await readFile(join(packageDir, 'emoji.json'), 'utf8'),
+      )
+      const aliases = Object.fromEntries(
+        emoji.filter((e) => e.non_qualified).map((e) => [e.non_qualified!.toLowerCase(), e.unified.toLowerCase()]),
+      )
+      return `export default ${JSON.stringify(aliases)}`
+    },
+    configureServer(server) {
+      server.middlewares.use(EMOJI_PATH, (request, response, next) => {
+        const name = (request.url ?? '').split('?')[0].slice(1)
+        if (!/^[0-9a-f-]+\.png$/.test(name)) return next()
+        const stream = createReadStream(join(imagesDir, name))
+        stream.on('error', () => next())
+        stream.once('open', () => {
+          response.setHeader('Content-Type', 'image/png')
+          stream.pipe(response)
+        })
+      })
+    },
+    async writeBundle() {
+      await cp(imagesDir, join(outDir, EMOJI_PATH), { recursive: true })
+    },
+  }
+}
+
+/**
+ * Preloads the Latin face of the interface font from index.html, so that the
+ * browser asks for it alongside the stylesheet instead of only once the
+ * stylesheet has been read, and the first visit spends as little time as
+ * possible in the fallback font.
+ */
+function fontPreloadPlugin(): Plugin {
+  return {
+    name: 'gamelog-font-preload',
+    apply: 'build',
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, context) {
+        const font = Object.keys(context.bundle ?? {}).find((name) =>
+          /figtree-latin-wght-normal-[\w-]+\.woff2$/.test(name),
+        )
+        if (!font) return []
+        return [
+          {
+            tag: 'link',
+            attrs: { rel: 'preload', href: `/${font}`, as: 'font', type: 'font/woff2', crossorigin: '' },
+            injectTo: 'head',
+          },
+        ]
+      },
     },
   }
 }

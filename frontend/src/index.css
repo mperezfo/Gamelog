@@ -41,11 +41,15 @@
   --color-ok: var(--gl-ok);
 
   /*
-   * A system stack rather than a webfont: it is what makes the first paint
-   * instant, and it ages better than whichever typeface is fashionable.
+   * Figtree, served with the application (see main.tsx) rather than left to
+   * whatever each system has, so that the interface reads the same on every
+   * device. The system's own sans-serif only stands in for the scripts
+   * Figtree does not cover (Cyrillic, Greek, CJK titles) and for the moment
+   * before it loads, and its emoji font for an emoji typed into ordinary
+   * text (icons are drawn as images, see Emoji.tsx).
    */
-  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica,
-    'Apple Color Emoji', Arial, sans-serif;
+  --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    'Noto Color Emoji';
 
   /* Small radii throughout. Nothing here is a pill or a rounded card. */
   --radius-control: 4px;

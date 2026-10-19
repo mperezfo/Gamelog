@@ -105,3 +105,5 @@ If you want it to work differently, please fork it! You are free to modify your 
 ## License
 
 [MIT](LICENSE)
+
+The interface bundles the [Figtree](https://github.com/erikdkennedy/figtree) typeface, under the SIL Open Font License, and Google's [Noto Emoji](https://github.com/googlefonts/noto-emoji) images, under the Apache License 2.0.
