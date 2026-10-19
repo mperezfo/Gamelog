@@ -99,10 +99,10 @@ func (c *Client) Search(ctx context.Context, title string) ([]Game, error) {
 	return games, nil
 }
 
-// Images returns the grids and heroes of a game: portrait grids first, as
-// they are the closest to a cover, then landscape ones, then heroes. Within
-// each, the order is SteamGridDB's own, by score. Animated images and those
-// marked NSFW are left out.
+// Images returns the heroes and grids of a game: heroes first, then the
+// grids, the portrait ones before the landscape ones. Within each, the order
+// is SteamGridDB's own, by score. Animated images and those marked NSFW are
+// left out.
 func (c *Client) Images(ctx context.Context, gameID uint64) ([]Image, error) {
 	// Static only: a cover is a still image, and an animated one would only
 	// keep its first frame.
@@ -120,18 +120,18 @@ func (c *Client) Images(ctx context.Context, gameID uint64) ([]Image, error) {
 	// Stable, so that the score order holds among the grids of one shape.
 	slices.SortStableFunc(grids, func(a, b apiImage) int { return cmp.Compare(a.shapeRank(), b.shapeRank()) })
 
-	images := make([]Image, 0, len(grids)+len(heroes))
-	for _, grid := range grids {
-		if grid.URL == "" {
-			continue
-		}
-		images = append(images, grid.image(KindGrid))
-	}
+	images := make([]Image, 0, len(heroes)+len(grids))
 	for _, hero := range heroes {
 		if hero.URL == "" {
 			continue
 		}
 		images = append(images, hero.image(KindHero))
+	}
+	for _, grid := range grids {
+		if grid.URL == "" {
+			continue
+		}
+		images = append(images, grid.image(KindGrid))
 	}
 	return images, nil
 }

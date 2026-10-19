@@ -2,7 +2,8 @@
 export interface MetadataCapabilities {
   /** Games can be looked up on IGDB (the game form's Identify button). */
   identify: boolean
-  /** Where cover images can be searched for, in the order to offer them.
+  /** Where cover images can be searched for, in the order to offer them,
+   * the first one by default.
    * Empty when the deployment is configured for neither. */
   image_sources: ImageSource[]
 }

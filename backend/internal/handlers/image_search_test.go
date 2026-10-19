@@ -94,8 +94,8 @@ func TestImageSearch(t *testing.T) {
 	searcher := &fakeSearcher{games: []igdb.Game{{ID: 26192, Name: "Resident Evil 4"}, {ID: 974, Name: "Resident Evil 4 (2005)"}}}
 	handler := signedIn(t, newSourcesRouter(db, handlers.Sources{IGDB: searcher, SteamGridDB: &fakeSteamGridDB{}}), db, "player", false)
 
-	if sources := imageSources(t, handler); len(sources) != 2 || sources[0] != "igdb" || sources[1] != "steamgriddb" {
-		t.Errorf("image_sources = %v, want [igdb steamgriddb]", sources)
+	if sources := imageSources(t, handler); len(sources) != 2 || sources[0] != "steamgriddb" || sources[1] != "igdb" {
+		t.Errorf("image_sources = %v, want [steamgriddb igdb]", sources)
 	}
 
 	// By title: the matches, and the images of the first one.

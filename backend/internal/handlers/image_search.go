@@ -45,7 +45,7 @@ type searchGameImagesOutput struct {
 	Body struct {
 		Games  []imageSearchGame `json:"games" doc:"Games the title may refer to, most relevant first. Empty without a title."`
 		GameID *uint64           `json:"game_id" doc:"The game the images are of. Null when the title matched nothing." example:"26192"`
-		Images []gameImage       `json:"images" doc:"Its images, the closest to a cover first."`
+		Images []gameImage       `json:"images" doc:"Its images, grouped by kind: IGDB's cover before its artworks, SteamGridDB's heroes before its grids, and among the grids the portrait ones first."`
 	}
 }
 
@@ -61,19 +61,19 @@ type imageSearchSource struct {
 }
 
 // imageSearchSources lists the sources the deployment is configured for, in
-// the order a client offers them: IGDB first, as the source games are
-// identified with.
+// the order a client offers them: SteamGridDB first, as it has many more
+// images of a game to choose from than IGDB's one cover and few artworks.
 func imageSearchSources(sources Sources) []imageSearchSource {
 	var out []imageSearchSource
-	if source := sources.IGDB; source != nil {
-		out = append(out, newImageSearchSource("igdb", "IGDB", source.Search, source.Images,
-			func(game igdb.Game) imageSearchGame {
-				return imageSearchGame{ID: game.ID, Name: game.Name, ReleaseDate: game.ReleaseDate}
-			}))
-	}
 	if source := sources.SteamGridDB; source != nil {
 		out = append(out, newImageSearchSource("steamgriddb", "SteamGridDB", source.Search, source.Images,
 			func(game steamgriddb.Game) imageSearchGame {
+				return imageSearchGame{ID: game.ID, Name: game.Name, ReleaseDate: game.ReleaseDate}
+			}))
+	}
+	if source := sources.IGDB; source != nil {
+		out = append(out, newImageSearchSource("igdb", "IGDB", source.Search, source.Images,
+			func(game igdb.Game) imageSearchGame {
 				return imageSearchGame{ID: game.ID, Name: game.Name, ReleaseDate: game.ReleaseDate}
 			}))
 	}

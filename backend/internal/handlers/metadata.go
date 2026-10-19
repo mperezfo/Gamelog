@@ -35,7 +35,7 @@ type metadataCapabilitiesOutput struct {
 	Body struct {
 		Identify bool `json:"identify" doc:"Whether games can be looked up on IGDB, which needs the deployment to be configured with IGDB credentials."`
 		// Never null: a client checks its length, not its presence.
-		ImageSources []string `json:"image_sources" enum:"igdb,steamgriddb" doc:"Where cover images can be searched for (see search-game-images), in the order to offer them. Empty when the deployment is configured for neither."`
+		ImageSources []string `json:"image_sources" enum:"steamgriddb,igdb" doc:"Where cover images can be searched for (see search-game-images), in the order to offer them, the first one by default. Empty when the deployment is configured for neither."`
 	}
 }
 

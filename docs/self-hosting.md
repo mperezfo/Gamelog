@@ -207,7 +207,7 @@ When a developer or publisher is applied, Gamelog remembers which IGDB company i
 
 ## Cover image search
 
-The cover's **Search image** button looks the game's title up and shows its images to pick a cover from: covers and artworks from IGDB, and grids (portrait and landscape) and heroes from [SteamGridDB](https://www.steamgriddb.com). Each source configured gets a tab of its own, and the button only appears once at least one is. A game identified on IGDB shows the images of that game first; otherwise the top match for the title is shown, with the other matches a click away.
+The cover's **Search image** button looks the game's title up and shows its images to pick a cover from: heroes and grids (portrait and landscape) from [SteamGridDB](https://www.steamgriddb.com), and covers and artworks from IGDB. Each source configured gets a tab of its own, SteamGridDB's first and open by default, and the button only appears once at least one is. A game identified on IGDB shows the images of that game first; otherwise the top match for the title is shown, with the other matches a click away.
 
 - **IGDB** needs nothing beyond the credentials of [Game metadata](#game-metadata-igdb).
 - **SteamGridDB** needs an API key: sign in to SteamGridDB (with a Steam account), open the [API page of your preferences](https://www.steamgriddb.com/profile/preferences/api), generate a key and set it as `GAMELOG_STEAMGRIDDB_API_KEY`. Animated images and those marked NSFW are left out.

@@ -84,7 +84,7 @@ func TestSearchEscapesASlash(t *testing.T) {
 	}
 }
 
-func TestImagesPutPortraitGridsFirst(t *testing.T) {
+func TestImagesPutHeroesFirstThenPortraitGrids(t *testing.T) {
 	client, requests := newFakeAPI(t, map[string]string{
 		"/grids/game/5251": `{"success":true,"data":[
 			{"id":1,"url":"https://cdn2.steamgriddb.com/grid/wide.png","thumb":"https://cdn2.steamgriddb.com/thumb/wide.jpg","width":920,"height":430},
@@ -106,13 +106,13 @@ func TestImagesPutPortraitGridsFirst(t *testing.T) {
 	for _, image := range images {
 		got = append(got, image.Kind+":"+image.URL[strings.LastIndex(image.URL, "/")+1:])
 	}
-	want := "grid:tall.png grid:tall2.png grid:wide.png grid:square.png hero:hero.png"
+	want := "hero:hero.png grid:tall.png grid:tall2.png grid:wide.png grid:square.png"
 	if strings.Join(got, " ") != want {
 		t.Errorf("images = %v, want %s", got, want)
 	}
 	// An image with no thumbnail falls back on itself.
-	if images[3].ThumbURL != images[3].URL {
-		t.Errorf("square ThumbURL = %q, want the image itself", images[3].ThumbURL)
+	if images[4].ThumbURL != images[4].URL {
+		t.Errorf("square ThumbURL = %q, want the image itself", images[4].ThumbURL)
 	}
 	for _, request := range *requests {
 		if !strings.Contains(request, "types=static") || !strings.Contains(request, "nsfw=false") {
