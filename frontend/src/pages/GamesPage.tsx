@@ -51,6 +51,8 @@ const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => bool
   genres: { label: 'No genres', test: (g) => !g.genres || g.genres.length === 0 },
   developers: { label: 'No developers', test: (g) => !g.developers || g.developers.length === 0 },
   publishers: { label: 'No publisher', test: (g) => !g.publishers || g.publishers.length === 0 },
+  // Games never identified through the game form's Identify button.
+  igdb: { label: 'No IGDB link', test: (g) => g.igdb_id == null },
 }
 
 /** The year out of a date-only ISO string ("2024-05-17"), or '' when there is none. */
