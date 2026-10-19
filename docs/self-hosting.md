@@ -26,6 +26,10 @@ services:
       GAMELOG_DB_HOST: db
       GAMELOG_DB_PASSWORD: change-me
       GAMELOG_SECURE_COOKIE: "true" # if served over HTTPS
+      # Optional, see "Game metadata" and "Cover image search" below.
+      # GAMELOG_IGDB_CLIENT_ID: your-twitch-client-id
+      # GAMELOG_IGDB_CLIENT_SECRET: your-twitch-client-secret
+      # GAMELOG_STEAMGRIDDB_API_KEY: your-steamgriddb-api-key
     ports:
       - "9999:9999"
     volumes:

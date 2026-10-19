@@ -48,6 +48,11 @@ services:
       GAMELOG_DB_HOST: db
       GAMELOG_DB_PASSWORD: change-me
       # GAMELOG_SECURE_COOKIE: 'true' # if served over HTTPS
+      # Optional: look games up on IGDB and search cover images on IGDB and
+      # SteamGridDB. See docs/self-hosting.md for how to get these.
+      # GAMELOG_IGDB_CLIENT_ID: your-twitch-client-id
+      # GAMELOG_IGDB_CLIENT_SECRET: your-twitch-client-secret
+      # GAMELOG_STEAMGRIDDB_API_KEY: your-steamgriddb-api-key
     ports:
       - "9999:9999"
     volumes:
