@@ -262,7 +262,7 @@ function VersionTag() {
     return (
       <span
         className="ml-auto shrink-0 rounded-full bg-danger/15 px-1.5 py-0.5 text-[11px] font-medium tracking-wide text-danger uppercase"
-        title="Development environment"
+        data-tooltip="Development environment"
       >
         dev
       </span>
@@ -270,7 +270,7 @@ function VersionTag() {
   }
 
   return (
-    <span className="ml-auto truncate text-[11px] text-ink-faint" title={data.version}>
+    <span className="ml-auto truncate text-[11px] text-ink-faint">
       {data.version}
     </span>
   )
@@ -315,7 +315,8 @@ function NavGroup({
             onNavigate()
             onNavClick(event)
           }}
-          title={showFull ? undefined : item.label}
+          data-tooltip={showFull ? undefined : item.label}
+          aria-label={showFull ? undefined : item.label}
           className={({ isActive }) =>
             [
               'flex text-sm transition-colors duration-75',
@@ -358,7 +359,8 @@ function SidebarFooter({
         <NavLink
           to="/account"
           onClick={onNavClick}
-          title={showFull ? undefined : user.name}
+          data-tooltip={showFull ? undefined : user.name}
+          aria-label={showFull ? undefined : user.name}
           className="flex min-w-0 flex-1 items-center gap-2 rounded-control px-0.5 py-1.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
         >
           {({ isActive }) => (
@@ -380,7 +382,7 @@ function SidebarFooter({
           <Button
             variant="ghost"
             className="px-2!"
-            title={pinned ? 'Collapse sidebar' : 'Expand sidebar'}
+            data-tooltip={pinned ? 'Collapse sidebar' : 'Expand sidebar'}
             aria-label={pinned ? 'Collapse sidebar' : 'Expand sidebar'}
             aria-pressed={pinned}
             onClick={onTogglePinned}
@@ -392,7 +394,7 @@ function SidebarFooter({
           <Button
             variant="ghost"
             className="px-2!"
-            title="Sign out"
+            data-tooltip="Sign out"
             aria-label="Sign out"
             onClick={() => signOut.mutate()}
             disabled={signOut.isPending || offline}

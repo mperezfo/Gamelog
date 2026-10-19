@@ -114,7 +114,7 @@ export function IdentifyPanel({
           <button
             type="button"
             onClick={() => setPicked(null)}
-            title="Back to the results"
+            data-tooltip="Back to the results"
             className="-ml-1 inline-flex min-w-0 items-center gap-1 rounded-control px-1 text-[13px] font-medium text-ink-muted hover:text-ink"
           >
             <ChevronLeftIcon className="size-3.5 shrink-0" />
@@ -129,7 +129,8 @@ export function IdentifyPanel({
         <button
           type="button"
           onClick={onClose}
-          title="Close"
+          data-tooltip="Close"
+          aria-label="Close"
           className="shrink-0 rounded-control p-1 text-ink-faint hover:bg-hover hover:text-ink"
         >
           <XIcon className="size-3.5" />
@@ -224,7 +225,7 @@ function CandidateRow({ candidate, mark, onPick }: CandidateRowProps) {
           <span className="truncate text-sm font-medium text-ink">{candidate.name}</span>
           {mark === 'linked' && <LinkMark title="The IGDB game this game is linked to">linked</LinkMark>}
           {mark === 'library' && (
-            <span title="Another game of your library is linked to it" className="shrink-0 text-xs text-ink-faint">
+            <span data-tooltip="Another game of your library is linked to it" className="shrink-0 text-xs text-ink-faint">
               In library
             </span>
           )}
@@ -646,7 +647,7 @@ function PlatformSection({
           <div className="flex items-center gap-2">
             <div className="min-w-0">
               {igdbPlatforms.length === 1 ? (
-                <span className="block truncate text-sm text-ink" title={`${selected.name} on IGDB`}>
+                <span className="block truncate text-sm text-ink" data-tooltip={`${selected.name} on IGDB`}>
                   {selected.name}
                 </span>
               ) : (
@@ -739,7 +740,7 @@ function CompanySection({
                       'min-w-0 truncate text-sm transition-colors duration-150',
                       skipped ? 'text-ink-faint line-through decoration-ink-faint' : 'text-ink',
                     ].join(' ')}
-                    title={`${company.name} on IGDB`}
+                    data-tooltip={`${company.name} on IGDB`}
                   >
                     {company.name}
                   </span>
@@ -915,7 +916,7 @@ function LinkMark({ title, children }: { title: string; children: ReactNode }) {
     // sitting low; lifted by 1.5px (measured), they centre on the name's
     // capitals instead.
     <span
-      title={title}
+      data-tooltip={title}
       className="relative -top-[1px] shrink-0 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase"
     >
       {children}

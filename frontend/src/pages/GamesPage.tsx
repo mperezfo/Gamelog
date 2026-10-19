@@ -383,7 +383,7 @@ export function GamesPage() {
               onClick={() => setFilter('exact', exactMatch ? '' : '1')}
               aria-label="Exact match"
               aria-pressed={exactMatch}
-              title="Exact match"
+              data-tooltip="Exact match"
               className={[
                 'flex h-5 items-center justify-center rounded-[4px] px-1 text-[10px] font-semibold transition-colors duration-75',
                 exactMatch ? 'bg-accent/15 text-accent' : 'text-ink-faint hover:bg-hover hover:text-ink-muted',

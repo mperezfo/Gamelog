@@ -40,6 +40,9 @@
 
   --color-ok: var(--gl-ok);
 
+  --color-tooltip: var(--gl-tooltip);
+  --color-tooltip-ink: var(--gl-tooltip-ink);
+
   /*
    * A system stack rather than a webfont: it is what makes the first paint
    * instant, and it ages better than whichever typeface is fashionable.
@@ -90,6 +93,11 @@
   --gl-danger-soft: rgb(212 76 71 / 0.1);
 
   --gl-ok: #448361;
+
+  /* Tooltips (see Tooltips.tsx) are the one dark thing on a light page, so
+     that they read as a note laid over it rather than as part of it. */
+  --gl-tooltip: #37352f;
+  --gl-tooltip-ink: #ffffff;
 }
 
 .dark {
@@ -113,6 +121,11 @@
   --gl-danger-soft: rgb(255 115 105 / 0.12);
 
   --gl-ok: #4dab9a;
+
+  /* A step above every surface rather than inverted: a light box on a dark
+     page would glare. */
+  --gl-tooltip: #373737;
+  --gl-tooltip-ink: #e6e6e6;
 }
 
 /*
