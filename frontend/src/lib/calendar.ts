@@ -46,11 +46,13 @@ export function monthGrid(month: Date): MonthDay[] {
   })
 }
 
+/** "May 2024". In English whatever the browser's locale, like every other
+ * date the app writes out (see lib/format.ts). */
 export function monthLabel(month: Date): string {
-  return month.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })
+  return month.toLocaleDateString('en', { month: 'long', year: 'numeric' })
 }
 
-/** Full month names in the viewer's locale, January first. */
+/** Full month names in English, January first. */
 export function monthNames(): string[] {
-  return Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString(undefined, { month: 'long' }))
+  return Array.from({ length: 12 }, (_, i) => new Date(2000, i, 1).toLocaleDateString('en', { month: 'long' }))
 }
