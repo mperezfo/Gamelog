@@ -265,11 +265,9 @@ type companyMatcher struct {
 func newCompanyMatcher[T models.Developer | models.Publisher](ctx context.Context, db *gorm.DB, userID uint64) (*companyMatcher, error) {
 	repo := repository.NewLookupRepository[T](db, userID)
 
+	// The listing comes with each record's links, so the map of links is
+	// built from it rather than read a second time.
 	records, err := repo.List(ctx)
-	if err != nil {
-		return nil, err
-	}
-	links, err := repo.IGDBCompanies(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -277,23 +275,26 @@ func newCompanyMatcher[T models.Developer | models.Publisher](ctx context.Contex
 	matcher := &companyMatcher{
 		candidates: make([]namematch.Candidate, 0, len(records)),
 		names:      make(map[uint64]string, len(records)),
-		links:      links,
+		links:      map[uint64]uint64{},
 	}
 	for _, record := range records {
-		id, name := lookupIdentity(record)
+		id, name, companies := lookupIdentity(record)
 		matcher.candidates = append(matcher.candidates, namematch.Candidate{ID: id, Name: name})
 		matcher.names[id] = name
+		for _, company := range companies {
+			matcher.links[company] = id
+		}
 	}
 	return matcher, nil
 }
 
-// lookupIdentity reads the id and name of a developer or publisher.
-func lookupIdentity[T models.Developer | models.Publisher](record T) (uint64, string) {
+// lookupIdentity reads the id, name and IGDB links of a developer or publisher.
+func lookupIdentity[T models.Developer | models.Publisher](record T) (uint64, string, []uint64) {
 	switch r := any(record).(type) {
 	case models.Developer:
-		return r.ID, r.Name
+		return r.ID, r.Name, r.IGDBCompanyIDs
 	case models.Publisher:
-		return r.ID, r.Name
+		return r.ID, r.Name, r.IGDBCompanyIDs
 	default:
 		// Unreachable: the constraint lists exactly those two.
 		panic("not a developer or publisher")

@@ -338,6 +338,15 @@ func TestGameWriteCreatesAndLinksCompanies(t *testing.T) {
 		t.Errorf("SIE reads with igdb_company_ids %v, want [10100]", read.IGDBCompanyIDs)
 	}
 
+	// An edit answers with the whole record, links included, as a read does.
+	rec = request(t, alice, http.MethodPut, itemPath("/api/publishers", sie), map[string]any{"name": "SIE", "icon": "🎮"})
+	expectStatus(t, rec, http.StatusOK, "editing a linked publisher")
+	var edited models.Publisher
+	decode(t, rec, &edited)
+	if len(edited.IGDBCompanyIDs) != 1 || edited.IGDBCompanyIDs[0] != 10100 {
+		t.Errorf("an edit answered with igdb_company_ids %v, want [10100]", edited.IGDBCompanyIDs)
+	}
+
 	// Another account's record cannot be linked.
 	rec = request(t, bob, http.MethodPost, "/api/games", map[string]any{
 		"title":           "Hollow Knight",
@@ -378,5 +387,15 @@ func TestGameWriteCreatesAndLinksCompanies(t *testing.T) {
 	})
 	if len(report.Warnings) != 1 || report.Warnings[0].Section != "genres" {
 		t.Errorf("warnings = %+v, want one about the genre's igdb_company_ids", report.Warnings)
+	}
+
+	// An odd value from another tool is reported, not a reason to refuse the
+	// whole file: the request passes validation and the rest still imports.
+	report = importLibrary(t, bob, "/api/import", map[string]any{
+		"developers": []map[string]any{{"name": "Grasshopper", "IGDB IDs": "77, not an id"}},
+		"games":      []map[string]any{{"title": "Killer7"}},
+	})
+	if report.Created.Games != 1 || len(report.Warnings) != 1 || report.Warnings[0].Section != "developers" {
+		t.Errorf("report = %+v, want the game imported and one warning about the dropped id", report)
 	}
 }

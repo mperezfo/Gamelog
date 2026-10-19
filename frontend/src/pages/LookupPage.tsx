@@ -16,7 +16,7 @@ import { useIgdbCompanies, useMetadataCapabilities } from '../hooks/useMetadata'
 import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '../hooks/useLookups'
 import { useOffline } from '../hooks/useOffline'
 import type { Game } from '../types/game'
-import type { Lookup, LookupKind } from '../types/lookup'
+import { MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
 
 /** A default so a new platform doesn't start colorless. */
 const DEFAULT_COLOR = '#787774'
@@ -404,6 +404,7 @@ function LookupForm({
           onChange={(event) => setName(event.target.value)}
           autoFocus
           required
+          maxLength={MAX_LOOKUP_NAME}
           className="flex-1"
         />
         {kind === 'platforms' ? (

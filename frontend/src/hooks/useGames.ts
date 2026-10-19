@@ -44,12 +44,18 @@ function invalidateGames(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: ['games'] })
 }
 
-/** After a save, which may have created developers or publishers along
- * with the game (see GameInput's new_developers), and linked them to IGDB. */
-function invalidateSavedGame(queryClient: ReturnType<typeof useQueryClient>) {
+/** After a save. One that created developers or publishers along with the
+ * game (see GameInput's new_developers), or linked them to IGDB, changed
+ * those lists too; the rest, a drag on the Dashboard's board above all,
+ * leave them alone and do not refetch them. */
+function invalidateSavedGame(queryClient: ReturnType<typeof useQueryClient>, input: GameInput) {
   invalidateGames(queryClient)
-  void queryClient.invalidateQueries({ queryKey: ['developers'] })
-  void queryClient.invalidateQueries({ queryKey: ['publishers'] })
+  if (input.new_developers?.length || input.developer_links?.length) {
+    void queryClient.invalidateQueries({ queryKey: ['developers'] })
+  }
+  if (input.new_publishers?.length || input.publisher_links?.length) {
+    void queryClient.invalidateQueries({ queryKey: ['publishers'] })
+  }
 }
 
 /** The fields `Game` and `GameInput` share by name and type. A PUT always
@@ -89,7 +95,7 @@ export function useCreateGame() {
 
   return useMutation({
     mutationFn: (input: GameInput) => createGame(input),
-    onSuccess: () => invalidateSavedGame(queryClient),
+    onSuccess: (_game, input) => invalidateSavedGame(queryClient, input),
   })
 }
 
@@ -122,7 +128,7 @@ export function useUpdateGame() {
     onError: (_err, _vars, context) => {
       context?.previous.forEach(([queryKey, games]) => queryClient.setQueryData(queryKey, games))
     },
-    onSuccess: () => invalidateSavedGame(queryClient),
+    onSuccess: (_game, { input }) => invalidateSavedGame(queryClient, input),
   })
 }
 

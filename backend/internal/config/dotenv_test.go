@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func writeDotEnv(t *testing.T, content string) string {
@@ -26,6 +27,9 @@ export GAMELOG_DB_NAME="from_file"
 GAMELOG_DB_USER='quoted user'
 GAMELOG_DB_HOST = spaced.example
 GAMELOG_DOCS=
+GAMELOG_SESSION_LIFETIME=720h # a comment, as Docker Compose allows
+GAMELOG_DB_PASSWORD=pa#ss
+GAMELOG_ADMIN_PASSWORD="quoted # kept" # but this goes
 `)
 	t.Setenv("GAMELOG_DB_NAME", "from_environment")
 	// Empty in the environment counts as unset, so the file's value applies.
@@ -50,6 +54,15 @@ GAMELOG_DOCS=
 	}
 	if !cfg.DocsEnabled {
 		t.Error("DocsEnabled = false, want an empty value to fall back to the default")
+	}
+	if cfg.SessionLifetime != 720*time.Hour {
+		t.Errorf("SessionLifetime = %v, want 720h with the comment after it dropped", cfg.SessionLifetime)
+	}
+	if cfg.DBPassword != "pa#ss" {
+		t.Errorf("DBPassword = %q, want a # inside a value kept", cfg.DBPassword)
+	}
+	if cfg.AdminPassword != "quoted # kept" {
+		t.Errorf("AdminPassword = %q, want what is between the quotes", cfg.AdminPassword)
 	}
 }
 

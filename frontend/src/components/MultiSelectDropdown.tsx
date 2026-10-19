@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { foldCase } from '../lib/fuzzy'
 import type { NewLookup } from '../types/game'
-import type { Lookup } from '../types/lookup'
+import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import { CheckIcon, PlusIcon, XIcon } from './icons'
 
 interface MultiSelectDropdownProps {
@@ -150,6 +150,8 @@ export function MultiSelectDropdown({
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            // What is typed here may become a new record's name.
+            maxLength={MAX_LOOKUP_NAME}
             placeholder="Search…"
             className="w-full bg-transparent px-2.5 py-2 text-sm text-ink outline-none placeholder:text-ink-faint"
           />

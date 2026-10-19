@@ -17,9 +17,11 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -338,4 +340,100 @@ func itemName(item any) (string, error) {
 	default:
 		return "", fmt.Errorf("a name has to be a string, not a %T", item)
 	}
+}
+
+// IDList is a list of numeric ids on an import, such as the IGDB companies a
+// developer or publisher stands for.
+//
+// It reads every shape another tool could leave the column in (an array, a
+// single number, "37", "37, 1234") and never rejects the document over it:
+// whatever is not an id is left out and counted in Dropped, so the import can
+// say so and carry on with everything else.
+type IDList struct {
+	Values []uint64
+	// Dropped counts the entries that were not ids.
+	Dropped int
+}
+
+// UnmarshalJSON reads every accepted shape of a list of ids.
+func (l *IDList) UnmarshalJSON(data []byte) error {
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	*l = IDList{}
+	switch value := raw.(type) {
+	case nil:
+	case []any:
+		for _, item := range value {
+			switch item := item.(type) {
+			case nil:
+				// An empty cell, not a wrong one.
+			case string:
+				l.addText(item)
+			default:
+				l.add(item)
+			}
+		}
+	case string:
+		l.addText(value)
+	default:
+		l.add(value)
+	}
+	return nil
+}
+
+// addText reads ids separated by commas, semicolons or spaces.
+func (l *IDList) addText(text string) {
+	for _, part := range strings.FieldsFunc(text, func(r rune) bool {
+		return r == ',' || r == ';' || unicode.IsSpace(r)
+	}) {
+		l.add(part)
+	}
+}
+
+// add reads one id out of a number or a string, counting it as dropped when
+// it is not a whole, non-negative number.
+func (l *IDList) add(value any) {
+	var number float64
+	switch value := value.(type) {
+	case float64:
+		number = value
+	case string:
+		if id, err := strconv.ParseUint(value, 10, 64); err == nil {
+			l.Values = append(l.Values, id)
+			return
+		}
+		parsed, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			l.Dropped++
+			return
+		}
+		number = parsed
+	default:
+		l.Dropped++
+		return
+	}
+	if number < 0 || number != math.Trunc(number) || number > math.MaxUint32 {
+		l.Dropped++
+		return
+	}
+	l.Values = append(l.Values, uint64(number))
+}
+
+// Schema accepts anything, on purpose: what is not an id is reported by the
+// import rather than refused by the request's validation, which would turn
+// one odd column into a failed import of the whole file.
+func (IDList) Schema(huma.Registry) *huma.Schema {
+	schema := &huma.Schema{
+		Title:    "IDList",
+		Nullable: true,
+		Description: "Numeric ids, written as an array of integers. On an import a single number, " +
+			"a numeric string and a list in one string (\"37, 1234\") are read too. Anything that " +
+			"is not an id is left out with a warning, and never fails the import.",
+		Examples: []any{[]uint64{9346}},
+	}
+	schema.PrecomputeMessages()
+	return schema
 }

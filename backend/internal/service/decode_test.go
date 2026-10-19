@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -254,6 +255,39 @@ func TestImportRejectsWhatItCannotRead(t *testing.T) {
 		var document service.ImportDocument
 		if err := json.Unmarshal([]byte(body), &document); err == nil {
 			t.Errorf("%s was accepted, want a decoding error the caller can act on", body)
+		}
+	}
+}
+
+func TestImportReadsIGDBCompanyIDsInEveryShape(t *testing.T) {
+	tests := []struct {
+		value       string
+		wantValues  []uint64
+		wantDropped int
+	}{
+		{`[37, 1234]`, []uint64{37, 1234}, 0},
+		{`37`, []uint64{37}, 0},
+		{`37.0`, []uint64{37}, 0},
+		{`"37"`, []uint64{37}, 0},
+		{`"37, 1234; 70 9"`, []uint64{37, 1234, 70, 9}, 0},
+		{`["37", 1234, null]`, []uint64{37, 1234}, 0},
+		{`null`, nil, 0},
+		{`"none"`, nil, 1},
+		{`[37, "x", -1, 2.5, true]`, []uint64{37}, 4},
+		{`{"id": 37}`, nil, 1},
+	}
+	for _, test := range tests {
+		// Under a spelling another tool would use, to go through the same
+		// aliasing as a real file.
+		document := decodeDocument(t, `{"developers": [{"name": "Capcom", "IGDB IDs": `+test.value+`}]}`)
+		ids := document.Developers[0].IGDBCompanyIDs
+		if ids == nil {
+			// null leaves the pointer unset, which is the same as no ids.
+			ids = &service.IDList{}
+		}
+		if fmt.Sprint(ids.Values) != fmt.Sprint(test.wantValues) || ids.Dropped != test.wantDropped {
+			t.Errorf("%s: read %v with %d dropped, want %v with %d dropped",
+				test.value, ids.Values, ids.Dropped, test.wantValues, test.wantDropped)
 		}
 	}
 }
