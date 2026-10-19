@@ -69,13 +69,6 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [pickerOpen])
 
-  useEffect(() => {
-    if (pickerOpen) {
-      setYearDraft(String(month.getFullYear()))
-      setYearInvalid(false)
-    }
-  }, [pickerOpen, month])
-
   function commitYearDraft() {
     if (!isValidYear(yearDraft)) {
       setYearInvalid(true)
@@ -130,7 +123,14 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
         <div className="relative" ref={pickerRef}>
           <button
             type="button"
-            onClick={() => setPickerOpen((open) => !open)}
+            onClick={() => {
+              // Opens on the year shown, whatever was left typed last time.
+              if (!pickerOpen) {
+                setYearDraft(String(month.getFullYear()))
+                setYearInvalid(false)
+              }
+              setPickerOpen(!pickerOpen)
+            }}
             className="text-sm font-medium text-ink hover:text-accent"
           >
             {monthLabel(month)}
@@ -141,7 +141,12 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
               <Dropdown
                 aria-label="Month"
                 value={String(month.getMonth())}
-                onChange={(value) => setMonth((m) => new Date(m.getFullYear(), Number(value), 1))}
+                onChange={(value) => {
+                  setMonth((m) => new Date(m.getFullYear(), Number(value), 1))
+                  // A year left half typed gives way to the one shown.
+                  setYearDraft(String(month.getFullYear()))
+                  setYearInvalid(false)
+                }}
                 options={MONTH_OPTIONS}
                 className="h-8 rounded-control bg-sunken px-2 text-sm text-ink"
               />

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import {
   DndContext,
@@ -562,12 +562,23 @@ function BoardColumn({
 }) {
   const { setNodeRef } = useDroppable({ id: `column-${status}`, data: { status } })
   const fadeRef = useEdgeFade('y')
+  // One stable callback for both, handing back the fade's cleanup: React
+  // calls that instead of calling the ref with null, so the drop target is
+  // let go of there too.
+  const ref = useCallback(
+    (node: HTMLDivElement | null) => {
+      setNodeRef(node)
+      const cleanup = fadeRef(node)
+      return () => {
+        setNodeRef(null)
+        cleanup?.()
+      }
+    },
+    [setNodeRef, fadeRef],
+  )
   return (
     <div
-      ref={(node) => {
-        setNodeRef(node)
-        fadeRef(node)
-      }}
+      ref={ref}
       className={[
         'flex max-h-80 flex-col gap-1.5 overflow-y-auto rounded-control p-1 transition-colors duration-150 lg:max-h-[540px] xl:max-h-[720px] xl:min-h-0 xl:flex-1',
         isHovered ? 'bg-hover ring-2 ring-accent/30' : '',
