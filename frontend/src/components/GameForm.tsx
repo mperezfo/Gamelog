@@ -393,14 +393,21 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
                 duplicateGame ? 'text-danger' : 'text-ink',
               ].join(' ')}
             />
-            {/* Only on a deployment with IGDB credentials: without them there
-                is nothing for the button to look games up in. */}
-            {capabilities.data?.identify && (
+            {/* Shown even without IGDB credentials, but disabled, with the
+                reason in its tooltip: the feature exists, the server is
+                just not set up for it. Left out until the capabilities are
+                known, so as not to blame a missing configuration that is
+                not missing. */}
+            {capabilities.data && (
               <Button
                 variant="ghost"
                 className="shrink-0 px-2"
-                title="Fill in the title, release date, platform, developers and publishers from IGDB"
-                disabled={!title.trim()}
+                title={
+                  capabilities.data.identify
+                    ? 'Fill in the title, release date, platform, developers and publishers from IGDB'
+                    : 'Fill in the details from IGDB (IGDB credentials not set up on this server)'
+                }
+                disabled={!capabilities.data.identify || !title.trim()}
                 onClick={openIdentify}
               >
                 <SearchIcon />
