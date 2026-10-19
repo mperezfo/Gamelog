@@ -32,6 +32,8 @@ sort_commits = "oldest"
 
 commit_parsers = [
   { message = "^feat", group = "Features" },
+  # Security bumps are titled fix(deps); keep them with the other dependencies.
+  { message = "^fix\\(deps\\)", group = "Dependencies" },
   { message = "^fix", group = "Bug Fixes" },
   { message = "^perf", group = "Performance" },
   { message = "^docs", group = "Documentation" },
