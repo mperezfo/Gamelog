@@ -74,7 +74,7 @@ func TestSearchMapsResults(t *testing.T) {
 		"id": 26192,
 		"name": "Resident Evil 4",
 		"first_release_date": 1679616000,
-		"platforms": [{"id": 6, "name": "PC (Microsoft Windows)"}, {"id": 167, "name": "PlayStation 5"}],
+		"platforms": [{"id": 6, "name": "PC (Microsoft Windows)", "abbreviation": "PC"}, {"id": 167, "name": "PlayStation 5"}],
 		"cover": {"id": 1, "image_id": "co6bo0"},
 		"involved_companies": [
 			{"company": {"id": 37, "name": "Capcom"}, "developer": true, "publisher": true},
@@ -101,7 +101,8 @@ func TestSearchMapsResults(t *testing.T) {
 	if want := time.Date(2023, 3, 24, 0, 0, 0, 0, time.UTC); game.ReleaseDate == nil || !game.ReleaseDate.Equal(want) {
 		t.Errorf("ReleaseDate = %v, want %v", game.ReleaseDate, want)
 	}
-	if strings.Join(game.Platforms, ",") != "PC (Microsoft Windows),PlayStation 5" {
+	if len(game.Platforms) != 2 || game.Platforms[0] != (Platform{6, "PC (Microsoft Windows)", "PC"}) ||
+		game.Platforms[1] != (Platform{167, "PlayStation 5", ""}) {
 		t.Errorf("Platforms = %v", game.Platforms)
 	}
 	if want := "https://images.igdb.com/igdb/image/upload/t_cover_small/co6bo0.jpg"; game.CoverURL == nil || *game.CoverURL != want {

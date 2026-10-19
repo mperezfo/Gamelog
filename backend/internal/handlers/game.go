@@ -18,7 +18,8 @@ import (
 // It is a separate type from models.Game on purpose: id, created_at and
 // updated_at belong to the server, and the N:M relations are written as ids so
 // that saving a game can never create or rename a genre. The one exception is
-// explicit: new_developers and new_publishers, created along with the game.
+// explicit: new_developers, new_publishers and new_platform, created along
+// with the game.
 type gameBody struct {
 	Title  string        `json:"title" minLength:"1" maxLength:"255" doc:"Title of the game." example:"Hollow Knight"`
 	Status models.Status `json:"status" doc:"Lifecycle stage of the game."`
@@ -70,6 +71,9 @@ type gameBody struct {
 
 	DeveloperLinks []companyLinkBody `json:"developer_links,omitempty" doc:"Links from existing developers to the IGDB company each stands for, written along with the game. An IGDB company already linked to another developer moves to this one."`
 	PublisherLinks []companyLinkBody `json:"publisher_links,omitempty" doc:"Links from existing publishers to the IGDB company each stands for, written along with the game. An IGDB company already linked to another publisher moves to this one."`
+
+	NewPlatform  *newPlatformBody  `json:"new_platform,omitempty" doc:"Platform to play the game on, by name: created if the library does not have it yet, and attached in place of platform_id. A name already in the library, ignoring case and accents, is attached rather than created again."`
+	PlatformLink *platformLinkBody `json:"platform_link,omitempty" doc:"Link from an existing platform to an IGDB platform it stands for, written along with the game. Unlike a company, an IGDB platform can stand for several platforms, and keeps the ones it was linked to."`
 }
 
 // newLookupBody is a developer or publisher a game write names rather than
@@ -85,20 +89,46 @@ type companyLinkBody struct {
 	IGDBCompanyID uint64 `json:"igdb_company_id" doc:"IGDB company it stands for." example:"9346"`
 }
 
+// newPlatformBody is the platform a game write names rather than numbers.
+type newPlatformBody struct {
+	Name           string  `json:"name" minLength:"1" maxLength:"100" doc:"Name of the platform." example:"PS5"`
+	IGDBPlatformID *uint64 `json:"igdb_platform_id,omitempty" doc:"IGDB platform it stands for, to link it to. See GET /api/metadata/games." example:"167"`
+}
+
+// platformLinkBody ties an existing platform to an IGDB platform.
+type platformLinkBody struct {
+	ID             uint64 `json:"id" doc:"Id of the platform. Must exist." example:"2"`
+	IGDBPlatformID uint64 `json:"igdb_platform_id" doc:"IGDB platform it stands for." example:"167"`
+}
+
 func newLookups(bodies []newLookupBody) []repository.NewLookup {
 	out := make([]repository.NewLookup, 0, len(bodies))
 	for _, body := range bodies {
-		out = append(out, repository.NewLookup{Name: strings.TrimSpace(body.Name), IGDBCompanyID: body.IGDBCompanyID})
+		out = append(out, repository.NewLookup{Name: strings.TrimSpace(body.Name), IGDBID: body.IGDBCompanyID})
 	}
 	return out
 }
 
-func companyLinks(bodies []companyLinkBody) []repository.CompanyLink {
-	out := make([]repository.CompanyLink, 0, len(bodies))
+func companyLinks(bodies []companyLinkBody) []repository.IGDBLink {
+	out := make([]repository.IGDBLink, 0, len(bodies))
 	for _, body := range bodies {
-		out = append(out, repository.CompanyLink{ID: body.ID, IGDBCompanyID: body.IGDBCompanyID})
+		out = append(out, repository.IGDBLink{ID: body.ID, IGDBID: body.IGDBCompanyID})
 	}
 	return out
+}
+
+func (b gameBody) newPlatform() *repository.NewLookup {
+	if b.NewPlatform == nil {
+		return nil
+	}
+	return &repository.NewLookup{Name: strings.TrimSpace(b.NewPlatform.Name), IGDBID: b.NewPlatform.IGDBPlatformID}
+}
+
+func (b gameBody) platformLinks() []repository.IGDBLink {
+	if b.PlatformLink == nil {
+		return nil
+	}
+	return []repository.IGDBLink{{ID: b.PlatformLink.ID, IGDBID: b.PlatformLink.IGDBPlatformID}}
 }
 
 // model turns the request body into the pair the repository expects.
@@ -127,6 +157,8 @@ func (b gameBody) model(id uint64) (*models.Game, repository.GameRelations) {
 			NewPublishers:  newLookups(b.NewPublishers),
 			DeveloperLinks: companyLinks(b.DeveloperLinks),
 			PublisherLinks: companyLinks(b.PublisherLinks),
+			NewPlatform:    b.newPlatform(),
+			PlatformLinks:  b.platformLinks(),
 		}
 }
 

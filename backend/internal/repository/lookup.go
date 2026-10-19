@@ -65,7 +65,7 @@ func (r *LookupRepository[T]) Get(ctx context.Context, id uint64) (*T, error) {
 		return nil, translate(err)
 	}
 	found := []T{entity}
-	if err := r.attachIGDBCompanies(ctx, found); err != nil {
+	if err := r.attachIGDBLinks(ctx, found); err != nil {
 		return nil, err
 	}
 	return &found[0], nil
@@ -77,7 +77,7 @@ func (r *LookupRepository[T]) List(ctx context.Context) ([]T, error) {
 	if err := r.scoped(ctx).Order("name").Find(&entities).Error; err != nil {
 		return nil, translate(err)
 	}
-	if err := r.attachIGDBCompanies(ctx, entities); err != nil {
+	if err := r.attachIGDBLinks(ctx, entities); err != nil {
 		return nil, err
 	}
 	return entities, nil
@@ -112,7 +112,7 @@ func (r *LookupRepository[T]) Update(ctx context.Context, entity *T) error {
 	// Read back with its links, which a write leaves as they were, so that
 	// what a caller hands back is the whole record, as a read would.
 	updated := []T{*entity}
-	if err := r.attachIGDBCompanies(ctx, updated); err != nil {
+	if err := r.attachIGDBLinks(ctx, updated); err != nil {
 		return err
 	}
 	*entity = updated[0]

@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"testing"
@@ -55,6 +56,31 @@ func (f *fakeSearcher) CompanyURL(_ context.Context, id uint64) (string, error) 
 	return "", igdb.ErrNotFound
 }
 
+// Platforms knows PC (6) and nothing else.
+func (f *fakeSearcher) Platforms(_ context.Context, ids []uint64) ([]igdb.Platform, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	platforms := []igdb.Platform{}
+	for _, id := range ids {
+		if id == 6 {
+			platforms = append(platforms, igdb.Platform{ID: 6, Name: "PC (Microsoft Windows)", Abbreviation: "PC"})
+		}
+	}
+	return platforms, nil
+}
+
+// PlatformURL knows PC (6) and nothing else.
+func (f *fakeSearcher) PlatformURL(_ context.Context, id uint64) (string, error) {
+	if f.err != nil {
+		return "", f.err
+	}
+	if id == 6 {
+		return "https://www.igdb.com/platforms/win", nil
+	}
+	return "", igdb.ErrNotFound
+}
+
 // GameURL knows Resident Evil 4 (26192) and nothing else.
 func (f *fakeSearcher) GameURL(_ context.Context, id uint64) (string, error) {
 	if f.err != nil {
@@ -87,9 +113,21 @@ type candidateResponse struct {
 		IGDBID      uint64     `json:"igdb_id"`
 		Name        string     `json:"name"`
 		ReleaseDate *time.Time `json:"release_date"`
+		Platforms   []platformMatchResponse
 		Developers  []companyMatchResponse
 		Publishers  []companyMatchResponse
 	} `json:"candidates"`
+}
+
+type platformMatchResponse struct {
+	IGDBPlatformID uint64 `json:"igdb_platform_id"`
+	Name           string `json:"name"`
+	Abbreviation   string `json:"abbreviation"`
+	Match          *struct {
+		ID     uint64 `json:"id"`
+		Name   string `json:"name"`
+		Reason string `json:"reason"`
+	} `json:"match"`
 }
 
 type companyMatchResponse struct {
@@ -167,7 +205,7 @@ func TestMetadataSearchMatchesCompanies(t *testing.T) {
 		ID:          26192,
 		Name:        "Resident Evil 4",
 		ReleaseDate: &released,
-		Platforms:   []string{"PlayStation 5"},
+		Platforms:   []igdb.Platform{{ID: 167, Name: "PlayStation 5", Abbreviation: "PS5"}},
 		Developers:  []igdb.Company{{ID: 37, Name: "Capcom"}, {ID: 900, Name: "Insomniac Games"}},
 		Publishers:  []igdb.Company{{ID: 10100, Name: "Sony Interactive Entertainment"}},
 	}}}
@@ -417,5 +455,111 @@ func TestGameWriteCreatesAndLinksCompanies(t *testing.T) {
 	})
 	if report.Created.Games != 1 || len(report.Warnings) != 1 || report.Warnings[0].Section != "developers" {
 		t.Errorf("report = %+v, want the game imported and one warning about the dropped id", report)
+	}
+}
+
+// expectPlatformMatch is expectMatch for a platform.
+func expectPlatformMatch(t *testing.T, platform platformMatchResponse, wantID uint64, wantReason string) {
+	t.Helper()
+
+	if wantID == 0 {
+		if platform.Match != nil {
+			t.Errorf("%s matched %q (%s), want no match", platform.Name, platform.Match.Name, platform.Match.Reason)
+		}
+		return
+	}
+	if platform.Match == nil {
+		t.Errorf("%s matched nothing, want %d (%s)", platform.Name, wantID, wantReason)
+		return
+	}
+	if platform.Match.ID != wantID || platform.Match.Reason != wantReason {
+		t.Errorf("%s matched %d %q (%s), want %d (%s)",
+			platform.Name, platform.Match.ID, platform.Match.Name, platform.Match.Reason, wantID, wantReason)
+	}
+}
+
+func TestMetadataSearchMatchesPlatforms(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+
+	searcher := &fakeSearcher{games: []igdb.Game{{
+		ID:   26192,
+		Name: "Resident Evil 4",
+		Platforms: []igdb.Platform{
+			{ID: 6, Name: "PC (Microsoft Windows)", Abbreviation: "PC"},
+			{ID: 167, Name: "PlayStation 5", Abbreviation: "PS5"},
+			{ID: 11, Name: "Xbox", Abbreviation: "XBOX"},
+			{ID: 48, Name: "PlayStation 4", Abbreviation: "PS4"},
+		},
+	}}}
+	handler := signedIn(t, newMetadataRouter(db, searcher), db, "player", false)
+
+	pc := createLookup(t, handler, "/api/platforms", "PC")
+	deck := createLookup(t, handler, "/api/platforms", "STEAM DECK")
+	ps5 := createLookup(t, handler, "/api/platforms", "PlayStation 5")
+	createLookup(t, handler, "/api/platforms", "XBOX SERIES X")
+
+	// Guesses: the abbreviation first, then the name, never a prefix.
+	platforms := searchMetadata(t, handler).Candidates[0].Platforms
+	if len(platforms) != 4 || platforms[0].Abbreviation != "PC" {
+		t.Fatalf("platforms = %+v, want IGDB's four with their abbreviations", platforms)
+	}
+	expectPlatformMatch(t, platforms[0], pc, "name")
+	expectPlatformMatch(t, platforms[1], ps5, "name")
+	expectPlatformMatch(t, platforms[2], 0, "")
+	expectPlatformMatch(t, platforms[3], 0, "")
+
+	// One game on the Steam Deck and two on PC, all three linking IGDB's
+	// PC: an IGDB platform keeps every platform it is linked to.
+	save := func(title string, body map[string]any) models.Game {
+		t.Helper()
+		body["title"] = title
+		body["status"] = models.StatusPlayed
+		body["position"] = 1
+		rec := request(t, handler, http.MethodPost, "/api/games", body)
+		expectStatus(t, rec, http.StatusCreated, "creating "+title)
+		var game models.Game
+		decode(t, rec, &game)
+		return game
+	}
+	save("Hades", map[string]any{"platform_id": deck, "platform_link": map[string]any{"id": deck, "igdb_platform_id": 6}})
+	save("Celeste", map[string]any{"platform_id": pc, "platform_link": map[string]any{"id": pc, "igdb_platform_id": 6}})
+	save("Tunic", map[string]any{"platform_id": pc, "platform_link": map[string]any{"id": pc, "igdb_platform_id": 6}})
+
+	// A platform the library does not have is created by name and linked.
+	game := save("Bloodborne", map[string]any{"new_platform": map[string]any{"name": "PS4", "igdb_platform_id": 48}})
+	if game.Platform == nil || game.Platform.Name != "PS4" {
+		t.Fatalf("platform = %+v, want PS4 created", game.Platform)
+	}
+
+	// Of the two linked to IGDB's PC, the one with more games is suggested.
+	platforms = searchMetadata(t, handler).Candidates[0].Platforms
+	expectPlatformMatch(t, platforms[0], pc, "linked")
+	expectPlatformMatch(t, platforms[3], game.Platform.ID, "linked")
+
+	rec := request(t, handler, http.MethodGet, fmt.Sprintf("/api/platforms/%d", deck), nil)
+	expectStatus(t, rec, http.StatusOK, "reading the Steam Deck")
+	var read models.Platform
+	decode(t, rec, &read)
+	if fmt.Sprint(read.IGDBPlatformIDs) != "[6]" {
+		t.Errorf("igdb_platform_ids = %v, want [6]", read.IGDBPlatformIDs)
+	}
+
+	// IGDB platforms are named by id, and their pages redirected to.
+	rec = request(t, handler, http.MethodGet, "/api/metadata/platforms?ids=1,6", nil)
+	expectStatus(t, rec, http.StatusOK, "naming platforms")
+	var named struct {
+		Platforms []struct {
+			ID           uint64 `json:"id"`
+			Abbreviation string `json:"abbreviation"`
+		} `json:"platforms"`
+	}
+	decode(t, rec, &named)
+	if len(named.Platforms) != 1 || named.Platforms[0].Abbreviation != "PC" {
+		t.Errorf("platforms = %+v, want PC alone", named.Platforms)
+	}
+	rec = request(t, handler, http.MethodGet, "/api/metadata/platforms/6/page", nil)
+	expectStatus(t, rec, http.StatusFound, "opening PC's page")
+	if location := rec.Header().Get("Location"); location != "https://www.igdb.com/platforms/win" {
+		t.Errorf("Location = %q, want PC's page", location)
 	}
 }

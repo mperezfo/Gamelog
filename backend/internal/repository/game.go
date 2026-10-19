@@ -44,9 +44,9 @@ func (r *GameRepository) scoped(ctx context.Context) *gorm.DB {
 // game, which is what GORM would do with a fully populated association.
 //
 // The one way a game write does create a record is on request, through
-// NewDevelopers and NewPublishers: a name the game is to carry that the
-// library may not have yet. They are created in the same transaction as the
-// game, so a write that fails leaves nothing behind.
+// NewDevelopers, NewPublishers and NewPlatform: a name the game is to carry
+// that the library may not have yet. They are created in the same
+// transaction as the game, so a write that fails leaves nothing behind.
 type GameRelations struct {
 	GenreIDs     []uint64
 	DeveloperIDs []uint64
@@ -59,8 +59,14 @@ type GameRelations struct {
 
 	// DeveloperLinks and PublisherLinks tie existing records to the IGDB
 	// company they stand for, written along with the game.
-	DeveloperLinks []CompanyLink
-	PublisherLinks []CompanyLink
+	DeveloperLinks []IGDBLink
+	PublisherLinks []IGDBLink
+
+	// NewPlatform, when set, is found by name, or created, and takes the
+	// place of the game's PlatformID. PlatformLinks tie existing platforms
+	// to the IGDB platform they stand for.
+	NewPlatform   *NewLookup
+	PlatformLinks []IGDBLink
 }
 
 // GameFilter narrows down a listing. A nil field means "no filter".
@@ -123,7 +129,7 @@ func (r *GameRepository) Create(ctx context.Context, game *models.Game, rel Game
 	game.UserID = &owner
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		rel, err := r.resolveNewLookups(ctx, tx, rel)
+		rel, err := r.resolveNewLookups(ctx, tx, game, rel)
 		if err != nil {
 			return err
 		}
@@ -144,7 +150,7 @@ func (r *GameRepository) Create(ctx context.Context, game *models.Game, rel Game
 		if err := replaceRelations(tx, game.ID, rel); err != nil {
 			return err
 		}
-		return r.linkCompanies(ctx, tx, rel)
+		return r.linkIGDB(ctx, tx, rel)
 	})
 	return translate(err)
 }
@@ -310,7 +316,7 @@ func (r *GameRepository) BackfillSlugs(ctx context.Context) (int, error) {
 // Update overwrites a game and replaces its relations, in a transaction.
 func (r *GameRepository) Update(ctx context.Context, game *models.Game, rel GameRelations) error {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		rel, err := r.resolveNewLookups(ctx, tx, rel)
+		rel, err := r.resolveNewLookups(ctx, tx, game, rel)
 		if err != nil {
 			return err
 		}
@@ -341,7 +347,7 @@ func (r *GameRepository) Update(ctx context.Context, game *models.Game, rel Game
 		if err := replaceRelations(tx, game.ID, rel); err != nil {
 			return err
 		}
-		return r.linkCompanies(ctx, tx, rel)
+		return r.linkIGDB(ctx, tx, rel)
 	})
 	return translate(err)
 }
@@ -392,6 +398,29 @@ func (r *GameRepository) List(ctx context.Context, filter GameFilter) ([]models.
 		return nil, translate(err)
 	}
 	return games, nil
+}
+
+// CountByPlatform returns how many games the owner has on each platform,
+// keyed by platform id. A platform with none is left out.
+func (r *GameRepository) CountByPlatform(ctx context.Context) (map[uint64]int, error) {
+	var rows []struct {
+		PlatformID uint64
+		Games      int
+	}
+	err := r.scoped(ctx).Model(&models.Game{}).
+		Select("platform_id, COUNT(*) AS games").
+		Where("platform_id IS NOT NULL").
+		Group("platform_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, translate(err)
+	}
+
+	counts := make(map[uint64]int, len(rows))
+	for _, row := range rows {
+		counts[row.PlatformID] = row.Games
+	}
+	return counts, nil
 }
 
 // Stats returns the footer aggregates for the same filter as List.
@@ -450,11 +479,10 @@ func (r *GameRepository) filtered(ctx context.Context, filter GameFilter) (*gorm
 	return query, nil
 }
 
-// resolveNewLookups finds or creates the developers and publishers rel names
-// rather than numbers, adds them to the ids the game is attached to, and
-// turns the IGDB company each one stands for into a link for linkCompanies
-// to write.
-func (r *GameRepository) resolveNewLookups(ctx context.Context, tx *gorm.DB, rel GameRelations) (GameRelations, error) {
+// resolveNewLookups finds or creates the developers, publishers and platform
+// rel names rather than numbers, attaches them to the game, and turns the
+// IGDB record each one stands for into a link for linkIGDB to write.
+func (r *GameRepository) resolveNewLookups(ctx context.Context, tx *gorm.DB, game *models.Game, rel GameRelations) (GameRelations, error) {
 	var err error
 	rel.DeveloperIDs, rel.DeveloperLinks, err = findOrCreateLookups[models.Developer](
 		ctx, tx, r.userID, rel.NewDevelopers, rel.DeveloperIDs, rel.DeveloperLinks)
@@ -463,7 +491,18 @@ func (r *GameRepository) resolveNewLookups(ctx context.Context, tx *gorm.DB, rel
 	}
 	rel.PublisherIDs, rel.PublisherLinks, err = findOrCreateLookups[models.Publisher](
 		ctx, tx, r.userID, rel.NewPublishers, rel.PublisherIDs, rel.PublisherLinks)
-	return rel, err
+	if err != nil || rel.NewPlatform == nil {
+		return rel, err
+	}
+
+	var platform []uint64
+	platform, rel.PlatformLinks, err = findOrCreateLookups[models.Platform](
+		ctx, tx, r.userID, []NewLookup{*rel.NewPlatform}, nil, rel.PlatformLinks)
+	if err != nil {
+		return rel, err
+	}
+	game.PlatformID = &platform[0]
+	return rel, nil
 }
 
 // findOrCreateLookups resolves one entity's new records into ids, appended to
@@ -475,8 +514,8 @@ func findOrCreateLookups[T Lookup](
 	userID uint64,
 	news []NewLookup,
 	ids []uint64,
-	links []CompanyLink,
-) ([]uint64, []CompanyLink, error) {
+	links []IGDBLink,
+) ([]uint64, []IGDBLink, error) {
 	if len(news) == 0 {
 		return ids, links, nil
 	}
@@ -490,19 +529,22 @@ func findOrCreateLookups[T Lookup](
 			return nil, nil, err
 		}
 		ids = append(ids, id)
-		if record.IGDBCompanyID != nil {
-			links = append(links, CompanyLink{ID: id, IGDBCompanyID: *record.IGDBCompanyID})
+		if record.IGDBID != nil {
+			links = append(links, IGDBLink{ID: id, IGDBID: *record.IGDBID})
 		}
 	}
 	return ids, links, nil
 }
 
-// linkCompanies writes the IGDB company links a game write carries.
-func (r *GameRepository) linkCompanies(ctx context.Context, tx *gorm.DB, rel GameRelations) error {
-	if err := NewLookupRepository[models.Developer](tx, r.userID).LinkIGDBCompanies(ctx, rel.DeveloperLinks); err != nil {
+// linkIGDB writes the IGDB links a game write carries.
+func (r *GameRepository) linkIGDB(ctx context.Context, tx *gorm.DB, rel GameRelations) error {
+	if err := NewLookupRepository[models.Developer](tx, r.userID).LinkIGDB(ctx, rel.DeveloperLinks); err != nil {
 		return err
 	}
-	return NewLookupRepository[models.Publisher](tx, r.userID).LinkIGDBCompanies(ctx, rel.PublisherLinks)
+	if err := NewLookupRepository[models.Publisher](tx, r.userID).LinkIGDB(ctx, rel.PublisherLinks); err != nil {
+		return err
+	}
+	return NewLookupRepository[models.Platform](tx, r.userID).LinkIGDB(ctx, rel.PlatformLinks)
 }
 
 // replaceRelations rewrites the join-table rows for one game.

@@ -191,19 +191,20 @@ type section struct {
 	entries []ImportLookup
 	created *int
 	updated *int
-	// linkable is whether the entity can be linked to IGDB companies: only
-	// developers and publishers can (see migration 00016).
-	linkable bool
+	// links is the field of an entry that links the entity to IGDB:
+	// igdb_company_ids for developers and publishers (see migration 00016),
+	// igdb_platform_ids for platforms (00018), and none for genres.
+	links string
 }
 
 // sections lists the four simple entities in the order they have to be
 // written: a game names them, so they exist before the games section runs.
 func (r *importRun) sections(document ImportDocument) []section {
 	return []section{
-		{"platforms", r.platforms, document.Platforms, &r.report.Created.Platforms, &r.report.Updated.Platforms, false},
-		{"genres", r.genres, document.Genres, &r.report.Created.Genres, &r.report.Updated.Genres, false},
-		{"developers", r.developers, document.Developers, &r.report.Created.Developers, &r.report.Updated.Developers, true},
-		{"publishers", r.publishers, document.Publishers, &r.report.Created.Publishers, &r.report.Updated.Publishers, true},
+		{"platforms", r.platforms, document.Platforms, &r.report.Created.Platforms, &r.report.Updated.Platforms, "igdb_platform_ids"},
+		{"genres", r.genres, document.Genres, &r.report.Created.Genres, &r.report.Updated.Genres, ""},
+		{"developers", r.developers, document.Developers, &r.report.Created.Developers, &r.report.Updated.Developers, "igdb_company_ids"},
+		{"publishers", r.publishers, document.Publishers, &r.report.Created.Publishers, &r.report.Updated.Publishers, "igdb_company_ids"},
 	}
 }
 
@@ -267,19 +268,40 @@ func (r *importRun) importLookups(ctx context.Context, section section) error {
 			*section.updated++
 		}
 
-		if ids := entry.IGDBCompanyIDs; ids != nil && (len(ids.Values) > 0 || ids.Dropped > 0) {
-			if !section.linkable {
-				r.warn(section.name, index, name,
-					"only a developer or a publisher can be linked to IGDB companies, so its igdb_company_ids were left out")
-				continue
-			}
-			if ids.Dropped > 0 {
-				r.warn(section.name, index, name, fmt.Sprintf(
-					"%d of its igdb_company_ids were not IGDB ids, so they were left out", ids.Dropped))
-			}
-			if err := section.port.link(ctx, id, ids.Values); err != nil {
-				return err
-			}
+		if err := r.linkEntry(ctx, section, index, name, id, entry.ImportName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// linkEntry ties one record to the IGDB records its entry names, under the
+// field its entity links through; the other field is left out, with a
+// warning.
+func (r *importRun) linkEntry(ctx context.Context, section section, index int, name string, id uint64, entry ImportName) error {
+	fields := []struct {
+		name  string
+		ids   *IDList
+		which string
+	}{
+		{"igdb_company_ids", entry.IGDBCompanyIDs, "only a developer or a publisher can be linked to IGDB companies"},
+		{"igdb_platform_ids", entry.IGDBPlatformIDs, "only a platform can be linked to IGDB platforms"},
+	}
+	for _, field := range fields {
+		ids := field.ids
+		if ids == nil || (len(ids.Values) == 0 && ids.Dropped == 0) {
+			continue
+		}
+		if field.name != section.links {
+			r.warn(section.name, index, name, field.which+", so its "+field.name+" were left out")
+			continue
+		}
+		if ids.Dropped > 0 {
+			r.warn(section.name, index, name, fmt.Sprintf(
+				"%d of its %s were not IGDB ids, so they were left out", ids.Dropped, field.name))
+		}
+		if err := section.port.link(ctx, id, ids.Values); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -597,9 +619,9 @@ type lookupPort interface {
 	// apply writes one entry of the section of the document devoted to the
 	// entity. color is only ever written for a platform.
 	apply(ctx context.Context, name string, icon, color *string) (id uint64, created bool, err error)
-	// link ties the record to the IGDB companies it stands for. Only a
-	// developer or a publisher can be linked; see section.linkable.
-	link(ctx context.Context, id uint64, igdbCompanyIDs []uint64) error
+	// link ties the record to the IGDB records it stands for. Genres cannot
+	// be linked; see section.links.
+	link(ctx context.Context, id uint64, igdbIDs []uint64) error
 }
 
 // lookupImporter implements lookupPort for one entity.
@@ -695,14 +717,14 @@ func (l *lookupImporter[T]) apply(ctx context.Context, name string, icon, color 
 	return id, false, nil
 }
 
-// link ties one record to the IGDB companies it stands for, on top of the
+// link ties one record to the IGDB records it stands for, on top of the
 // ones it already has.
-func (l *lookupImporter[T]) link(ctx context.Context, id uint64, igdbCompanyIDs []uint64) error {
-	links := make([]repository.CompanyLink, 0, len(igdbCompanyIDs))
-	for _, company := range igdbCompanyIDs {
-		links = append(links, repository.CompanyLink{ID: id, IGDBCompanyID: company})
+func (l *lookupImporter[T]) link(ctx context.Context, id uint64, igdbIDs []uint64) error {
+	links := make([]repository.IGDBLink, 0, len(igdbIDs))
+	for _, igdbID := range igdbIDs {
+		links = append(links, repository.IGDBLink{ID: id, IGDBID: igdbID})
 	}
-	return l.repo.LinkIGDBCompanies(ctx, links)
+	return l.repo.LinkIGDB(ctx, links)
 }
 
 // cleanOptional turns an icon or a colour of nothing but spaces into none at

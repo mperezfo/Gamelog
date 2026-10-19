@@ -1,6 +1,7 @@
 package handlers_test
 
 import (
+	"fmt"
 	"net/http"
 	"reflect"
 	"testing"
@@ -75,16 +76,26 @@ func TestExportAndImportRoundTrip(t *testing.T) {
 	})
 	expectStatus(t, created, http.StatusCreated, "creating a game")
 
+	// A game write that links the platform to IGDB, for the export to carry.
+	linked := request(t, handler, http.MethodPost, "/api/games", map[string]any{
+		"title": "Celeste", "status": models.StatusPlayed, "position": 2, "platform_id": platformID,
+		"platform_link": map[string]any{"id": platformID, "igdb_platform_id": 130},
+	})
+	expectStatus(t, linked, http.StatusCreated, "creating a game linking its platform")
+
 	exported := exportLibrary(t, handler)
 
 	if exported.Version != service.FormatVersion {
 		t.Errorf("version = %d, want %d", exported.Version, service.FormatVersion)
 	}
-	if len(exported.Games) != 1 {
-		t.Fatalf("exported %d games, want 1", len(exported.Games))
+	if len(exported.Games) != 2 {
+		t.Fatalf("exported %d games, want 2", len(exported.Games))
+	}
+	if len(exported.Platforms) != 1 || fmt.Sprint(exported.Platforms[0].IGDBPlatformIDs) != "[130]" {
+		t.Errorf("platforms = %+v, want Nintendo Switch linked to IGDB platform 130", exported.Platforms)
 	}
 
-	game := exported.Games[0]
+	game := exported.Games[1]
 	if game.Platform == nil || *game.Platform != "Nintendo Switch" {
 		t.Errorf("platform = %v, want it written by name", game.Platform)
 	}

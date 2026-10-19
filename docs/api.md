@@ -64,6 +64,8 @@ GET    /api/metadata/capabilities           which metadata lookups this deployme
 GET    /api/metadata/games?title=           looks a game up on IGDB
 GET    /api/metadata/companies?ids=         names IGDB companies by id
 GET    /api/metadata/companies/{id}/page    redirects to a company's page on IGDB
+GET    /api/metadata/platforms?ids=         names IGDB platforms by id
+GET    /api/metadata/platforms/{id}/page    redirects to a platform's page on IGDB
 GET    /api/metadata/games/{id}/page        redirects to a game's page on IGDB
 ```
 
@@ -73,9 +75,9 @@ Listing the games of a genre, a developer, a publisher or a platform is a filter
 
 A game is written with its relations as ids (`platform_id`, `genre_ids`, `developer_ids`, `publisher_ids`) and read back with them loaded, so saving a game can never create or rename a genre by accident. `PUT` replaces the whole record: anything left out of the body is cleared.
 
-The one way a game write creates records is on request: `new_developers` and `new_publishers` name developers and publishers to attach, created if the library does not have them yet, and `developer_links` and `publisher_links` tie existing ones to the IGDB company each stands for. Developers and publishers are read back with the `igdb_company_ids` they are linked to. A game carries the `igdb_id` of the IGDB game it was identified as; like every other field of a write, leaving it out unlinks the game. All of it is written in the same transaction as the game, so a write that fails, or a form that is abandoned, leaves nothing behind.
+The one way a game write creates records is on request: `new_developers` and `new_publishers` name developers and publishers to attach, created if the library does not have them yet, and `developer_links` and `publisher_links` tie existing ones to the IGDB company each stands for. `new_platform` and `platform_link` do the same for the game's platform. Developers and publishers are read back with the `igdb_company_ids` they are linked to, and platforms with their `igdb_platform_ids`. An IGDB company stands for one developer (or publisher) at most, so linking it again moves it; an IGDB platform can stand for several platforms (a library's "PC" and "Steam Deck" are both IGDB's PC), so a new link adds to the ones it has. A game carries the `igdb_id` of the IGDB game it was identified as; like every other field of a write, leaving it out unlinks the game. All of it is written in the same transaction as the game, so a write that fails, or a form that is abandoned, leaves nothing behind.
 
-`GET /api/metadata/games` searches IGDB by title and answers with the candidate games, their release date, developers and publishers. Each developer and publisher comes with the record of your library it most likely is: the one already linked to that IGDB company, or a guess from the name, which the game form shows as a suggestion to confirm. It needs IGDB credentials (see [Self-hosting](self-hosting.md#game-metadata-igdb)): without them it answers `501`, and `GET /api/metadata/capabilities` reports `identify: false`. When IGDB itself fails, the answer is `424`.
+`GET /api/metadata/games` searches IGDB by title and answers with the candidate games, their release date, platforms, developers and publishers. Each platform, developer and publisher comes with the record of your library it most likely is: the one already linked to it on IGDB (for a platform linked to several, the one with the most games), or a guess from the name, which the game form shows as a suggestion to confirm. A platform is guessed from IGDB's abbreviation ("PS5") before its full name. It needs IGDB credentials (see [Self-hosting](self-hosting.md#game-metadata-igdb)): without them it answers `501`, and `GET /api/metadata/capabilities` reports `identify: false`. When IGDB itself fails, the answer is `424`.
 
 An uploaded image is stored as what its bytes say it is, whatever the file was called. `POST /api/images` accepts PNG, JPEG, WebP, GIF and AVIF, and converts AVIF to JPEG (or PNG, when it has transparency), so the URL it answers with can end in a different extension from the file sent.
 
