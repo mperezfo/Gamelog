@@ -4,16 +4,18 @@ import { createPortal } from 'react-dom'
 import { autoUpdate, flip, offset, shift, useFloating, type Placement } from '@floating-ui/react-dom'
 
 interface PopoverProps {
-  /** What the popover hangs off. A press on it is not "outside": its own
-   * click is what opens and closes the popover. */
+  /** What the popover hangs off. */
   anchorRef: RefObject<HTMLElement | null>
   open: boolean
   /** After Escape focus also goes back to the anchor; after a press
    * elsewhere it stays wherever that press put it. */
   onClose: () => void
-  /** Where focus goes back to on Escape, when the anchor itself does not
-   * take it (a field drawn around a button, say). Defaults to the anchor. */
-  returnFocusRef?: RefObject<HTMLElement | null>
+  /** The button that opens and closes it, where it is not the anchor itself
+   * (a field drawn around one, say). A press on it is not "outside", since
+   * its own click is what toggles the popover, and focus goes back to it on
+   * Escape. A press anywhere else, the rest of the anchor included, closes
+   * the popover. Defaults to the anchor. */
+  triggerRef?: RefObject<HTMLElement | null>
   placement?: Placement
   /** Names the popover for assistive technology. */
   'aria-label': string
@@ -36,7 +38,7 @@ interface PopoverProps {
  */
 export function Popover({
   anchorRef,
-  returnFocusRef = anchorRef,
+  triggerRef = anchorRef,
   open,
   onClose,
   placement = 'bottom-start',
@@ -77,7 +79,7 @@ export function Popover({
 
     function handlePointerDown(event: PointerEvent) {
       const target = event.target as Node
-      if (panelRef.current?.contains(target) || anchorRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return
       onCloseRef.current()
     }
     document.addEventListener('pointerdown', handlePointerDown)
@@ -85,7 +87,7 @@ export function Popover({
       cancelAnimationFrame(frame)
       document.removeEventListener('pointerdown', handlePointerDown)
     }
-  }, [open, anchorRef])
+  }, [open, triggerRef])
 
   if (!open) return null
 
@@ -103,12 +105,12 @@ export function Popover({
         if (event.key !== 'Escape') return
         event.stopPropagation()
         onClose()
-        returnFocusRef.current?.focus()
+        triggerRef.current?.focus()
       }}
       onBlur={(event) => {
         // Tab out of it, not a move between two things inside it.
         const next = event.relatedTarget as Node | null
-        if (next && !event.currentTarget.contains(next) && !anchorRef.current?.contains(next)) onClose()
+        if (next && !event.currentTarget.contains(next) && !triggerRef.current?.contains(next)) onClose()
       }}
       className={[
         'z-[70] animate-[gl-appear_100ms_ease-out] rounded-control border border-line bg-surface outline-none',

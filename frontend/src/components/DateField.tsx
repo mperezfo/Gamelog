@@ -261,7 +261,7 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
 
       <Popover
         anchorRef={fieldRef}
-        returnFocusRef={pickerButtonRef}
+        triggerRef={pickerButtonRef}
         open={picking}
         onClose={() => setPicking(false)}
         aria-label={`Pick the ${label.toLowerCase()}`}
