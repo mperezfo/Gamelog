@@ -15,6 +15,12 @@ export function updateLookup(kind: LookupKind, id: number, input: LookupInput): 
   return apiSend<Lookup>(`/${kind}/${id}`, 'PUT', input)
 }
 
+/** Forgets that a developer, publisher or platform stands for one IGDB
+ * company or platform. */
+export function unlinkLookupFromIgdb(kind: LookupKind, id: number, igdbId: number): Promise<void> {
+  return apiFetch<void>(`/${kind}/${id}/igdb/${igdbId}`, { method: 'DELETE' })
+}
+
 export function deleteLookup(kind: LookupKind, id: number): Promise<void> {
   return apiFetch<void>(`/${kind}/${id}`, { method: 'DELETE' })
 }

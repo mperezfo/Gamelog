@@ -5,7 +5,7 @@ import { errorMessage } from '../api/client'
 import { igdbPage } from '../api/metadata'
 import { Button } from '../components/Button'
 import { Field } from '../components/Field'
-import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon } from '../components/icons'
+import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { PlatformBadge } from '../components/PlatformBadge'
@@ -407,6 +407,8 @@ function LookupForm({
   const [icon, setIcon] = useState(item?.icon ?? '')
   const [color, setColor] = useState(item?.color ?? DEFAULT_COLOR)
   const links = item ? igdbLinksOf(kind, item) : { kind: 'companies' as const, ids: [] }
+  // IGDB links to forget on Save, struck through until then.
+  const [unlinking, setUnlinking] = useState<number[]>([])
 
   const create = useCreateLookup(kind)
   const update = useUpdateLookup(kind)
@@ -419,7 +421,7 @@ function LookupForm({
     const input = { name, icon: icon || null, color: kind === 'platforms' ? color : null }
 
     if (item) {
-      update.mutate({ id: item.id, input }, { onSuccess: onDone })
+      update.mutate({ id: item.id, input, unlink: unlinking }, { onSuccess: onDone })
     } else {
       create.mutate(input, { onSuccess: onDone })
     }
@@ -458,21 +460,41 @@ function LookupForm({
         )}
       </div>
       {item && kind !== 'genres' && (
-        // Read-only: a link is made, or moved, from a game's Identify.
+        // A link is made, or moved, from a game's Identify: here it can only
+        // be dropped, on Save like the rest of the form.
         <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
           {links.ids.length > 0 ? (
             <>
               Linked to IGDB as {links.ids.length === 1 ? IGDB_NOUN[links.kind].one : IGDB_NOUN[links.kind].many}
-              {links.ids.map((id) => (
-                <IgdbLink
-                  key={id}
-                  kind={links.kind}
-                  id={id}
-                  className="tabular-nums underline decoration-line-strong underline-offset-2"
-                >
-                  {id}
-                </IgdbLink>
-              ))}
+              {links.ids.map((id) => {
+                const dropped = unlinking.includes(id)
+                return (
+                  <span key={id} className="inline-flex items-center gap-1">
+                    {dropped ? (
+                      <s className="tabular-nums decoration-ink-faint">{id}</s>
+                    ) : (
+                      <IgdbLink
+                        kind={links.kind}
+                        id={id}
+                        className="tabular-nums underline decoration-line-strong underline-offset-2"
+                      >
+                        {id}
+                      </IgdbLink>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setUnlinking((current) => (dropped ? current.filter((x) => x !== id) : [...current, id]))
+                      }
+                      title={dropped ? 'Keep this link' : 'Unlink when saved'}
+                      aria-label={dropped ? `Keep the link to ${id}` : `Unlink from ${id}`}
+                      className="transition-colors duration-75 hover:text-ink"
+                    >
+                      {dropped ? 'Undo' : <XIcon className="size-3" />}
+                    </button>
+                  </span>
+                )
+              })}
             </>
           ) : (
             'Not linked to IGDB'
