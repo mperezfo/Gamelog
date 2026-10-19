@@ -215,14 +215,15 @@ func registerLookup[T repository.Lookup](
 	})
 
 	huma.Register(api, huma.Operation{
-		OperationID:   "delete-" + meta.singular,
-		Method:        http.MethodDelete,
-		Path:          item,
-		Summary:       "Delete a " + meta.singular,
-		Description:   "Games keep existing: they simply lose the " + meta.singular + ".",
+		OperationID: "delete-" + meta.singular,
+		Method:      http.MethodDelete,
+		Path:        item,
+		Summary:     "Delete a " + meta.singular,
+		Description: "Refused with 409 while any game still carries the " + meta.singular + ": " +
+			"take it off those games first, so that no game loses it as a side effect.",
 		Tags:          tags,
 		DefaultStatus: http.StatusNoContent,
-		Errors:        []int{http.StatusUnauthorized, http.StatusNotFound},
+		Errors:        []int{http.StatusUnauthorized, http.StatusNotFound, http.StatusConflict},
 	}, func(ctx context.Context, input *lookupIDInput) (*struct{}, error) {
 		repo, err := lookupRepo[T](ctx, db)
 		if err != nil {
