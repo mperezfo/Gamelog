@@ -401,3 +401,34 @@
     background: transparent;
   }
 }
+
+/*
+ * ColorField's free picker (react-colorful), in the theme's shapes instead of
+ * the library's own rounded 200px square. Outside any layer on purpose: the
+ * library injects its stylesheet at runtime, unlayered, and an unlayered rule
+ * beats a layered one whatever its specificity.
+ */
+.gl-colorful.react-colorful {
+  width: 100%;
+  height: 150px;
+  gap: 8px;
+}
+
+.gl-colorful .react-colorful__saturation {
+  border-bottom: none;
+  border-radius: var(--radius-control);
+}
+
+.gl-colorful .react-colorful__hue,
+.gl-colorful .react-colorful__last-control {
+  height: 12px;
+  border-radius: var(--radius-control);
+}
+
+.gl-colorful .react-colorful__pointer {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
