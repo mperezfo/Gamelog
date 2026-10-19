@@ -119,6 +119,8 @@ The whole import is one transaction: a document either lands completely or not a
 }
 ```
 
+A value longer than Gamelog takes is left out the same way, with a note: a title over 255 characters skips its game, a tagline that long is left out of it, and so is a name over 100 characters or a platform colour not written as `#rrggbb`. The document can be up to 64 MiB.
+
 A round trip from the command line, logging in first for a session cookie:
 
 ```sh

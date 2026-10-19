@@ -20,6 +20,11 @@ import (
 // library's own covers add up, but nothing legitimate needs more than this.
 const maxBackupSize = 128 << 20 // 128 MiB
 
+// maxImportDocumentSize caps the document POST /api/import reads, in place of the 1
+// MiB every other body is held to: the export of a large library, notes
+// included, is past that, and has to be importable back.
+const maxImportDocumentSize = 64 << 20 // 64 MiB
+
 // portabilityTag groups the two operations that move the whole library in and
 // out of the application.
 const portabilityTag = "Import and export"
@@ -129,14 +134,19 @@ func registerPortability(api huma.API, db *gorm.DB, authentication *auth.Service
 			"them. Within a game, a field the document leaves out keeps the value the library " +
 			"holds, while a field sent empty clears it.\n\n" +
 			"Entries that cannot be imported do not fail the import: they are skipped and " +
-			"listed in the report, together with everything the importer had to interpret. " +
+			"listed in the report, together with everything the importer had to interpret. A " +
+			"value longer than the application takes (a title over 255 characters, a name over " +
+			"100) is left out the same way. " +
 			"Nothing is written unless the whole document is applied, and `dry_run=true` " +
-			"answers with the report without writing at all.\n\n" +
+			"answers with the report without writing at all. The document can be up to 64 MiB.\n\n" +
 			"`replace` empties your games and nobody else's. The platforms, genres, developers " +
 			"and publishers survive it too: they are, at worst, unused entries in a dropdown " +
 			"afterwards, and deleting one is its own deliberate act.",
 		Tags:   []string{portabilityTag},
-		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity},
+		Errors: []int{http.StatusUnauthorized, http.StatusRequestEntityTooLarge, http.StatusUnprocessableEntity},
+		// Time enough to send that much over a slow connection.
+		MaxBodyBytes:    maxImportDocumentSize,
+		BodyReadTimeout: 5 * time.Minute,
 	}, func(ctx context.Context, input *importInput) (*importOutput, error) {
 		user, err := currentUser(ctx)
 		if err != nil {
