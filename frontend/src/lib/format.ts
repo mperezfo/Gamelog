@@ -18,9 +18,19 @@ export const MONTH_ABBREVIATIONS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ] as const
 
+/** The calendar date an API date names, as a local Date at midnight. The API
+ * writes a date as midnight UTC ("2024-05-17T00:00:00Z"), and a form holds it
+ * as "2024-05-17": either way the date is the first ten characters, wherever
+ * the viewer is. `new Date(iso)` would read the instant in local time
+ * instead, which west of UTC is the evening of the day before. */
+function calendarDate(iso: string): Date {
+  const [year, month, day] = iso.slice(0, 10).split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
 export function formatDate(iso: string | null | undefined, format: DateFormat = 'long'): string {
   if (!iso) return '—'
-  const date = new Date(iso)
+  const date = calendarDate(iso)
 
   if (format === 'long') {
     return `${date.getDate()} ${MONTH_ABBREVIATIONS[date.getMonth()]} ${date.getFullYear()}`
@@ -72,8 +82,8 @@ function pluralize(n: number, word: string): string {
  * reads best, the way a human would describe it rather than an exact
  * duration. */
 export function formatDurationSpan(fromIso: string, toIso: string, format: DateFormat = 'long'): string {
-  const from = new Date(fromIso)
-  const to = new Date(toIso)
+  const from = calendarDate(fromIso)
+  const to = calendarDate(toIso)
   if (from.getTime() === to.getTime()) return formatDate(fromIso, format)
 
   let months = (to.getFullYear() - from.getFullYear()) * 12 + (to.getMonth() - from.getMonth())
