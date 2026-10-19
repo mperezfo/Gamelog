@@ -191,12 +191,12 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
   }
 
   const PLACEHOLDER: Record<SegmentKind, string> = { d: 'DD', m: 'MM', y: 'YYYY' }
-  const WIDTH: Record<SegmentKind, string> = { d: 'w-6', m: 'w-6', y: 'w-9' }
+  const WIDTH: Record<SegmentKind, string> = { d: 'w-6', m: 'w-6', y: 'w-10' }
 
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[13px] font-medium text-ink-muted">{label}</label>
-      <div className="relative flex h-9 items-center gap-1 rounded-control bg-sunken pr-8 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40">
+      <div className="relative flex h-9 items-center gap-1 rounded-control bg-sunken pr-7 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40">
         {order.map((kind, index) => (
           <span key={kind} className="flex items-center gap-1">
             {index > 0 && separator && <span className="text-sm text-ink-faint">{separator}</span>}
