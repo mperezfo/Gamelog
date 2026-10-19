@@ -119,7 +119,7 @@ export function MultiSelectDropdown({
         {pending.map((item) => (
           <span
             key={`new-${item.name}`}
-            title="Created when the game is saved"
+            data-tooltip="Created when the game is saved"
             className="inline-flex items-center gap-1 rounded-[4px] bg-hover px-1.5 py-0.5 text-xs font-medium text-ink"
           >
             {/* Baseline rather than centre: small capitals centred on a line

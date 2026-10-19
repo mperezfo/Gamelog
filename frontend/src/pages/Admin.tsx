@@ -94,7 +94,7 @@ function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
           <div className="flex shrink-0 items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
             <Button
               variant="ghost"
-              title="Set a new password"
+              data-tooltip="Set a new password"
               aria-label={`Set a new password for ${user.username}`}
               onClick={() => setPanel(panel === 'reset' ? 'none' : 'reset')}
               className="px-2"
@@ -103,7 +103,7 @@ function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
             </Button>
             <Button
               variant="danger"
-              title="Delete this account"
+              data-tooltip="Delete this account"
               aria-label={`Delete ${user.username}`}
               onClick={() => setPanel(panel === 'delete' ? 'none' : 'delete')}
               className="px-2"

@@ -226,7 +226,8 @@ function ImageOption({ image, onPick }: ImageOptionProps) {
     <button
       type="button"
       onClick={onPick}
-      title={size ? `Use this image (${size})` : 'Use this image'}
+      data-tooltip={size ? `Use this image (${size})` : 'Use this image'}
+      aria-label={size ? `Use this image (${size})` : 'Use this image'}
       className={[
         'group relative block w-full overflow-hidden rounded-[4px] bg-sunken',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40',

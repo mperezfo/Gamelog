@@ -29,8 +29,8 @@ export function GamesStats({ stats }: { stats: GamesStatsData }) {
   )
   const ranges = (
     <>
-      {stats.releaseSpan && <span title={stats.releaseRange ?? undefined}>Release range: {stats.releaseSpan}</span>}
-      {stats.loggedSpan && <span title={stats.loggedRange ?? undefined}>Logged range: {stats.loggedSpan}</span>}
+      {stats.releaseSpan && <span data-tooltip={stats.releaseRange ?? undefined}>Release range: {stats.releaseSpan}</span>}
+      {stats.loggedSpan && <span data-tooltip={stats.loggedRange ?? undefined}>Logged range: {stats.loggedSpan}</span>}
     </>
   )
 

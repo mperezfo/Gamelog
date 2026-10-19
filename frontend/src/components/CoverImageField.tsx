@@ -64,7 +64,7 @@ const REVEAL_MS = 500
 function CoverButton({ label, ...props }: ComponentProps<typeof Button> & { label: string }) {
   return (
     <span className="flex rounded-control bg-surface">
-      <Button className="px-2" title={label} aria-label={label} {...props} />
+      <Button className="px-2" data-tooltip={label} aria-label={label} {...props} />
     </span>
   )
 }

@@ -259,7 +259,7 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                     type="button"
                     onClick={() => onSelectGame(game)}
                     onPointerEnter={() => preloadImage(game.cover_image_url)}
-                    title={game.title}
+                    data-tooltip={game.title}
                     className={`flex w-full items-center truncate overflow-hidden rounded-[3px] text-left font-medium transition-colors duration-75 hover:brightness-95 ${
                       single ? 'flex-col text-center' : 'gap-1 py-0.5 pr-1 pl-0.5 text-[11px]'
                     } ${game.platform?.color ? '' : 'bg-sunken text-ink hover:bg-hover'} ${unreleased ? UNRELEASED_RING : ''}`}

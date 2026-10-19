@@ -403,7 +403,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
               <Button
                 variant="ghost"
                 className="shrink-0 px-2"
-                title={
+                data-tooltip={
                   capabilities.data.identify
                     ? 'Fill in the title, release date, platform, developers and publishers from IGDB'
                     : 'Fill in the details from IGDB (IGDB credentials not set up on this server)'
@@ -600,7 +600,8 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
               <Button
                 variant="danger"
                 className="px-2"
-                title="Delete this game"
+                data-tooltip="Delete this game"
+                aria-label="Delete this game"
                 onClick={() => setConfirmingDelete(true)}
                 disabled={offline}
               >
@@ -636,7 +637,7 @@ function IgdbGameLink({ id, unlinked, canOpen, onUnlink, onUndo }: IgdbGameLinkP
         href={igdbPage('games', id)}
         target="_blank"
         rel="noopener noreferrer"
-        title="View on IGDB"
+        data-tooltip="View on IGDB"
         className="inline-flex items-center gap-1 transition-colors duration-75 hover:text-ink"
       >
         Linked to IGDB

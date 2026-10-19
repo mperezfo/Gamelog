@@ -41,7 +41,7 @@ export function ThemeSwitch({ theme, onChange }: ThemeSwitchProps) {
           <button
             key={option}
             type="button"
-            title={LABELS[option]}
+            data-tooltip={LABELS[option]}
             aria-label={LABELS[option]}
             aria-pressed={selected}
             onClick={() => onChange(option)}

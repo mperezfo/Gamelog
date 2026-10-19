@@ -7,13 +7,13 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { errorMessage, UnreachableError } from './api/client'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { Tooltips } from './components/Tooltips'
 import { useReconnect } from './hooks/useOffline'
 import { useOfflineSync } from './hooks/useOfflineSync'
 import { useScrollbarFade } from './hooks/useScrollbarFade'
 import { useSession } from './hooks/useSession'
 import { useSetupStatus } from './hooks/useSetup'
 import { useTapFeedback } from './hooks/useTapFeedback'
-import { useTruncationTooltip } from './hooks/useTruncationTooltip'
 import { clearOfflineCache, persistOptions } from './lib/offlineCache'
 import { clearImageCache } from './lib/serviceWorker'
 import { Account } from './pages/Account'
@@ -42,7 +42,6 @@ const queryClient = new QueryClient({
 })
 
 export default function App() {
-  useTruncationTooltip()
   useScrollbarFade()
   useTapFeedback()
 
@@ -59,6 +58,7 @@ export default function App() {
         <BrowserRouter>
           <Gate />
         </BrowserRouter>
+        <Tooltips />
       </ThemeProvider>
     </PersistQueryClientProvider>
   )

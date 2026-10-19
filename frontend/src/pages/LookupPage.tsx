@@ -74,7 +74,7 @@ function IgdbLink({
 
   if (!capabilities.data?.identify) {
     return (
-      <span title="Linked to IGDB" className={`inline-flex items-center gap-1 ${className}`}>
+      <span data-tooltip="Linked to IGDB" className={`inline-flex items-center gap-1 ${className}`}>
         {content}
       </span>
     )
@@ -84,7 +84,7 @@ function IgdbLink({
       href={igdbPage(kind, id)}
       target="_blank"
       rel="noopener noreferrer"
-      title="View on IGDB"
+      data-tooltip="View on IGDB"
       className={`inline-flex items-center gap-1 transition-colors duration-75 hover:text-ink ${className}`}
     >
       {content}
@@ -133,7 +133,8 @@ function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        title={`Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`}
+        data-tooltip={`Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`}
+        aria-label={`Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`}
         aria-expanded={open}
         className="inline-flex text-ink-faint transition-colors duration-75 hover:text-ink"
       >
@@ -150,7 +151,7 @@ function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
               onClick={() => setOpen(false)}
               className="flex items-center justify-between gap-3 rounded-control px-2 py-1.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
             >
-              <span className="truncate" title={names.get(id)}>
+              <span className="truncate">
                 {names.get(id) ?? `${IGDB_NOUN[kind].one} ${id}`}
               </span>
               <ExternalLinkIcon className="size-3 shrink-0 text-ink-faint" />
@@ -243,7 +244,7 @@ export function LookupPage({ kind, title }: LookupPageProps) {
                 type="button"
                 onClick={() => setSortMode('count')}
                 aria-pressed={sortMode === 'count'}
-                title="Sort by number of games"
+                data-tooltip="Sort by number of games"
                 className={[
                   'h-full rounded-control px-2.5 text-xs font-medium transition-colors duration-75',
                   sortMode === 'count' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(15_15_15/0.08)]' : 'text-ink-faint hover:text-ink-muted',
@@ -255,7 +256,7 @@ export function LookupPage({ kind, title }: LookupPageProps) {
                 type="button"
                 onClick={() => setSortMode('name')}
                 aria-pressed={sortMode === 'name'}
-                title="Sort alphabetically"
+                data-tooltip="Sort alphabetically"
                 className={[
                   'h-full rounded-control px-2.5 text-xs font-medium transition-colors duration-75',
                   sortMode === 'name' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(15_15_15/0.08)]' : 'text-ink-faint hover:text-ink-muted',
@@ -354,13 +355,13 @@ function LookupRow({
         </span>
 
         <div className="flex shrink-0 items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
-          <Button variant="ghost" className="px-2" title="Rename" aria-label={`Rename ${item.name}`} onClick={onEdit} disabled={offline}>
+          <Button variant="ghost" className="px-2" data-tooltip="Rename" aria-label={`Rename ${item.name}`} onClick={onEdit} disabled={offline}>
             <PencilIcon />
           </Button>
           <Button
             variant="danger"
             className="px-2"
-            title="Delete"
+            data-tooltip="Delete"
             aria-label={`Delete ${item.name}`}
             onClick={() => setConfirming(true)}
             disabled={offline}
@@ -487,7 +488,7 @@ function LookupForm({
                       onClick={() =>
                         setUnlinking((current) => (dropped ? current.filter((x) => x !== id) : [...current, id]))
                       }
-                      title={dropped ? 'Keep this link' : 'Unlink when saved'}
+                      data-tooltip={dropped ? 'Keep this link' : 'Unlink when saved'}
                       aria-label={dropped ? `Keep the link to ${id}` : `Unlink from ${id}`}
                       className="transition-colors duration-75 hover:text-ink"
                     >
