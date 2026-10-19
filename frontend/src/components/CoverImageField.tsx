@@ -138,15 +138,14 @@ export function CoverImageField({
     setCoverAspect({ url: value, aspect: image.naturalWidth / image.naturalHeight })
   }
 
-  // Rerun on leaving the crop editor or the image search, which unmount the
-  // banner.
+  // Rerun on leaving the crop editor, which unmounts the banner.
   useEffect(() => {
     const box = coverBoxRef.current
     if (!box) return
     const observer = new ResizeObserver(() => setBoxAspect(box.clientWidth / box.clientHeight))
     observer.observe(box)
     return () => observer.disconnect()
-  }, [cropping, searching])
+  }, [cropping])
 
   const coverStyle =
     coverAspect?.url === value && boxAspect
@@ -301,18 +300,7 @@ export function CoverImageField({
         onChange={(event) => void handleFile(event.target.files?.[0])}
       />
 
-      {searching && imageSearch ? (
-        <ImageSearch
-          title={imageSearch.title}
-          igdbId={imageSearch.igdbId}
-          sources={imageSearch.sources}
-          onPick={(url) => {
-            applyImage(url)
-            setSearching(false)
-          }}
-          onClose={() => setSearching(false)}
-        />
-      ) : cropping ? (
+      {cropping ? (
         <>
           <div
             ref={containerRef}
@@ -550,6 +538,22 @@ export function CoverImageField({
       )}
 
       {error && <Notice tone="error">{error}</Notice>}
+
+      {/* Outside the cover box: the dialog is drawn elsewhere, but its
+          events still bubble through here, and a click in it would toggle
+          the box's overlay. */}
+      {searching && imageSearch && (
+        <ImageSearch
+          title={imageSearch.title}
+          igdbId={imageSearch.igdbId}
+          sources={imageSearch.sources}
+          onPick={(url) => {
+            applyImage(url)
+            setSearching(false)
+          }}
+          onClose={() => setSearching(false)}
+        />
+      )}
     </div>
   )
 }
