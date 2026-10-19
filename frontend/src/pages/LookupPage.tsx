@@ -418,6 +418,7 @@ function LookupForm({
 
   function submit(event: FormEvent) {
     event.preventDefault()
+    if (!name.trim()) return
     const input = { name, icon: icon || null, color: kind === 'platforms' ? color : null }
 
     if (item) {
@@ -503,7 +504,7 @@ function LookupForm({
       )}
       {error && <Notice tone="error">{errorMessage(error)}</Notice>}
       <div className="flex gap-2">
-        <Button type="submit" variant="primary" disabled={saving || offline}>
+        <Button type="submit" variant="primary" disabled={saving || offline || !name.trim()}>
           {saving ? 'Saving…' : item ? 'Save' : 'Create'}
         </Button>
         <Button onClick={onDone}>Cancel</Button>

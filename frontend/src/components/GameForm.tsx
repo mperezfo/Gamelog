@@ -295,7 +295,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     event.preventDefault()
     // Not left to the disabled button alone: a form has other ways to be
     // submitted than a click on it.
-    if (duplicateGame || coverBusy) return
+    if (duplicateGame || coverBusy || !title.trim()) return
 
     const input: GameInput = {
       title,
@@ -573,7 +573,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
 
       <div className="flex items-center justify-between gap-2 pt-2">
         <div className="flex gap-2">
-          <Button type="submit" variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame)}>
+          <Button type="submit" variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame) || !title.trim()}>
             {saving ? 'Saving…' : coverBusy ? 'Storing cover…' : game ? 'Save' : 'Create game'}
           </Button>
           {onCancel && <Button onClick={onCancel}>Cancel</Button>}
