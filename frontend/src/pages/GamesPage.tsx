@@ -372,6 +372,8 @@ export function GamesPage() {
           <Field
             label=""
             aria-label="Search games"
+            autoComplete="off"
+            spellCheck={false}
             placeholder="Search games…"
             value={search}
             onChange={(event) => setSearch(event.target.value)}

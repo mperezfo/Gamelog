@@ -435,6 +435,7 @@ function LookupForm({
         <Field
           label="Name"
           value={name}
+          spellCheck={false}
           onChange={(event) => setName(event.target.value)}
           autoFocus
           required

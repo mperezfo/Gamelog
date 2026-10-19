@@ -186,12 +186,23 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* A phone's browser flashes its own grey or blue box over whatever was
+       tapped; the ripple below (useTapFeedback) is the app's own. */
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* The theme switch and the row actions change on hover; everything else
      should not animate just because it can. */
   button {
     cursor: pointer;
+    /* A double click on a button is two presses, not a word to select. */
+    user-select: none;
+  }
+
+  /* A long press on a picture on iOS opens the system's own save-and-share
+     sheet, which only gets in the way of pressing the cover underneath. */
+  img {
+    -webkit-touch-callout: none;
   }
 
   /* For a loading indicator: it only fades in once the wait has lasted
@@ -302,6 +313,27 @@
     outline: none;
   }
 
+  /* What a Tab press lands on gets the same ring everywhere: the one Button,
+   * Field and the rest draw for themselves (ring-2 ring-accent/40), here as
+   * an outline for every link, nav row and plain button that does not, so
+   * that none of them is left with the browser's own (a black and white
+   * double line in Chromium, a blue one in Firefox). Anything that draws its
+   * own ring turns this off with `outline-none`. */
+  :focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--gl-accent) 40%, transparent);
+    outline-offset: 0;
+  }
+
+  /* And none of those rings, outline or Tailwind ring alike, unless focus is
+   * really being moved with the keyboard (see useInputModality): Chromium
+   * lights up a clicked button's ring at any key, Super or Ctrl included.
+   * Text inputs keep theirs, which marks where the typing goes however the
+   * input was reached. */
+  html:not([data-input='keyboard']) :is(:focus-visible, :focus-visible *):not(input, textarea) {
+    outline: none !important;
+    --tw-ring-shadow: 0 0 #0000 !important;
+  }
+
   /* Thin, unobtrusive scrollbars everywhere, hidden entirely until they're
    * actually wanted: a container's thumb only shows up while the pointer is
    * over it or it was scrolled a moment ago (the `.gl-scrolling` class —
@@ -313,20 +345,26 @@
    * visible scrollbar so the page never reads as unscrollable.
    *
    * `scrollbar-color` covers Firefox and `::-webkit-scrollbar-thumb` covers
-   * Chromium — the two don't share a mechanism, so both are written. */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: transparent transparent;
-    transition: scrollbar-color 200ms ease;
-  }
+   * Chromium and Safari — the two don't share a mechanism, so both are
+   * written. The standard properties are kept to Firefox alone: since
+   * Chromium 121, an element with either of them set draws the browser's
+   * own scrollbar, little arrow buttons at both ends included, and ignores
+   * every ::-webkit-scrollbar rule below. */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: transparent transparent;
+      transition: scrollbar-color 200ms ease;
+    }
 
-  *:hover,
-  .gl-scrolling {
-    scrollbar-color: var(--gl-line-strong) transparent;
-  }
+    *:hover,
+    .gl-scrolling {
+      scrollbar-color: var(--gl-line-strong) transparent;
+    }
 
-  .scrollbar-persistent {
-    scrollbar-color: var(--gl-line-strong) transparent !important;
+    .scrollbar-persistent {
+      scrollbar-color: var(--gl-line-strong) transparent !important;
+    }
   }
 
   ::-webkit-scrollbar {
