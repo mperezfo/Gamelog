@@ -9,7 +9,10 @@ import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { Section } from '../components/Section'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useDateFormat } from '../hooks/useSession'
 import { useCreateUser, useDeleteUser, useResetUserPassword, useUsers } from '../hooks/useUsers'
+import { dayKey } from '../lib/calendar'
+import { formatDate } from '../lib/format'
 import type { User } from '../types/auth'
 
 /**
@@ -56,6 +59,7 @@ export function Admin({ admin }: { admin: User }) {
 
 /** One account, with the two things that can be done to it. */
 function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
+  const dateFormat = useDateFormat()
   const [panel, setPanel] = useState<'none' | 'reset' | 'delete'>('none')
 
   return (
@@ -71,7 +75,7 @@ function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
             )}
           </p>
           <p className="mt-0.5 text-xs text-ink-faint">
-            Added {new Date(user.created_at).toLocaleDateString()}
+            Added {formatDate(dayKey(new Date(user.created_at)), dateFormat)}
           </p>
         </div>
 
