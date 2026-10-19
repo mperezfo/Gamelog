@@ -90,6 +90,7 @@ func exportGame(game models.Game) GameEntry {
 	entry := GameEntry{
 		Title:         game.Title,
 		Status:        string(game.Status),
+		Position:      game.Position,
 		Score:         game.Score,
 		Tagline:       game.Tagline,
 		Notes:         game.Notes,

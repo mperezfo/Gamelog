@@ -163,6 +163,7 @@ type ImportGame struct {
 	Title  *string `json:"title,omitempty" nullable:"true" doc:"Title of the game. An entry without one is skipped, since there is nothing to match it on." example:"Hollow Knight"`
 	Status *string `json:"status,omitempty" nullable:"true" doc:"Lifecycle stage. Read loosely: backlog, to play, in progress, finished, completed and their Spanish equivalents all land on one of wishlist, pending, playing or played. A new game with no status is imported as pending." example:"played"`
 
+	Position      *Number `json:"position,omitempty" doc:"Manual order within its status column on the dashboard board, among the games logged on the same date (or with none): lower comes first. Left out or empty, an existing game keeps its own and a new one gets 0."`
 	Score         *Number `json:"score,omitempty" doc:"Personal score from 0 to 10, rounded to one decimal."`
 	Tagline       *string `json:"tagline,omitempty" nullable:"true" doc:"Very short personal description." example:"Lonely bug, big map"`
 	Notes         *string `json:"notes,omitempty" nullable:"true" doc:"Free-form notes."`
@@ -241,6 +242,8 @@ var gameFields = map[string]string{
 
 	"status": "status", "state": "status", "progress": "status",
 	"estado": "status",
+
+	"position": "position", "posicion": "position",
 
 	"score": "score", "rating": "score", "puntuation": "score",
 	"nota": "score", "puntuacion": "score", "valoracion": "score",

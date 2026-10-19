@@ -25,6 +25,7 @@
     {
       "title": "Hollow Knight",
       "status": "played",
+      "position": 3,
       "score": 9.2,
       "tagline": "Lonely bug, big map",
       "notes": null,
@@ -44,6 +45,8 @@
 Relations are written **by name, never by id**. An id belongs to one database, while a name is what you typed, so the file survives being imported into another copy of Gamelog, edited in a text editor, or kept as the backup of a database that no longer exists.
 
 `igdb_company_ids` are the IGDB companies a developer or publisher has been linked to through the game form's Identify button, and `igdb_platform_ids` the IGDB platforms a platform has. They are left out of a record with none, and an import links them again on top of any the record already has; an older file without them imports as before. On an import they can also be a single number or a string (`"37, 1234"`), and anything that is not an id is left out with a warning rather than failing the import.
+
+A game's `position` is its manual order on the dashboard board, among the games of its column logged on the same date (or with none), lower first. A file without it imports as before: a game already in the library keeps its own, and a new one gets 0.
 
 A game's `igdb_id` is the IGDB game it was identified as, and `null` when it was not. An import reads it as a number or a string; an empty value unlinks the game, and anything that is not a single id is left out with a warning.
 

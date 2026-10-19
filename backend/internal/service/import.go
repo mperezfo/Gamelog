@@ -378,6 +378,7 @@ func (r *importRun) buildGame(
 	if current != nil {
 		game.ID = current.ID
 		game.Status = current.Status
+		game.Position = current.Position
 		game.Score = current.Score
 		game.Tagline = current.Tagline
 		game.Notes = current.Notes
@@ -404,6 +405,15 @@ func (r *importRun) buildGame(
 		default:
 			r.warn("games", index, title, fmt.Sprintf(
 				"%q is not a status this import knows, so the game was filed as %q instead", raw, game.Status))
+		}
+	}
+
+	if entry.Position != nil && !entry.Position.Blank {
+		if math.IsNaN(entry.Position.Value) || math.IsInf(entry.Position.Value, 0) {
+			r.warn("games", index, title, fmt.Sprintf(
+				"a position has to be a finite number, so %v was left out", entry.Position.Value))
+		} else {
+			game.Position = entry.Position.Value
 		}
 	}
 
