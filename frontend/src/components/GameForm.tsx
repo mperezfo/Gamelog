@@ -228,10 +228,10 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     }
   }
 
-  // Titles must be unique — matched the same case/accent-insensitive way the
-  // database's own collation would, so this can't flag something the backend
-  // would actually let through (or miss something it wouldn't). Editing a
-  // game never collides with itself.
+  // The form keeps titles unique, which the API does not enforce: an import
+  // matches games by title, and two that share one are ambiguous to it.
+  // Compared the case- and accent-insensitive way the database's collation
+  // compares them. Editing a game never collides with itself.
   const duplicateGame = useMemo(() => {
     const needle = foldCase(title.trim())
     if (!needle) return undefined

@@ -11,12 +11,14 @@
 [changelog]
 header = ""
 trim = true
+# Groups are ordered by the number in the comment that starts their name,
+# which the heading strips: features first, then fixes, and the rest after.
 body = """
 {% for group, commits in commits | group_by(attribute="group") %}
-### {{ group | upper_first }}
+### {{ group | striptags | trim | upper_first }}
 {% for commit in commits %}
 - {{ commit.message | upper_first }} ({{ commit.id | truncate(length=7, end="") }})\
-{% if commit.breaking %} — **BREAKING CHANGE:** {{ commit.breaking_description }}{% endif %}
+{% if commit.breaking %} — **BREAKING CHANGE:** {{ commit.breaking_description }}{% endif %}\
 {% endfor %}
 {% endfor %}\
 """
@@ -31,18 +33,18 @@ tag_pattern = "v[0-9]*"
 sort_commits = "oldest"
 
 commit_parsers = [
-  { message = "^feat", group = "Features" },
+  { message = "^feat", group = "<!-- 0 -->Features" },
   # Security bumps are titled fix(deps); keep them with the other dependencies.
-  { message = "^fix\\(deps\\)", group = "Dependencies" },
-  { message = "^fix", group = "Bug Fixes" },
-  { message = "^perf", group = "Performance" },
-  { message = "^docs", group = "Documentation" },
-  { message = "^refactor", group = "Refactoring" },
-  { message = "^test", group = "Testing" },
-  { message = "^chore\\(deps\\)", group = "Dependencies" },
+  { message = "^fix\\(deps\\)", group = "<!-- 6 -->Dependencies" },
+  { message = "^fix", group = "<!-- 1 -->Bug Fixes" },
+  { message = "^perf", group = "<!-- 2 -->Performance" },
+  { message = "^docs", group = "<!-- 5 -->Documentation" },
+  { message = "^refactor", group = "<!-- 3 -->Refactoring" },
+  { message = "^test", group = "<!-- 4 -->Testing" },
+  { message = "^chore\\(deps\\)", group = "<!-- 6 -->Dependencies" },
   { message = "^chore", skip = true },
   { message = "^ci", skip = true },
   { message = "^build", skip = true },
   { message = "^style", skip = true },
-  { message = "^revert", group = "Reverts" },
+  { message = "^revert", group = "<!-- 7 -->Reverts" },
 ]

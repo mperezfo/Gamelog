@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest commit on `main` is supported. Fixes are not backported.
+Only the latest release is supported. Fixes are not backported: they ship in the next release, and in the `edge` image as soon as they reach `main`.
 
 ## Reporting a vulnerability
 

@@ -71,7 +71,7 @@ Records are matched by name — by title, for a game — ignoring case and accen
 | Query | Default | What it does |
 | --- | --- | --- |
 | `mode=merge` | yes | Writes the document over the library and leaves the rest alone |
-| `mode=replace` |  | Empties the library first, which is how a backup is restored |
+| `mode=replace` |  | Deletes every game first, which is how a backup is restored. Platforms, genres, developers and publishers stay, at worst unused |
 | `dry_run=true` |  | Runs the import, rolls it back and answers with the report it would have produced |
 
 Within a game, a field the document leaves out keeps whatever the library holds, and a field sent empty (`""`, or `[]` for a relation) clears it. So a spreadsheet of nothing but titles and new scores is an update of two columns, not a wipe of everything else.

@@ -30,7 +30,7 @@ export interface Game {
   slug: string
   status: GameStatus
   /** Manual order within its status column on the dashboard board — only a
-   * tiebreaker among games sharing a release_date (or with none). */
+   * tiebreaker among games sharing a logged_date (or with none). */
   position: number
   score: number | null
   tagline: string | null
