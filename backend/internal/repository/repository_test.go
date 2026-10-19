@@ -465,3 +465,40 @@ func TestGameRejectsAnotherAccountsLookup(t *testing.T) {
 		t.Fatalf("Create with a stranger's platform = %v, want ErrInvalidReference", err)
 	}
 }
+
+// TestBackfillSlugsHealsReservedOnes: a game stored before slug.Reserved
+// existed gets a suffixed slug at the next start, and one left alone keeps
+// its own.
+func TestBackfillSlugsHealsReservedOnes(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	reserved := models.Game{Title: "1942", Status: models.StatusPlayed}
+	fine := models.Game{Title: "Doom", Status: models.StatusPlayed}
+	for _, game := range []*models.Game{&reserved, &fine} {
+		if err := f.games.Create(ctx, game, repository.GameRelations{}); err != nil {
+			t.Fatalf("creating %q: %v", game.Title, err)
+		}
+	}
+	if err := f.db.Model(&models.Game{}).Where("id = ?", reserved.ID).Update("slug", "1942").Error; err != nil {
+		t.Fatalf("storing the old slug: %v", err)
+	}
+
+	filled, err := f.games.BackfillSlugs(ctx)
+	if err != nil {
+		t.Fatalf("backfilling: %v", err)
+	}
+	if filled != 1 {
+		t.Errorf("backfilled %d games, want 1", filled)
+	}
+
+	for id, want := range map[uint64]string{reserved.ID: "1942-2", fine.ID: "doom"} {
+		game, err := f.games.Get(ctx, id)
+		if err != nil {
+			t.Fatalf("reading game %d: %v", id, err)
+		}
+		if game.Slug != want {
+			t.Errorf("slug of %q = %q, want %q", game.Title, game.Slug, want)
+		}
+	}
+}

@@ -40,3 +40,20 @@ func Make(title string) string {
 	}
 	return s
 }
+
+// Reserved reports whether a slug, unique or not, must not be stored as it
+// is, because something else already answers at that address:
+//
+//   - all digits: a game is reached by its id or its slug alike (see
+//     GameRepository.Resolve), and a number is read as the id, so a game
+//     titled "1942" would open the game with id 1942.
+//   - "new": the frontend's ?modal=new is the form for a new game, not the
+//     game titled "New".
+//
+// The repository gives a reserved slug a suffix, the same as a taken one.
+func Reserved(s string) bool {
+	if s == "new" {
+		return true
+	}
+	return s != "" && strings.Trim(s, "0123456789") == ""
+}

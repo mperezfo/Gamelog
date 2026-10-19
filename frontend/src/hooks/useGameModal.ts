@@ -11,7 +11,8 @@ import { useGames } from './useGames'
 const PARAM = 'modal'
 
 /** Sentinel `?modal=` value for the "new game" form, which has no slug of
- * its own to point at. */
+ * its own to point at. No game's slug is ever this: the backend gives a game
+ * titled "New" a suffixed one (see slug.Reserved). */
 const NEW = 'new'
 
 /**
