@@ -56,9 +56,16 @@ const UNAVAILABLE_STATUSES = new Set([502, 503, 504])
  * the app should switch to offline before the person gives up on it. */
 const RESPONSE_TIMEOUT_MS = 10_000
 
+/** The same wait for a request that moves a file: an upload, a backup either
+ * way, or an image the server fetches. Its answer cannot start before the
+ * whole file is sent, fetched or put together, which for a backup of every
+ * cover, or an image on a phone's upload speed, takes far longer than any
+ * other request. */
+export const TRANSFER_TIMEOUT_MS = 10 * 60_000
+
 /** Performs a request, telling an unreachable server apart from any answer
  * it gave. */
-async function send(path: string, init: RequestInit): Promise<Response> {
+async function send(path: string, init: RequestInit, timeoutMs = RESPONSE_TIMEOUT_MS): Promise<Response> {
   if (import.meta.env.DEV && isOfflineSimulated()) {
     throw new UnreachableError(path)
   }
@@ -66,7 +73,7 @@ async function send(path: string, init: RequestInit): Promise<Response> {
   // A timer cleared once the server answers, rather than
   // AbortSignal.timeout: aborting after that would cut off a long download.
   const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), RESPONSE_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   let response: Response
   try {
     response = await fetch(`/api${path}`, {
@@ -109,12 +116,17 @@ async function readError(response: Response, path: string): Promise<ApiError> {
   return new ApiError(response.status, path, detail)
 }
 
-/** Performs a request and returns the typed JSON body. */
-export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await send(path, {
-    ...init,
-    headers: { Accept: 'application/json', ...init?.headers },
-  })
+/** Performs a request and returns the typed JSON body. `timeoutMs` is how
+ * long to wait for the answer to start: see TRANSFER_TIMEOUT_MS. */
+export async function apiFetch<T>(path: string, init?: RequestInit, timeoutMs?: number): Promise<T> {
+  const response = await send(
+    path,
+    {
+      ...init,
+      headers: { Accept: 'application/json', ...init?.headers },
+    },
+    timeoutMs,
+  )
 
   if (!response.ok) {
     throw await readError(response, path)
@@ -130,8 +142,8 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
 /** Performs a request and returns the raw response body, for a binary
  * download such as a backup .zip. */
-export async function apiBlob(path: string, init?: RequestInit): Promise<Blob> {
-  const response = await send(path, { ...init })
+export async function apiBlob(path: string, init?: RequestInit, timeoutMs?: number): Promise<Blob> {
+  const response = await send(path, { ...init }, timeoutMs)
 
   if (!response.ok) {
     throw await readError(response, path)
@@ -141,12 +153,16 @@ export async function apiBlob(path: string, init?: RequestInit): Promise<Blob> {
 }
 
 /** Performs a request carrying a JSON body. */
-export function apiSend<T>(path: string, method: string, body: unknown): Promise<T> {
-  return apiFetch<T>(path, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+export function apiSend<T>(path: string, method: string, body: unknown, timeoutMs?: number): Promise<T> {
+  return apiFetch<T>(
+    path,
+    {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    timeoutMs,
+  )
 }
 
 /** The sentence to show a person for a failed request. */

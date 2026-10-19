@@ -1,10 +1,10 @@
 import type { ImportReport } from '../types/backup'
-import { apiBlob, apiFetch } from './client'
+import { apiBlob, apiFetch, TRANSFER_TIMEOUT_MS } from './client'
 
 /** Downloads a full account backup — library, catalogues, profile, password
  * and every image they use — as a .zip. */
 export function exportBackup(): Promise<Blob> {
-  return apiBlob('/backup')
+  return apiBlob('/backup', undefined, TRANSFER_TIMEOUT_MS)
 }
 
 /** Restores a full account backup. Replaces the library and the profile,
@@ -15,5 +15,5 @@ export function importBackup(file: File): Promise<ImportReport> {
   form.append('file', file)
   // No Content-Type here: the browser sets the multipart boundary itself
   // when the body is a FormData.
-  return apiFetch<ImportReport>('/backup', { method: 'POST', body: form })
+  return apiFetch<ImportReport>('/backup', { method: 'POST', body: form }, TRANSFER_TIMEOUT_MS)
 }
