@@ -20,9 +20,9 @@ import (
 // library's own covers add up, but nothing legitimate needs more than this.
 const maxBackupSize = 128 << 20 // 128 MiB
 
-// maxImportDocumentSize caps the document POST /api/import reads, in place of the 1
-// MiB every other body is held to: the export of a large library, notes
-// included, is past that, and has to be importable back.
+// maxImportDocumentSize caps the document POST /api/import reads, in place
+// of the 1 MiB every other body is held to: the export of a large library,
+// notes included, is past that, and has to be importable back.
 const maxImportDocumentSize = 64 << 20 // 64 MiB
 
 // portabilityTag groups the two operations that move the whole library in and
