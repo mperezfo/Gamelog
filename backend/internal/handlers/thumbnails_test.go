@@ -176,3 +176,31 @@ func TestThumbnailPathIsMadeOnceAndNeverUpscales(t *testing.T) {
 		t.Errorf("thumbnailPath of a missing image: err = %v, want not-exist", err)
 	}
 }
+
+// TestThumbnailPathServesTheOriginalPastThePixelCap: an image whose pixels
+// would take more memory than the cap allows is not decoded for a thumbnail,
+// however few bytes its file takes.
+func TestThumbnailPathServesTheOriginalPastThePixelCap(t *testing.T) {
+	dir := t.TempDir()
+	store := newImageStore(dir)
+
+	// One byte a pixel while encoding, and a uniform one compresses to a
+	// few kilobytes.
+	huge := image.NewPaletted(image.Rect(0, 0, 8000, 6000), color.Palette{color.Black})
+	var encoded bytes.Buffer
+	if err := png.Encode(&encoded, huge); err != nil {
+		t.Fatal(err)
+	}
+	name := strings.Repeat("d", 64) + ".png"
+	if err := os.WriteFile(filepath.Join(dir, name), encoded.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	path, err := store.thumbnailPath(name, "md")
+	if err != nil {
+		t.Fatalf("thumbnailPath: %v", err)
+	}
+	if want := filepath.Join(dir, name); path != want {
+		t.Errorf("an image past the pixel cap was served from %q, want the original %q", path, want)
+	}
+}
