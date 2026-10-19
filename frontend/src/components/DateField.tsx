@@ -3,8 +3,10 @@ import { useId, useRef, useState, type FocusEvent, type KeyboardEvent, type RefO
 import { MONTH_ABBREVIATIONS } from '../lib/format'
 import type { DateFormat } from '../types/auth'
 import { useDateFormat } from '../hooks/useSession'
+import { DatePicker } from './DatePicker'
 import { Dropdown } from './Dropdown'
 import { CalendarIcon } from './icons'
+import { Popover } from './Popover'
 
 interface DateFieldProps {
   label: string
@@ -58,6 +60,10 @@ const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(in
  * segment is a Dropdown of the same twelve abbreviations formatDate uses
  * (see MONTH_ABBREVIATIONS) instead of a text box — the only place this
  * field's three segments aren't all the same shape.
+ *
+ * The calendar icon opens DatePicker, the app's own month calendar, rather
+ * than the browser's: a pick from it lands in the segments through `value`,
+ * like any other change from outside.
  */
 export function DateField({ label, value, onChange }: DateFieldProps) {
   const id = useId()
@@ -97,7 +103,9 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
   const monthRef = useRef<HTMLInputElement>(null)
   const monthSelectRef = useRef<HTMLButtonElement>(null)
   const yearRef = useRef<HTMLInputElement>(null)
-  const pickerRef = useRef<HTMLInputElement>(null)
+  const fieldRef = useRef<HTMLDivElement>(null)
+  const pickerButtonRef = useRef<HTMLButtonElement>(null)
+  const [picking, setPicking] = useState(false)
   const refs: Record<SegmentKind, RefObject<HTMLInputElement | null>> = { d: dayRef, m: monthRef, y: yearRef }
 
   /** Writes a date out once all three segments are complete, or clears it
@@ -196,7 +204,10 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[13px] font-medium text-ink-muted">{label}</label>
-      <div className="relative flex h-9 items-center gap-1 rounded-control bg-sunken pr-7 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40">
+      <div
+        ref={fieldRef}
+        className="relative flex h-9 items-center gap-1 rounded-control bg-sunken pr-7 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"
+      >
         {order.map((kind, index) => (
           <span key={kind} className="flex items-center gap-1">
             {index > 0 && separator && <span className="text-sm text-ink-faint">{separator}</span>}
@@ -236,44 +247,34 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
         ))}
 
         <button
+          ref={pickerButtonRef}
           type="button"
-          onClick={() => pickerRef.current?.showPicker?.()}
+          onClick={() => setPicking((open) => !open)}
           className="absolute top-1/2 right-2.5 -translate-y-1/2 text-ink-faint transition-colors duration-75 enabled:hover:text-ink-muted disabled:opacity-50"
           aria-label={`Open the date picker for ${label}`}
+          aria-haspopup="dialog"
+          aria-expanded={picking}
         >
           <CalendarIcon className="size-3.5" />
         </button>
+      </div>
 
-        {/* A real date input, kept for its picker alone: clicking the icon
-            above calls showPicker() on it, and its own change feeds back
-            into the three segments so a pick from the calendar updates them
-            exactly as typing would. Visually hidden rather than removed
-            from layout, which is what keeps showPicker() working — some
-            browsers refuse it on a display:none element. */}
-        <input
-          ref={pickerRef}
-          type="date"
+      <Popover
+        anchorRef={fieldRef}
+        returnFocusRef={pickerButtonRef}
+        open={picking}
+        onClose={() => setPicking(false)}
+        aria-label={`Pick the ${label.toLowerCase()}`}
+      >
+        <DatePicker
           value={value}
-          onChange={(event) => {
-            const next = event.target.value
-            if (!next) {
-              setDay('')
-              setMonth('')
-              setYear('')
-              onChange('')
-              return
-            }
-            const [y, m, d] = next.split('-')
-            setYear(y)
-            setMonth(m)
-            setDay(d)
+          onPick={(next) => {
+            setPicking(false)
+            pickerButtonRef.current?.focus()
             onChange(next)
           }}
-          tabIndex={-1}
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 size-full opacity-0"
         />
-      </div>
+      </Popover>
     </div>
   )
 }
