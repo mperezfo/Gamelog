@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } 
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
-import { igdbCompanyPage } from '../api/metadata'
+import { igdbPage } from '../api/metadata'
 import { Button } from '../components/Button'
 import { Field } from '../components/Field'
 import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon } from '../components/icons'
@@ -12,11 +12,27 @@ import { PlatformBadge } from '../components/PlatformBadge'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFilterParams } from '../hooks/useFilterParams'
 import { useGames } from '../hooks/useGames'
-import { useIgdbCompanies, useMetadataCapabilities } from '../hooks/useMetadata'
+import { useIgdbNames, useMetadataCapabilities } from '../hooks/useMetadata'
 import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '../hooks/useLookups'
 import { useOffline } from '../hooks/useOffline'
 import type { Game } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
+
+/** The IGDB records a developer, publisher or platform is linked to, and
+ * what kind they are. Genres have none. */
+function igdbLinksOf(kind: LookupKind, item: Lookup): { kind: IgdbLinkKind; ids: number[] } {
+  if (kind === 'platforms') return { kind: 'platforms', ids: item.igdb_platform_ids ?? [] }
+  if (kind === 'genres') return { kind: 'companies', ids: [] }
+  return { kind: 'companies', ids: item.igdb_company_ids ?? [] }
+}
+
+type IgdbLinkKind = 'companies' | 'platforms'
+
+/** One IGDB record of a kind, for the copy around the links. */
+const IGDB_NOUN: Record<IgdbLinkKind, { one: string; many: string }> = {
+  companies: { one: 'company', many: 'companies' },
+  platforms: { one: 'platform', many: 'platforms' },
+}
 
 /** A default so a new platform doesn't start colorless. */
 const DEFAULT_COLOR = '#787774'
@@ -32,11 +48,22 @@ const FILTER_PARAM: Record<LookupKind, string> = {
 type SortMode = 'count' | 'name'
 
 /**
- * A developer's or publisher's link to IGDB: the external-link glyph, which
- * opens the company's page there in a new tab. Without IGDB credentials the
- * API cannot find that page, so the glyph only says the link exists.
+ * A developer's, publisher's or platform's link to IGDB: the external-link
+ * glyph, which opens the record's page there in a new tab. Without IGDB
+ * credentials the API cannot find that page, so the glyph only says the link
+ * exists.
  */
-function IgdbLink({ id, className = '', children }: { id: number; className?: string; children?: ReactNode }) {
+function IgdbLink({
+  kind,
+  id,
+  className = '',
+  children,
+}: {
+  kind: IgdbLinkKind
+  id: number
+  className?: string
+  children?: ReactNode
+}) {
   const capabilities = useMetadataCapabilities()
   const content = (
     <>
@@ -54,7 +81,7 @@ function IgdbLink({ id, className = '', children }: { id: number; className?: st
   }
   return (
     <a
-      href={igdbCompanyPage(id)}
+      href={igdbPage(kind, id)}
       target="_blank"
       rel="noopener noreferrer"
       title="View on IGDB"
@@ -67,15 +94,15 @@ function IgdbLink({ id, className = '', children }: { id: number; className?: st
 
 /**
  * The IGDB link of a row in the list. A record linked to a single IGDB
- * company opens its page straight away; one standing for several (Nintendo
- * and its EPD groups, say) asks which, in a small menu naming them as IGDB
- * does, since the library keeps nothing but their ids.
+ * record opens its page straight away; one standing for several (Nintendo
+ * and its EPD groups, say, or a "VR" platform) asks which, in a small menu
+ * naming them as IGDB does, since the library keeps nothing but their ids.
  */
-function IgdbLinks({ ids }: { ids: number[] }) {
+function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
   const capabilities = useMetadataCapabilities()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLSpanElement>(null)
-  const companies = useIgdbCompanies(ids, open)
+  const named = useIgdbNames(kind, ids, open)
 
   useEffect(() => {
     if (!open) return
@@ -94,19 +121,19 @@ function IgdbLinks({ ids }: { ids: number[] }) {
   }, [open])
 
   if (ids.length === 1 || !capabilities.data?.identify) {
-    return <IgdbLink id={ids[0]} className="shrink-0 text-ink-faint" />
+    return <IgdbLink kind={kind} id={ids[0]} className="shrink-0 text-ink-faint" />
   }
 
   // Named as IGDB does once the names are in; by id until then, or if IGDB
   // cannot be reached.
-  const names = new Map((companies.data ?? []).map((company) => [company.id, company.name]))
+  const names = new Map((named.data ?? []).map((record) => [record.id, record.name]))
 
   return (
     <span ref={containerRef} className="relative inline-flex shrink-0">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        title={`Linked to ${ids.length} IGDB companies`}
+        title={`Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`}
         aria-expanded={open}
         className="inline-flex text-ink-faint transition-colors duration-75 hover:text-ink"
       >
@@ -117,14 +144,14 @@ function IgdbLinks({ ids }: { ids: number[] }) {
           {ids.map((id) => (
             <a
               key={id}
-              href={igdbCompanyPage(id)}
+              href={igdbPage(kind, id)}
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => setOpen(false)}
               className="flex items-center justify-between gap-3 rounded-control px-2 py-1.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
             >
               <span className="truncate" title={names.get(id)}>
-                {names.get(id) ?? `Company ${id}`}
+                {names.get(id) ?? `${IGDB_NOUN[kind].one} ${id}`}
               </span>
               <ExternalLinkIcon className="size-3 shrink-0 text-ink-faint" />
             </a>
@@ -288,6 +315,7 @@ function LookupRow({
   const [confirming, setConfirming] = useState(false)
   const remove = useDeleteLookup(kind)
   const offline = useOffline()
+  const links = igdbLinksOf(kind, item)
 
   return (
     <li className="group border-b border-line last:border-0">
@@ -297,7 +325,10 @@ function LookupRow({
             platform's badge is a box of its own, centred instead. */}
         <span className={['flex min-w-0 gap-2', kind === 'platforms' ? 'items-center' : 'items-baseline'].join(' ')}>
           {kind === 'platforms' ? (
-            <PlatformBadge platform={item} />
+            <span className="flex min-w-0 items-center gap-1">
+              <PlatformBadge platform={item} />
+              {links.ids.length > 0 && <IgdbLinks kind={links.kind} ids={links.ids} />}
+            </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2 text-sm text-ink">
               {item.icon && <span aria-hidden="true">{item.icon}</span>}
@@ -306,9 +337,7 @@ function LookupRow({
                   count. */}
               <span className="flex min-w-0 items-center gap-1">
                 <span className="truncate">{item.name}</span>
-                {item.igdb_company_ids && item.igdb_company_ids.length > 0 && (
-                  <IgdbLinks ids={item.igdb_company_ids} />
-                )}
+                {links.ids.length > 0 && <IgdbLinks kind={links.kind} ids={links.ids} />}
               </span>
             </span>
           )}
@@ -377,6 +406,7 @@ function LookupForm({
   const [name, setName] = useState(item?.name ?? '')
   const [icon, setIcon] = useState(item?.icon ?? '')
   const [color, setColor] = useState(item?.color ?? DEFAULT_COLOR)
+  const links = item ? igdbLinksOf(kind, item) : { kind: 'companies' as const, ids: [] }
 
   const create = useCreateLookup(kind)
   const update = useUpdateLookup(kind)
@@ -427,14 +457,19 @@ function LookupForm({
           />
         )}
       </div>
-      {item && (kind === 'developers' || kind === 'publishers') && (
+      {item && kind !== 'genres' && (
         // Read-only: a link is made, or moved, from a game's Identify.
         <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
-          {item.igdb_company_ids && item.igdb_company_ids.length > 0 ? (
+          {links.ids.length > 0 ? (
             <>
-              Linked to IGDB as {item.igdb_company_ids.length === 1 ? 'company' : 'companies'}
-              {item.igdb_company_ids.map((id) => (
-                <IgdbLink key={id} id={id} className="tabular-nums underline decoration-line-strong underline-offset-2">
+              Linked to IGDB as {links.ids.length === 1 ? IGDB_NOUN[links.kind].one : IGDB_NOUN[links.kind].many}
+              {links.ids.map((id) => (
+                <IgdbLink
+                  key={id}
+                  kind={links.kind}
+                  id={id}
+                  className="tabular-nums underline decoration-line-strong underline-offset-2"
+                >
                   {id}
                 </IgdbLink>
               ))}

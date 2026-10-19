@@ -5,10 +5,11 @@ import { useGameCandidates } from '../hooks/useMetadata'
 import { useDateFormat } from '../hooks/useSession'
 import { formatDate } from '../lib/format'
 import { foldCase } from '../lib/fuzzy'
-import type { CompanyLink, NewLookup } from '../types/game'
+import type { CompanyLink, NewLookup, NewPlatform, PlatformLink } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
-import type { CompanyMatch, GameCandidate } from '../types/metadata'
+import type { CompanyMatch, GameCandidate, MatchTarget, PlatformMatch } from '../types/metadata'
 import { Button } from './Button'
+import { Dropdown } from './Dropdown'
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { Notice } from './Notice'
 import { Reveal } from './Reveal'
@@ -21,6 +22,10 @@ export interface IdentifyCurrent {
   releaseDate: string
   /** The IGDB game the form is linked to, or null. */
   igdbId: number | null
+  /** The platform the form holds, by id; null for none or a pending one. */
+  platformId: number | null
+  /** Its name, a pending one included; empty for none. */
+  platform: string
   /** Names of the developers and publishers on the form, pending ones
    * included. */
   developers: string[]
@@ -45,13 +50,22 @@ export interface IdentifyResult {
   releaseDate?: string
   developers?: CompanyResolution
   publishers?: CompanyResolution
+  platform?: PlatformResolution
 }
+
+/** What the platform resolves to: a platform the library has, with a link
+ * to write when it is not linked to the IGDB platform yet, or one to create
+ * on save. */
+export type PlatformResolution = { id: number; link: PlatformLink | null } | { pending: NewPlatform }
 
 interface IdentifyPanelProps {
   title: string
   current: IdentifyCurrent
   /** IGDB games other games of the library are linked to. */
   libraryIgdbIds: ReadonlySet<number>
+  platforms: Lookup[]
+  /** How many games of the library each platform has, by id. */
+  platformGames: ReadonlyMap<number, number>
   developers: Lookup[]
   publishers: Lookup[]
   onApply: (result: IdentifyResult) => void
@@ -59,8 +73,8 @@ interface IdentifyPanelProps {
 }
 
 /**
- * Looks the title up on IGDB and fills in the release date, developers and
- * publishers from the game picked among the results.
+ * Looks the title up on IGDB and fills in the release date, platform,
+ * developers and publishers from the game picked among the results.
  *
  * Two steps, because a title alone is often ambiguous (an original and its
  * remake share one): pick the game, then confirm what it would change. Apply
@@ -71,6 +85,8 @@ export function IdentifyPanel({
   title,
   current,
   libraryIgdbIds,
+  platforms,
+  platformGames,
   developers,
   publishers,
   onApply,
@@ -126,6 +142,8 @@ export function IdentifyPanel({
           <IdentifyConfirm
             candidate={picked}
             current={current}
+            platforms={platforms}
+            platformGames={platformGames}
             developers={developers}
             publishers={publishers}
             onApply={onApply}
@@ -196,7 +214,9 @@ interface CandidateRowProps {
 }
 
 function CandidateRow({ candidate, mark, onPick }: CandidateRowProps) {
-  const details = [releaseYear(candidate), candidate.platforms.join(', ')].filter(Boolean).join(' · ')
+  // Platforms by IGDB's short names, which a phone's width has room for.
+  const platforms = candidate.platforms.map((platform) => platform.abbreviation || platform.name).join(', ')
+  const details = [releaseYear(candidate), platforms].filter(Boolean).join(' · ')
 
   return (
     <button
@@ -277,6 +297,49 @@ function recordName(name: string): string {
   return Array.from(name.trim()).slice(0, MAX_LOOKUP_NAME).join('').trim()
 }
 
+/** IGDB's platforms, those matched to a platform of the library first, by
+ * how many games the library has on it, and the rest in IGDB's order. */
+function orderPlatforms(platforms: PlatformMatch[], games: ReadonlyMap<number, number>): PlatformMatch[] {
+  const count = (platform: PlatformMatch) => (platform.match ? (games.get(platform.match.id) ?? 0) : -1)
+  // A stable sort, so that ties keep IGDB's order.
+  return [...platforms].sort((a, b) => count(b) - count(a))
+}
+
+/** A matched platform is taken as it is; with none, it is created. */
+function platformDefault(platform: PlatformMatch | undefined): Choice {
+  return platform?.match ? { kind: 'existing', id: platform.match.id } : { kind: 'create' }
+}
+
+/** The name a platform is created with: IGDB's abbreviation ("PS5") when it
+ * has one, which is what a library tends to call a platform, or its name. */
+function platformName(platform: PlatformMatch): string {
+  return recordName(platform.abbreviation || platform.name)
+}
+
+function isLinkedToPlatform(record: Lookup | undefined, platform: PlatformMatch): boolean {
+  return Boolean(record?.igdb_platform_ids?.includes(platform.igdb_platform_id))
+}
+
+/** Turns the choice for IGDB's platform into what the form writes on save. */
+function resolvePlatform(platform: PlatformMatch, choice: Choice, records: Lookup[]): PlatformResolution | undefined {
+  if (choice.kind === 'create') {
+    return { pending: { name: platformName(platform), igdb_platform_id: platform.igdb_platform_id } }
+  }
+  if (choice.kind !== 'existing') return undefined
+  const linked = isLinkedToPlatform(
+    records.find((r) => r.id === choice.id),
+    platform,
+  )
+  return { id: choice.id, link: linked ? null : { id: choice.id, igdb_platform_id: platform.igdb_platform_id } }
+}
+
+/** Whether a resolution changes the form's platform, or, unless `valueOnly`,
+ * at least links it. */
+function changesPlatform(resolution: PlatformResolution, current: number | null, valueOnly = false): boolean {
+  if ('pending' in resolution) return true
+  return resolution.id !== current || (!valueOnly && resolution.link !== null)
+}
+
 function isEmpty(resolution: CompanyResolution): boolean {
   return resolution.ids.length === 0 && resolution.pending.length === 0
 }
@@ -284,6 +347,8 @@ function isEmpty(resolution: CompanyResolution): boolean {
 interface IdentifyConfirmProps {
   candidate: GameCandidate
   current: IdentifyCurrent
+  platforms: Lookup[]
+  platformGames: ReadonlyMap<number, number>
   developers: Lookup[]
   publishers: Lookup[]
   onApply: (result: IdentifyResult) => void
@@ -297,7 +362,16 @@ interface IdentifyConfirmProps {
  * would be replaced is shown struck through, the same way a skipped company
  * is: struck through always means "goes away".
  */
-function IdentifyConfirm({ candidate, current, developers, publishers, onApply, onCancel }: IdentifyConfirmProps) {
+function IdentifyConfirm({
+  candidate,
+  current,
+  platforms,
+  platformGames,
+  developers,
+  publishers,
+  onApply,
+  onCancel,
+}: IdentifyConfirmProps) {
   const dateFormat = useDateFormat()
   const [developerChoices, setDeveloperChoices] = useState(() => candidate.developers.map(defaultChoice))
   const [publisherChoices, setPublisherChoices] = useState(() => candidate.publishers.map(defaultChoice))
@@ -313,6 +387,16 @@ function IdentifyConfirm({ candidate, current, developers, publishers, onApply, 
   const [applyDevelopers, setApplyDevelopers] = useState(current.developers.length === 0)
   const [applyPublishers, setApplyPublishers] = useState(current.publishers.length === 0)
 
+  // IGDB's platforms, the ones the library already has first, by how many
+  // games it has on them: a game is likelier logged where most others are.
+  const igdbPlatforms = orderPlatforms(candidate.platforms, platformGames)
+  const [igdbPlatform, setIgdbPlatform] = useState<PlatformMatch | undefined>(
+    () => igdbPlatforms.find((p) => p.match && p.match.id === current.platformId) ?? igdbPlatforms[0],
+  )
+  const [platformChoice, setPlatformChoice] = useState<Choice>(() => platformDefault(igdbPlatform))
+  const [applyPlatform, setApplyPlatform] = useState(current.platform === '')
+  const platformResolution = igdbPlatform && resolvePlatform(igdbPlatform, platformChoice, platforms)
+
   const developerResolution = resolve(candidate.developers, developerChoices)
   const publisherResolution = resolve(candidate.publishers, publisherChoices)
 
@@ -321,6 +405,9 @@ function IdentifyConfirm({ candidate, current, developers, publishers, onApply, 
   if (candidate.igdb_id !== current.igdbId) result.igdbId = candidate.igdb_id
   if (applyTitle && igdbTitle && igdbTitle !== currentTitle) result.title = igdbTitle
   if (applyDate && igdbDate && igdbDate !== current.releaseDate) result.releaseDate = igdbDate
+  if (applyPlatform && platformResolution && changesPlatform(platformResolution, current.platformId)) {
+    result.platform = platformResolution
+  }
   // Skipping every company applies nothing, rather than clearing the field.
   if (applyDevelopers && !isEmpty(developerResolution)) result.developers = developerResolution
   if (applyPublishers && !isEmpty(publisherResolution)) result.publishers = publisherResolution
@@ -347,6 +434,23 @@ function IdentifyConfirm({ candidate, current, developers, publishers, onApply, 
         }
         current={current.releaseDate && date(current.releaseDate)}
         next={igdbDate && date(igdbDate)}
+      />
+
+      <PlatformSection
+        igdbPlatforms={igdbPlatforms}
+        selected={igdbPlatform}
+        onSelect={(platform) => {
+          setIgdbPlatform(platform)
+          setPlatformChoice(platformDefault(platform))
+        }}
+        choice={platformChoice}
+        onChoiceChange={setPlatformChoice}
+        records={platforms}
+        current={current.platform}
+        // Struck through only when it would actually change.
+        replaced={Boolean(platformResolution && changesPlatform(platformResolution, current.platformId, true))}
+        apply={applyPlatform}
+        onApplyChange={setApplyPlatform}
       />
 
       <CompanySection
@@ -507,6 +611,100 @@ function Replaced({ children, className = 'min-w-0' }: { children: ReactNode; cl
   return <s className={`truncate text-ink-faint decoration-ink-faint ${className}`}>{children}</s>
 }
 
+interface PlatformSectionProps {
+  igdbPlatforms: PlatformMatch[]
+  selected: PlatformMatch | undefined
+  onSelect: (platform: PlatformMatch) => void
+  choice: Choice
+  onChoiceChange: (choice: Choice) => void
+  records: Lookup[]
+  /** The form's platform, by name; empty for none. */
+  current: string
+  /** Whether the form's platform would be replaced. */
+  replaced: boolean
+  apply: boolean
+  onApplyChange: (apply: boolean) => void
+}
+
+/**
+ * The platform the game is logged on: one of IGDB's (a game only has one),
+ * and where it goes in the library, laid out like a company's row with the
+ * IGDB side picked rather than given.
+ */
+function PlatformSection({
+  igdbPlatforms,
+  selected,
+  onSelect,
+  choice,
+  onChoiceChange,
+  records,
+  current,
+  replaced,
+  apply,
+  onApplyChange,
+}: PlatformSectionProps) {
+  return (
+    <ConfirmSection
+      label="Platform"
+      toggle={selected ? { checked: apply, onChange: onApplyChange } : undefined}
+      kept={current || undefined}
+    >
+      {!selected ? (
+        <Muted>Not on IGDB</Muted>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {current && replaced && (
+            <p className="flex text-sm">
+              <Replaced>{current}</Replaced>
+            </p>
+          )}
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              {igdbPlatforms.length === 1 ? (
+                <span className="block truncate text-sm text-ink" title={`${selected.name} on IGDB`}>
+                  {selected.name}
+                </span>
+              ) : (
+                <Dropdown
+                  aria-label="Platform on IGDB"
+                  value={String(selected.igdb_platform_id)}
+                  onChange={(value) => {
+                    const platform = igdbPlatforms.find((p) => String(p.igdb_platform_id) === value)
+                    if (platform) onSelect(platform)
+                  }}
+                  options={igdbPlatforms.map((platform) => ({
+                    value: String(platform.igdb_platform_id),
+                    label: platform.name,
+                  }))}
+                  className="h-8 w-full rounded-control bg-surface px-2.5 text-sm text-ink"
+                />
+              )}
+            </div>
+            <RecordChoice
+              // Remounted per IGDB platform, so that a search typed for one
+              // does not linger for the next.
+              key={selected.igdb_platform_id}
+              match={selected.match}
+              createName={platformName(selected)}
+              isLinked={(id) =>
+                isLinkedToPlatform(
+                  records.find((r) => r.id === id),
+                  selected,
+                )
+              }
+              linkTitle="Linked to this IGDB platform when the game is saved"
+              skippable={false}
+              choice={choice}
+              records={records}
+              onChange={onChoiceChange}
+            />
+          </div>
+        </div>
+      )}
+    </ConfirmSection>
+  )
+}
+
 interface CompanySectionProps {
   label: string
   companies: CompanyMatch[]
@@ -559,8 +757,11 @@ function CompanySection({
                   >
                     {company.name}
                   </span>
-                  <CompanyChoice
-                    company={company}
+                  <RecordChoice
+                    match={company.match}
+                    createName={recordName(company.name)}
+                    isLinked={(id) => company.match?.reason === 'linked' && company.match.id === id}
+                    linkTitle="Linked to this IGDB company when the game is saved"
                     choice={choices[index]}
                     records={records}
                     onChange={(choice) => onChoicesChange(choices.map((c, i) => (i === index ? choice : c)))}
@@ -575,20 +776,39 @@ function CompanySection({
   )
 }
 
-interface CompanyChoiceProps {
-  company: CompanyMatch
+interface RecordChoiceProps {
+  /** The record IGDB's company or platform was matched to, if any. */
+  match: MatchTarget | null
+  /** What a new record would be called. */
+  createName: string
+  /** Whether a record is linked to this IGDB company or platform already. */
+  isLinked: (id: number) => boolean
+  /** What the `link` mark says on hover. */
+  linkTitle: string
+  /** Whether Skip is on offer: it is for a company, one of several, but not
+   * for a platform, which its section's switch already leaves out. */
+  skippable?: boolean
   choice: Choice
   records: Lookup[]
   onChange: (choice: Choice) => void
 }
 
 /**
- * Where one company goes: a record of the library (the one it was matched
- * to comes first), a new record named as on IGDB, or nowhere. Searchable,
- * since a library's developers can run into the hundreds (see
+ * Where one company or platform goes: a record of the library (the one it
+ * was matched to comes first), a new record named as on IGDB, or nowhere.
+ * Searchable, since a library's developers can run into the hundreds (see
  * MultiSelectDropdown).
  */
-function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProps) {
+function RecordChoice({
+  match,
+  createName,
+  isLinked,
+  linkTitle,
+  skippable = true,
+  choice,
+  records,
+  onChange,
+}: RecordChoiceProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -604,7 +824,7 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  const matchId = company.match?.id
+  const matchId = match?.id
   const foldedQuery = foldCase(query.trim())
   const ordered = [...records.filter((r) => r.id === matchId), ...records.filter((r) => r.id !== matchId)]
   const filtered = ordered.filter((record) => foldCase(record.name).includes(foldedQuery))
@@ -615,17 +835,18 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
     setOpen(false)
   }
 
-  // The trigger never repeats the company's name, already on the left: it
-  // only says where it goes.
+  // The trigger never repeats IGDB's name, already on the left: it only
+  // says where it goes.
   let label: ReactNode
   if (choice.kind === 'existing') {
-    // A record not yet linked to this IGDB company gets linked on save, which
-    // is worth saying; one already linked to it is simply the record.
-    const linking = !(company.match?.reason === 'linked' && company.match.id === choice.id)
+    // A record not yet linked to this IGDB company or platform gets linked
+    // on save, which is worth saying; one already linked to it is simply the
+    // record.
+    const linking = !isLinked(choice.id)
     label = (
       <span className="flex min-w-0 items-baseline gap-1.5">
-        <span className="truncate">{records.find((r) => r.id === choice.id)?.name ?? company.match?.name}</span>
-        {linking && <LinkMark title="Linked to this IGDB company when the game is saved">link</LinkMark>}
+        <span className="truncate">{records.find((r) => r.id === choice.id)?.name ?? match?.name}</span>
+        {linking && <LinkMark title={linkTitle}>link</LinkMark>}
       </span>
     )
   } else if (choice.kind === 'create') {
@@ -665,11 +886,13 @@ function CompanyChoice({ company, choice, records, onChange }: CompanyChoiceProp
           <div className="max-h-52 overflow-y-auto border-t border-line p-1">
             <ChoiceRow selected={isSelected({ kind: 'create' })} onClick={() => pick({ kind: 'create' })}>
               <PlusIcon className="size-3.5 shrink-0 text-accent" />
-              <span className="truncate">Create “{company.name}”</span>
+              <span className="truncate">Create “{createName}”</span>
             </ChoiceRow>
-            <ChoiceRow selected={isSelected({ kind: 'skip' })} onClick={() => pick({ kind: 'skip' })}>
-              <span className="truncate">Skip</span>
-            </ChoiceRow>
+            {skippable && (
+              <ChoiceRow selected={isSelected({ kind: 'skip' })} onClick={() => pick({ kind: 'skip' })}>
+                <span className="truncate">Skip</span>
+              </ChoiceRow>
+            )}
             {filtered.length > 0 && <div className="mx-1 my-1 border-t border-line" />}
             {filtered.map((record) => (
               <ChoiceRow

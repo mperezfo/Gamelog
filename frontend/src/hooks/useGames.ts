@@ -44,10 +44,10 @@ function invalidateGames(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: ['games'] })
 }
 
-/** After a save. One that created developers or publishers along with the
- * game (see GameInput's new_developers), or linked them to IGDB, changed
- * those lists too; the rest, a drag on the Dashboard's board above all,
- * leave them alone and do not refetch them. */
+/** After a save. One that created developers, publishers or a platform along
+ * with the game (see GameInput's new_developers), or linked them to IGDB,
+ * changed those lists too; the rest, a drag on the Dashboard's board above
+ * all, leave them alone and do not refetch them. */
 function invalidateSavedGame(queryClient: ReturnType<typeof useQueryClient>, input: GameInput) {
   invalidateGames(queryClient)
   if (input.new_developers?.length || input.developer_links?.length) {
@@ -55,6 +55,9 @@ function invalidateSavedGame(queryClient: ReturnType<typeof useQueryClient>, inp
   }
   if (input.new_publishers?.length || input.publisher_links?.length) {
     void queryClient.invalidateQueries({ queryKey: ['publishers'] })
+  }
+  if (input.new_platform || input.platform_link) {
+    void queryClient.invalidateQueries({ queryKey: ['platforms'] })
   }
 }
 

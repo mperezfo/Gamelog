@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 
 import { errorMessage } from '../api/client'
-import { igdbGamePage } from '../api/metadata'
+import { igdbPage } from '../api/metadata'
 import { useGameModal } from '../hooks/useGameModal'
 import { useCreateGame, useDeleteGame, useGames, useUpdateGame } from '../hooks/useGames'
 import { useLookups } from '../hooks/useLookups'
 import { useMetadataCapabilities } from '../hooks/useMetadata'
 import { useOffline } from '../hooks/useOffline'
 import { foldCase } from '../lib/fuzzy'
-import type { CompanyLink, Game, GameInput, GameStatus, NewLookup } from '../types/game'
+import type { CompanyLink, Game, GameInput, GameStatus, NewLookup, NewPlatform, PlatformLink } from '../types/game'
 import { GAME_STATUSES, STATUS_LABELS } from '../types/game'
 import { Button } from './Button'
 import { ChipMultiSelect } from './ChipMultiSelect'
@@ -22,6 +22,10 @@ import { Reveal } from './Reveal'
 import { Notice } from './Notice'
 import { Select } from './Select'
 import { Textarea } from './Textarea'
+
+/** The Platform field's value while it holds a platform to create on save,
+ * which has no id yet. Ids are numbers, so this is never one of them. */
+const PENDING_PLATFORM = 'new'
 
 /** yyyy-mm-dd out of an ISO timestamp, for a `<input type="date">` value. */
 function dateValue(iso: string | null | undefined): string {
@@ -96,6 +100,10 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const [pendingPublishers, setPendingPublishers] = useState<NewLookup[]>([])
   const [developerLinks, setDeveloperLinks] = useState<CompanyLink[]>([])
   const [publisherLinks, setPublisherLinks] = useState<CompanyLink[]>([])
+  // The same for the platform, from Identify only: a platform to create
+  // (shown in the Platform field as PENDING_PLATFORM), or a link to write.
+  const [pendingPlatform, setPendingPlatform] = useState<NewPlatform | null>(null)
+  const [platformLink, setPlatformLink] = useState<PlatformLink | null>(null)
   // The title Identify is looking up, or null while its panel is not
   // there. It outlives identifyOpen by the length of the closing animation.
   const [identifyTitle, setIdentifyTitle] = useState<string | null>(null)
@@ -141,13 +149,17 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     pendingDevelopers.length > 0 ||
     pendingPublishers.length > 0 ||
     developerLinks.length > 0 ||
-    publisherLinks.length > 0
+    publisherLinks.length > 0 ||
+    pendingPlatform !== null ||
+    platformLink !== null
 
   // What Identify shows as about to be kept or replaced.
   const identifyCurrent: IdentifyCurrent = {
     title,
     releaseDate,
     igdbId,
+    platformId: platformId && platformId !== PENDING_PLATFORM ? Number(platformId) : null,
+    platform: pendingPlatform?.name ?? (platforms.data ?? []).find((p) => String(p.id) === platformId)?.name ?? '',
     developers: [
       ...(developers.data ?? []).filter((d) => developerIds.includes(d.id)).map((d) => d.name),
       ...pendingDevelopers.map((d) => d.name),
@@ -193,6 +205,17 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     }
     if (result.title) setTitle(result.title)
     if (result.releaseDate) setReleaseDate(result.releaseDate)
+    if (result.platform) {
+      if ('pending' in result.platform) {
+        setPendingPlatform(result.platform.pending)
+        setPlatformId(PENDING_PLATFORM)
+        setPlatformLink(null)
+      } else {
+        setPendingPlatform(null)
+        setPlatformId(String(result.platform.id))
+        setPlatformLink(result.platform.link)
+      }
+    }
     if (result.developers) {
       setDeveloperIds(result.developers.ids)
       setDeveloperLinks(result.developers.links)
@@ -225,6 +248,16 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   // What the link under the title is about: the IGDB game, or the one just
   // unlinked while Undo can still bring it back.
   const shownIgdbId = igdbId ?? unlinkedIgdbId
+
+  // How many games each platform has, for Identify to put the platforms
+  // the library uses most first.
+  const platformGames = useMemo(() => {
+    const counts = new Map<number, number>()
+    for (const g of games.data ?? []) {
+      if (g.platform_id !== null) counts.set(g.platform_id, (counts.get(g.platform_id) ?? 0) + 1)
+    }
+    return counts
+  }, [games.data])
 
   // The IGDB games the rest of the library is linked to, for Identify to
   // point out among its results.
@@ -275,7 +308,11 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
       cover_zoom: coverZoom,
       release_date: toApiDate(releaseDate),
       logged_date: toApiDate(loggedDate),
-      platform_id: platformId ? Number(platformId) : null,
+      platform_id: platformId && platformId !== PENDING_PLATFORM ? Number(platformId) : null,
+      new_platform: platformId === PENDING_PLATFORM ? pendingPlatform : null,
+      // Like a developer's, a link only matters while its platform is still
+      // the game's.
+      platform_link: platformLink && String(platformLink.id) === platformId ? platformLink : null,
       igdb_id: igdbId,
       genre_ids: genreIds,
       developer_ids: developerIds,
@@ -352,7 +389,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
               <Button
                 variant="ghost"
                 className="shrink-0 px-2"
-                title="Fill in the title, release date, developers and publishers from IGDB"
+                title="Fill in the title, release date, platform, developers and publishers from IGDB"
                 disabled={!title.trim()}
                 onClick={openIdentify}
               >
@@ -390,6 +427,8 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
                   title={identifyTitle}
                   current={identifyCurrent}
                   libraryIgdbIds={libraryIgdbIds}
+                  platforms={platforms.data ?? []}
+                  platformGames={platformGames}
                   developers={developers.data ?? []}
                   publishers={publishers.data ?? []}
                   onApply={applyIdentified}
@@ -448,11 +487,19 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
           <Select
             label="Platform"
             value={platformId}
-            onChange={setPlatformId}
+            onChange={(value) => {
+              setPlatformId(value)
+              // Picking any other platform drops the one Identify was to
+              // create.
+              if (value !== PENDING_PLATFORM) setPendingPlatform(null)
+            }}
             align="right"
             options={[
               { value: '', label: '—' },
               ...(platforms.data ?? []).map((platform) => ({ value: String(platform.id), label: platform.name })),
+              // Marked with Identify's "+" for a record to create: a "(new)"
+              // after the name would be the first thing cut on a phone.
+              ...(pendingPlatform ? [{ value: PENDING_PLATFORM, label: `+ ${pendingPlatform.name}` }] : []),
             ]}
           />
         </div>
@@ -567,7 +614,7 @@ function IgdbGameLink({ id, unlinked, canOpen, onUnlink, onUndo }: IgdbGameLinkP
   const label =
     canOpen && !unlinked ? (
       <a
-        href={igdbGamePage(id)}
+        href={igdbPage('games', id)}
         target="_blank"
         rel="noopener noreferrer"
         title="View on IGDB"
