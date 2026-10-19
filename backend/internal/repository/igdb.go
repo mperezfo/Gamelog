@@ -45,15 +45,10 @@ func igdbLinkTable[T Lookup]() (table, column string, ok bool) {
 	}
 }
 
-// IGDBCompanies returns which of the owner's records each linked IGDB company
-// stands for, keyed by IGDB company id.
-func (r *LookupRepository[T]) IGDBCompanies(ctx context.Context) (map[uint64]uint64, error) {
-	return r.igdbLinks(ctx, 0)
-}
-
-// igdbLinks reads the owner's links, or only the ones of record when it is
-// not zero, through the index on the record's column rather than the whole
-// table.
+// igdbLinks returns which of the owner's records each linked IGDB company
+// stands for, keyed by IGDB company id: all of them, or only the ones of
+// record when it is not zero, read through the index on the record's column
+// rather than the whole table.
 func (r *LookupRepository[T]) igdbLinks(ctx context.Context, record uint64) (map[uint64]uint64, error) {
 	table, column, ok := igdbLinkTable[T]()
 	if !ok {
