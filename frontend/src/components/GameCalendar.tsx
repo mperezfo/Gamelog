@@ -69,13 +69,6 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [pickerOpen])
 
-  useEffect(() => {
-    if (pickerOpen) {
-      setYearDraft(String(month.getFullYear()))
-      setYearInvalid(false)
-    }
-  }, [pickerOpen, month])
-
   function commitYearDraft() {
     if (!isValidYear(yearDraft)) {
       setYearInvalid(true)
@@ -130,7 +123,14 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
         <div className="relative" ref={pickerRef}>
           <button
             type="button"
-            onClick={() => setPickerOpen((open) => !open)}
+            onClick={() => {
+              // Opens on the year shown, whatever was left typed last time.
+              if (!pickerOpen) {
+                setYearDraft(String(month.getFullYear()))
+                setYearInvalid(false)
+              }
+              setPickerOpen(!pickerOpen)
+            }}
             className="text-sm font-medium text-ink hover:text-accent"
           >
             {monthLabel(month)}

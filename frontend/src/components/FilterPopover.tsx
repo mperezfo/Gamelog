@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 
 interface FilterPopoverProps {
   /** The button the popover hangs off of — also what a click on it, or on
@@ -24,11 +24,10 @@ export function FilterPopover({ anchorRef, open, onClose, width = 224, children 
   const popoverRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<{ top: number; left: number } | null>(null)
 
-  useEffect(() => {
-    if (!open) {
-      setPosition(null)
-      return
-    }
+  // Before paint, so that reopening never shows a frame at the previous
+  // position.
+  useLayoutEffect(() => {
+    if (!open) return
     function place() {
       const rect = anchorRef.current?.getBoundingClientRect()
       if (!rect) return

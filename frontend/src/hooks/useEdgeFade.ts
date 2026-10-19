@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback } from 'react'
 
 /** Fades a scroll container's edges out instead of cutting the content at
  * the boundary flush — only on whichever side there is currently more to
@@ -10,13 +10,14 @@ import { useEffect, useState } from 'react'
  * handler, rather than through `useState` + a render: going through React
  * for something driven directly by the scroll event added a visible frame
  * or two of lag between the fade and the scroll position it is meant to
- * track. */
+ * track.
+ *
+ * Returns a callback ref: React calls it with the element when it mounts, and
+ * calls what it returns when it goes. */
 export function useEdgeFade(axis: 'x' | 'y') {
-  const [el, setEl] = useState<HTMLDivElement | null>(null)
-
-  useEffect(() => {
-    if (!el) return
-    const node = el
+  return useCallback((element: HTMLDivElement | null) => {
+    if (!element) return
+    const node = element
     const fadePx = 16
 
     function update() {
@@ -46,7 +47,5 @@ export function useEdgeFade(axis: 'x' | 'y') {
       node.removeEventListener('scroll', update)
       observer.disconnect()
     }
-  }, [axis, el])
-
-  return setEl
+  }, [axis])
 }
