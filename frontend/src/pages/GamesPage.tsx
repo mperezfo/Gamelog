@@ -257,29 +257,21 @@ export function GamesPage() {
                 imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
                 iconClassName="size-3.5"
               />
-              <span className="truncate font-medium"><Emoji value={game.title} /></span>
+              {/* The IGDB mark right after the name, the way an external
+                  link is usually marked, and only on a game linked to it,
+                  so that the unlinked ones stand out by its absence. */}
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="truncate font-medium"><Emoji value={game.title} /></span>
+                {game.igdb_id != null && (
+                  <IgdbLink
+                    kind="games"
+                    id={game.igdb_id}
+                    aria-label={`View ${game.title} on IGDB`}
+                    className="-m-1.5 shrink-0 p-1.5 text-ink-faint"
+                  />
+                )}
+              </span>
             </span>
-          )
-        },
-      },
-      {
-        // Whether the game is linked to IGDB: the mark on the ones that are,
-        // nothing on the rest, so the gaps stand out. Sortable, which groups
-        // the two together.
-        id: 'igdb',
-        header: 'IGDB',
-        size: 64,
-        accessorFn: (game) => (game.igdb_id != null ? 1 : 0),
-        cell: (info) => {
-          const game = info.row.original
-          if (game.igdb_id == null) return null
-          return (
-            <IgdbLink
-              kind="games"
-              id={game.igdb_id}
-              aria-label={`View ${game.title} on IGDB`}
-              className="-m-1.5 p-1.5 text-ink-faint"
-            />
           )
         },
       },
@@ -483,7 +475,6 @@ export function GamesPage() {
                     onClick={() => modal.openGame(game)}
                     caption={game.platform?.name}
                     className="w-full"
-                    igdbMark
                   />
                 ))}
               </div>
