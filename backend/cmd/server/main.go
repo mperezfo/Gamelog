@@ -146,7 +146,7 @@ func run(tasks maintenance) error {
 		return err
 	}
 	if cfg.IGDBEnabled() {
-		go backfillCompanyCountries(ctx, db, igdb.New(cfg.IGDBClientID, cfg.IGDBClientSecret))
+		go backfillCompanyCountries(ctx, db, igdb.New(cfg.IGDBClientID, cfg.IGDBClientSecret, cfg.IGDBSearchLimit))
 	}
 
 	srv := &http.Server{
