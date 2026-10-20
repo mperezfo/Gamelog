@@ -1,11 +1,10 @@
 import { useRef, type CSSProperties, type PointerEvent } from 'react'
 
 import { formatScore } from '../lib/format'
-import { averageScore, type Bucket, type Highlight } from '../lib/stats'
+import { averageScore, dayLabel, type Bucket, type Highlight } from '../lib/stats'
 import type { Game } from '../types/game'
 import { useHoverPreview } from '../hooks/useHoverPreview'
 import { GamesPreview } from './GamesPreview'
-import { PlatformBadge } from './PlatformBadge'
 import { Popover } from './Popover'
 
 interface PlayedChartProps {
@@ -18,7 +17,7 @@ interface PlayedChartProps {
   /** The year the bars are the months of, or empty when they are years. */
   year: string
   /** Pointing at a bar previews its games (the highlighted ones, when
-   * something is), with the platform of each; this opens one of them. */
+   * something is), with the day each was played; this opens one of them. */
   onOpenGame?: (game: Game) => void
 }
 
@@ -150,7 +149,7 @@ export function PlayedChart({ buckets, highlight, onSelect, year, onOpenGame }: 
           <GamesPreview
             heading={heading(previewed.bucket)}
             games={previewed.marked}
-            detail={(game) => <PlatformBadge platform={game.platform} />}
+            detail={(game) => (game.logged_date ? dayLabel(game.logged_date) : null)}
             onOpenGame={(game) => {
               preview.close()
               onOpenGame(game)

@@ -247,6 +247,13 @@ export function monthLabel(date: string, withYear = true): string {
   return withYear ? `${month} ${date.slice(0, 4)}` : month
 }
 
+/** "14 Mar": the day of a date-only ISO string, for a game's logged date
+ * in the preview of a period, whose year goes without saying. Day first,
+ * like the app's long dates ("14 Mar 2024"). */
+export function dayLabel(date: string): string {
+  return `${Number(date.slice(8, 10))} ${MONTH_ABBREVIATIONS[monthOf(date)]}`
+}
+
 /** How long after its release a game was played, as a person would say it:
  * "Day one", "5 days", "3 weeks", "8 months", "2 years". */
 export function formatAfterRelease(days: number): string {
