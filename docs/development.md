@@ -139,6 +139,15 @@ scripts/format-docs.sh --check  # only reports, as CI does
 
 It needs nothing but Node: the script runs a pinned Prettier version through `npx`, with the rules in [`.prettierrc.json`](../.prettierrc.json). Editors that format with Prettier, such as Zed or VS Code with its extension, pick up the same file.
 
+Screenshots live in `docs/screenshots/`, a light and a dark version of each, compressed with `pngquant --quality 75-92`. The README's hero image is built from a desktop screenshot and a phone mockup:
+
+```sh
+scripts/make-hero.sh docs/screenshots/desktop/dashboard-dark.png \
+  docs/screenshots/mobile-mockups/games-grid-dark.png docs/screenshots/hero-dark.png
+```
+
+It needs ImageMagick, and compresses the result with pngquant, through `nix shell` when it is not installed.
+
 ## Building the image
 
 ```sh
