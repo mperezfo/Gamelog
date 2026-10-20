@@ -80,6 +80,14 @@ export function HomeIcon(props: IconProps) {
   )
 }
 
+export function ChartIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M5 20v-6M12 20V5M19 20v-10" />
+    </Icon>
+  )
+}
+
 export function TableIcon(props: IconProps) {
   return (
     <Icon {...props}>

@@ -27,6 +27,7 @@ import { GamesPage } from './pages/GamesPage'
 import { LookupPage } from './pages/LookupPage'
 import { Login } from './pages/Login'
 import { Setup } from './pages/Setup'
+import { Stats } from './pages/Stats'
 import { ThemeProvider } from './theme/ThemeProvider'
 
 const queryClient = new QueryClient({
@@ -142,13 +143,14 @@ function Gate() {
   )
 }
 
-/** The routes a regular account can reach: its library, and its own account. */
+/** The routes a regular account can reach: its library, its stats, and its own account. */
 function UserRoutes() {
   useOfflineSync()
 
   return (
     <Routes>
       <Route path="/" element={<Dashboard />} />
+      <Route path="/stats" element={<Stats />} />
       <Route path="/games" element={<GamesPage />} />
       <Route path="/games/:id" element={<GameDetail />} />
       <Route path="/genres" element={<LookupPage kind="genres" title="Genres" />} />

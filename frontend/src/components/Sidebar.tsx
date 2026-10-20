@@ -15,6 +15,7 @@ import { Logo } from './Logo'
 import {
   BriefcaseIcon,
   BuildingIcon,
+  ChartIcon,
   DeviceIcon,
   HomeIcon,
   SearchIcon,
@@ -32,7 +33,10 @@ interface NavItem {
   end?: boolean
 }
 
-const MAIN_ITEMS: NavItem[] = [{ to: '/', label: 'Dashboard', icon: HomeIcon, end: true }]
+const MAIN_ITEMS: NavItem[] = [
+  { to: '/', label: 'Dashboard', icon: HomeIcon, end: true },
+  { to: '/stats', label: 'Stats', icon: ChartIcon },
+]
 
 const LIBRARY_ITEMS: NavItem[] = [
   { to: '/games', label: 'Games', icon: TableIcon },
