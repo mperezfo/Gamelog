@@ -39,9 +39,9 @@ import type { Game } from '../types/game'
 const STACKED_ROWS = 8
 
 /** What a game's line says in the preview of a breakdown row: the month it
- * was played in. */
-function loggedMonth(game: Game) {
-  return game.logged_date ? monthLabel(game.logged_date) : null
+ * was played in, and the year too unless the page is about one. */
+function loggedMonth(year: string) {
+  return (game: Game) => (game.logged_date ? monthLabel(game.logged_date, !year) : null)
 }
 
 /** And in the preview of an age band: how long after its release. */
@@ -229,7 +229,7 @@ export function Stats() {
                         visibleRows={alignment?.rows ?? STACKED_ROWS}
                         games={scoped}
                         onOpenGame={modal.openGame}
-                        previewDetail={loggedMonth}
+                        previewDetail={loggedMonth(year)}
                         {...selection}
                       />
                     </div>

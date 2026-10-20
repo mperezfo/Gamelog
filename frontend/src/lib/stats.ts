@@ -229,9 +229,10 @@ export function median(values: number[]): number | null {
 }
 
 /** "Mar 2024": the month of a date-only ISO string, for a game's logged
- * date in a preview. */
-export function monthLabel(date: string): string {
-  return `${MONTH_ABBREVIATIONS[monthOf(date)]} ${date.slice(0, 4)}`
+ * date in a preview. Just "Mar" where the year goes without saying. */
+export function monthLabel(date: string, withYear = true): string {
+  const month = MONTH_ABBREVIATIONS[monthOf(date)]
+  return withYear ? `${month} ${date.slice(0, 4)}` : month
 }
 
 /** How long after its release a game was played, as a person would say it:
