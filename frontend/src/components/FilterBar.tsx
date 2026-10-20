@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 
 import { ChevronLeftIcon, PlusIcon, XIcon } from './icons'
-import { FilterPopover } from './FilterPopover'
 import { OptionRow } from './OptionRow'
+import { Popover } from './Popover'
 
 export interface FilterOption {
   value: string
@@ -28,6 +28,18 @@ interface FilterBarProps {
 }
 
 const SEARCHABLE_THRESHOLD = 6
+
+/** The same width whatever the field, wide enough for a search box. */
+const POPOVER_CLASS = 'w-56 overflow-hidden'
+
+/** Focuses each view of a popover as it is drawn: the "+ Filter" one swaps
+ * its field list for a field's values, and the button that had focus goes
+ * with it, which would leave keys such as Escape with nowhere to go. A
+ * function of its own, so that React calls it once per element rather than
+ * on every render. */
+function focusOnMount(element: HTMLElement | null) {
+  element?.focus({ preventScroll: true })
+}
 
 /** How a field's current value(s) read on its pill — up to two option
  * labels, then a "+N" for the rest, rather than every one spelled out. */
@@ -70,14 +82,18 @@ function FilterOptionList({
         <input
           autoComplete="off"
           spellCheck={false}
-          autoFocus
+          ref={focusOnMount}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={`Search ${field.label.toLowerCase()}…`}
           className="w-full border-b border-line bg-transparent px-2.5 py-2 text-sm text-ink outline-none placeholder:text-ink-faint"
         />
       )}
-      <div className="max-h-[40vh] overflow-y-auto p-1">
+      <div
+        ref={field.options.length > SEARCHABLE_THRESHOLD ? undefined : focusOnMount}
+        tabIndex={-1}
+        className="max-h-[40vh] overflow-y-auto p-1 outline-none"
+      >
         {filtered.length === 0 && <p className="px-2 py-2 text-xs text-ink-faint">No matches.</p>}
         {filtered.map((option) => {
           const active = selected.includes(option.value)
@@ -112,7 +128,7 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
   }
 
   return (
-    <div className="relative order-2 shrink-0 sm:order-none">
+    <div className="order-2 shrink-0 sm:order-none">
       <button
         ref={anchorRef}
         type="button"
@@ -123,7 +139,7 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
         Filter
       </button>
 
-      <FilterPopover anchorRef={anchorRef} open={open} onClose={close}>
+      <Popover anchorRef={anchorRef} open={open} onClose={close} aria-label="Add a filter" className={POPOVER_CLASS}>
         {selectedField ? (
           <>
             <button
@@ -144,7 +160,7 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
             />
           </>
         ) : (
-          <div className="max-h-[40vh] overflow-y-auto p-1">
+          <div ref={focusOnMount} tabIndex={-1} className="max-h-[40vh] overflow-y-auto p-1 outline-none">
             {inactiveFields.length === 0 && <p className="px-2 py-2 text-xs text-ink-faint">All filters added.</p>}
             {inactiveFields.map((field) => (
               <button
@@ -158,7 +174,7 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
             ))}
           </div>
         )}
-      </FilterPopover>
+      </Popover>
     </div>
   )
 }
@@ -194,7 +210,13 @@ function FilterPill({
         <XIcon className="size-3" />
       </button>
 
-      <FilterPopover anchorRef={anchorRef} open={open} onClose={() => setOpen(false)}>
+      <Popover
+        anchorRef={anchorRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        aria-label={`${field.label} filter`}
+        className={POPOVER_CLASS}
+      >
         <FilterOptionList
           field={field}
           value={value}
@@ -203,7 +225,7 @@ function FilterPill({
             if (field.kind === 'single') setOpen(false)
           }}
         />
-      </FilterPopover>
+      </Popover>
     </span>
   )
 }

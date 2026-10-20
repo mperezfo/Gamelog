@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState, type KeyboardEvent, type Ref } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from 'react'
 
 import { ChevronDownIcon } from './icons'
 import { OptionRow } from './OptionRow'
+import { Popover } from './Popover'
 
 export interface DropdownOption<T extends string> {
   value: T
@@ -36,17 +37,12 @@ interface DropdownProps<T extends string> {
  * phone is a separate sheet this app cannot style, cannot give tap feedback
  * to, and which leaves the select itself ringed as if it were keyboard
  * focused once it closes. This one is ordinary markup instead: a trigger
- * button and a list under it.
- *
- * The list is `absolute` under the trigger rather than `fixed` like
- * FilterPopover: it is used inside the game modal, which is a transformed
- * element, and a transformed ancestor makes `fixed` position against itself
- * instead of the viewport.
+ * button and a list in a Popover under it.
  *
  * Keyboard: Arrow keys open it and move through it, Enter or Space picks,
- * Escape closes it and returns to the trigger. Focus only goes back to the
- * trigger after a keyboard pick: after a tap that would paint the focus ring
- * this component exists to avoid.
+ * Escape closes it and returns to the trigger, Tab leaves it. Focus only
+ * goes back to the trigger after a keyboard pick: after a tap that would
+ * paint the focus ring this component exists to avoid.
  */
 export function Dropdown<T extends string>({
   id,
@@ -62,31 +58,25 @@ export function Dropdown<T extends string>({
   ref,
 }: DropdownProps<T>) {
   const [open, setOpen] = useState(false)
-  const rootRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const listId = useId()
 
   const selected = options.find((option) => option.value === value)
+  // Where focus lands on opening, so the arrow keys continue from there.
+  // Focusing is harmless after a tap: a script focusing a button right
+  // after a pointer press does not count as keyboard focus, so no ring
+  // appears.
+  const initial = selected?.value ?? options[0]?.value
 
-  useEffect(() => {
-    if (!open) return
-    function handlePointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [open])
-
-  // Opens with the current choice (or the first row) focused, so the arrow
-  // keys continue from there. Focusing is harmless after a tap: a script
-  // focusing a button right after a pointer press does not count as keyboard
-  // focus, so no ring appears.
-  useEffect(() => {
-    if (!open) return
-    const rows = listRef.current?.querySelectorAll<HTMLElement>('[role="option"]')
-    const row = listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]') ?? rows?.[0]
-    row?.focus({ preventScroll: false })
+  // The current choice in the middle of the list, for a long one such as
+  // the years of the date picker. Before paint, so it never shows a frame
+  // scrolled to the top.
+  useLayoutEffect(() => {
+    const list = listRef.current
+    const row = list?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (!open || !list || !row) return
+    list.scrollTop = row.offsetTop - (list.clientHeight - row.offsetHeight) / 2
   }, [open])
 
   function close(refocus: boolean) {
@@ -98,6 +88,11 @@ export function Dropdown<T extends string>({
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault()
       setOpen(true)
+    } else if (event.key === 'Escape' && open) {
+      // Before focus has moved into the list, which waits a frame for it
+      // to be placed (see Popover), an Escape still closes the list alone.
+      event.stopPropagation()
+      setOpen(false)
     }
   }
 
@@ -122,20 +117,11 @@ export function Dropdown<T extends string>({
         event.preventDefault()
         rows[rows.length - 1]?.focus()
         break
-      case 'Escape':
-        // Not the modal's business: Escape closes the list first, and only
-        // a second press reaches whatever is underneath.
-        event.stopPropagation()
-        close(true)
-        break
-      case 'Tab':
-        close(false)
-        break
     }
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    <>
       <button
         id={id}
         ref={(node) => {
@@ -163,35 +149,41 @@ export function Dropdown<T extends string>({
         )}
       </button>
 
-      {open && (
-        <div
-          ref={listRef}
-          id={listId}
-          role="listbox"
-          onKeyDown={handleListKeyDown}
-          className={[
-            'absolute top-full z-20 mt-1 max-h-[40vh] w-max min-w-full max-w-[min(20rem,80vw)] overflow-y-auto p-1',
-            'rounded-control border border-line bg-surface shadow-popover',
-            align === 'right' ? 'right-0' : 'left-0',
-          ].join(' ')}
-        >
-          {options.map((option) => (
-            <OptionRow
-              key={option.value}
-              role="option"
-              aria-selected={option.value === value}
-              label={option.label}
-              active={option.value === value}
-              onClick={(event) => {
-                if (option.value !== value) onChange(option.value)
-                // A keyboard "click" has no pointer position, which is how a
-                // pick by Enter or Space is told from a tap.
-                close(event.detail === 0)
-              }}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+      <Popover
+        ref={listRef}
+        anchorRef={triggerRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        placement={align === 'right' ? 'bottom-end' : 'bottom-start'}
+        role="listbox"
+        id={listId}
+        aria-label={ariaLabel}
+        onKeyDown={handleListKeyDown}
+        className={[
+          'max-h-[min(40vh,var(--popover-available-height,40vh))] w-max min-w-(--popover-anchor-width)',
+          'max-w-[min(20rem,80vw)] overflow-y-auto p-1',
+        ].join(' ')}
+      >
+        {options.map((option) => (
+          <OptionRow
+            key={option.value}
+            role="option"
+            aria-selected={option.value === value}
+            // Out of the Tab order: the arrow keys move through the list,
+            // and Tab leaves it (see Popover).
+            tabIndex={-1}
+            data-autofocus={option.value === initial ? '' : undefined}
+            label={option.label}
+            active={option.value === value}
+            onClick={(event) => {
+              if (option.value !== value) onChange(option.value)
+              // A keyboard "click" has no pointer position, which is how a
+              // pick by Enter or Space is told from a tap.
+              close(event.detail === 0)
+            }}
+          />
+        ))}
+      </Popover>
+    </>
   )
 }

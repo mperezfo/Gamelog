@@ -1,7 +1,23 @@
-import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+  type RefObject,
+} from 'react'
 import { createPortal } from 'react-dom'
 
-import { autoUpdate, flip, offset, shift, useFloating, type Placement } from '@floating-ui/react-dom'
+import { autoUpdate, flip, offset, shift, size, useFloating, type Placement } from '@floating-ui/react-dom'
+
+/** The popovers opened from inside another (a Dropdown in the date picker,
+ * say). Each is drawn into `document.body` too, so it is not inside its
+ * parent in the DOM, yet a press or focus in it is not "outside" it. */
+const NestedPanels = createContext<Set<(node: Node) => boolean> | null>(null)
 
 interface PopoverProps {
   /** What the popover hangs off. */
@@ -17,24 +33,38 @@ interface PopoverProps {
    * the popover. Defaults to the anchor. */
   triggerRef?: RefObject<HTMLElement | null>
   placement?: Placement
+  /** `listbox` for a plain list of options (see Dropdown), whose rows are
+   * then the panel's own children. */
+  role?: 'dialog' | 'listbox'
+  id?: string
   /** Names the popover for assistive technology. */
-  'aria-label': string
+  'aria-label'?: string
+  /** Keys the panel has a use for besides Escape and Tab, such as the
+   * arrow keys of a list. */
+  onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void
   className?: string
+  ref?: Ref<HTMLDivElement>
   children: ReactNode
 }
 
+/** What Tab can land on. */
+const TABBABLE = 'a[href], button, input, select, textarea, [tabindex]'
+
 /**
- * A small floating panel under a control, for the pickers that stand in for
- * the browser's own (date, colour, emoji).
+ * The floating panel of every picker, list and filter in the app: the date,
+ * colour and emoji pickers, Dropdown, the filter popovers and the like.
  *
  * Drawn into `document.body` and positioned by Floating UI, `fixed`: it opens
  * from inside the game modal, a transformed element that would make `fixed`
- * position against itself (see Dialog), and from fields anywhere on the
+ * position against itself (see Dialog), and from controls anywhere on the
  * screen, so it flips above its anchor where there is no room below and
- * keeps clear of the sides on a phone.
+ * keeps clear of the sides on a phone. Two CSS variables on the panel size
+ * its contents: `--popover-anchor-width`, for a list as wide as its trigger,
+ * and `--popover-available-height`, the room left on the side it opened on.
  *
  * Focus moves into it on opening. Escape, a press outside it or Tab out of
- * it close it; Escape goes no further, so the modal underneath stays open.
+ * it close it; Escape goes no further, so the modal underneath stays open,
+ * and Tab carries on from its trigger, as if the panel sat right after it.
  */
 export function Popover({
   anchorRef,
@@ -42,8 +72,12 @@ export function Popover({
   open,
   onClose,
   placement = 'bottom-start',
+  role = 'dialog',
+  id,
   'aria-label': ariaLabel,
+  onKeyDown,
   className = '',
+  ref,
   children,
 }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -52,11 +86,36 @@ export function Popover({
     onCloseRef.current = onClose
   })
 
+  // The panel and every popover opened from inside it.
+  const [nested] = useState(() => new Set<(node: Node) => boolean>())
+  const [contains] = useState(
+    () => (node: Node) => Boolean(panelRef.current?.contains(node)) || [...nested].some((inside) => inside(node)),
+  )
+  const parent = useContext(NestedPanels)
+  useEffect(() => {
+    if (!open || !parent) return
+    parent.add(contains)
+    return () => {
+      parent.delete(contains)
+    }
+  }, [open, parent, contains])
+
   const { refs, floatingStyles } = useFloating({
     open,
     placement,
     strategy: 'fixed',
-    middleware: [offset(4), flip({ padding: 8 }), shift({ padding: 8 })],
+    middleware: [
+      offset(4),
+      flip({ padding: 8 }),
+      shift({ padding: 8 }),
+      size({
+        padding: 8,
+        apply({ rects, availableHeight, elements }) {
+          elements.floating.style.setProperty('--popover-anchor-width', `${rects.reference.width}px`)
+          elements.floating.style.setProperty('--popover-available-height', `${Math.floor(availableHeight)}px`)
+        },
+      }),
+    ],
     whileElementsMounted: autoUpdate,
   })
 
@@ -77,49 +136,76 @@ export function Popover({
       target?.focus({ preventScroll: true })
     })
 
-    function handlePointerDown(event: PointerEvent) {
+    // A press, or focus, anywhere else: Tab out of it, say, even from the
+    // trigger before focus has moved in.
+    function handleOutside(event: Event) {
       const target = event.target as Node
-      if (panelRef.current?.contains(target) || triggerRef.current?.contains(target)) return
+      if (contains(target) || triggerRef.current?.contains(target)) return
       onCloseRef.current()
     }
-    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('pointerdown', handleOutside)
+    document.addEventListener('focusin', handleOutside)
     return () => {
       cancelAnimationFrame(frame)
-      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('pointerdown', handleOutside)
+      document.removeEventListener('focusin', handleOutside)
     }
-  }, [open, triggerRef])
+  }, [open, triggerRef, contains])
+
+  /** Tab past either end of the panel. The panel sits at the end of the
+   * page, so the browser would carry on from there: focus goes back to the
+   * trigger instead, and the browser's own Tab carries on from it, onto
+   * whatever follows it, or with Shift stops on the trigger itself. */
+  function handleTab(event: KeyboardEvent<HTMLDivElement>) {
+    const panel = event.currentTarget
+    const tabbable = Array.from(panel.querySelectorAll<HTMLElement>(TABBABLE)).filter(
+      (element) => element.tabIndex >= 0 && !element.matches(':disabled'),
+    )
+    const index = tabbable.indexOf(document.activeElement as HTMLElement)
+    if (event.shiftKey ? index > 0 : index < tabbable.length - 1) return
+    const trigger = triggerRef.current
+    if (!trigger) return
+    if (event.shiftKey) event.preventDefault()
+    trigger.focus()
+    onClose()
+  }
 
   if (!open) return null
 
   return createPortal(
-    <div
-      ref={(node) => {
-        panelRef.current = node
-        refs.setFloating(node)
-      }}
-      role="dialog"
-      aria-label={ariaLabel}
-      tabIndex={-1}
-      style={floatingStyles}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return
-        event.stopPropagation()
-        onClose()
-        triggerRef.current?.focus()
-      }}
-      onBlur={(event) => {
-        // Tab out of it, not a move between two things inside it.
-        const next = event.relatedTarget as Node | null
-        if (next && !event.currentTarget.contains(next) && !triggerRef.current?.contains(next)) onClose()
-      }}
-      className={[
-        'z-[70] animate-[gl-appear_100ms_ease-out] rounded-control border border-line bg-surface outline-none',
-        'shadow-popover motion-reduce:animate-none',
-        className,
-      ].join(' ')}
-    >
-      {children}
-    </div>,
+    <NestedPanels.Provider value={nested}>
+      <div
+        ref={(node) => {
+          panelRef.current = node
+          refs.setFloating(node)
+          if (typeof ref === 'function') ref(node)
+          else if (ref) ref.current = node
+        }}
+        id={id}
+        role={role}
+        data-popover=""
+        aria-label={ariaLabel}
+        tabIndex={-1}
+        style={floatingStyles}
+        onKeyDown={(event) => {
+          onKeyDown?.(event)
+          // A key from a popover opened inside this one is that one's.
+          if (!event.currentTarget.contains(event.target as Node)) return
+          if (event.key === 'Tab') handleTab(event)
+          if (event.key !== 'Escape') return
+          event.stopPropagation()
+          onClose()
+          triggerRef.current?.focus()
+        }}
+        className={[
+          'z-[70] animate-[gl-appear_100ms_ease-out] rounded-control border border-line bg-surface outline-none',
+          'shadow-popover motion-reduce:animate-none',
+          className,
+        ].join(' ')}
+      >
+        {children}
+      </div>
+    </NestedPanels.Provider>,
     document.body,
   )
 }

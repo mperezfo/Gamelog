@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { foldCase } from '../lib/fuzzy'
 import type { NewLookup } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import { CheckIcon, PlusIcon, XIcon } from './icons'
+import { Popover } from './Popover'
 
 interface MultiSelectDropdownProps {
   label: string
@@ -39,18 +40,7 @@ export function MultiSelectDropdown({
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function handleClick(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   const selected = options.filter((o) => selectedIds.includes(o.id))
   const trimmedQuery = query.trim()
@@ -86,11 +76,14 @@ export function MultiSelectDropdown({
   }
 
   return (
-    <div className="relative flex flex-col gap-1.5" ref={containerRef}>
+    <div className="flex flex-col gap-1.5">
       <span className="text-[13px] font-medium text-ink-muted">{label}</span>
 
       <button
+        ref={triggerRef}
         type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-control bg-field shadow-field px-2 py-1.5 text-left disabled:opacity-50"
       >
@@ -144,51 +137,55 @@ export function MultiSelectDropdown({
         ))}
       </button>
 
-      {open && (
-        <div className="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-control bg-surface shadow-popover">
-          <input
-            autoComplete="off"
-            spellCheck={false}
-            autoFocus
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            // What is typed here may become a new record's name.
-            maxLength={MAX_LOOKUP_NAME}
-            placeholder="Search…"
-            className="w-full bg-transparent px-2.5 py-2 text-sm text-ink outline-none placeholder:text-ink-faint"
-          />
-          <div className="max-h-52 overflow-y-auto border-t border-line p-1">
-            {filtered.length === 0 && !canCreate && <p className="px-2 py-2 text-xs text-ink-faint">No matches.</p>}
-            {filtered.map((option) => {
-              const active = selectedIds.includes(option.id)
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => select(option.id)}
-                  className={[
-                    'flex w-full items-center justify-between gap-2 rounded-control px-2 py-1.5 text-left text-sm transition-colors duration-75',
-                    active ? 'text-ink' : 'text-ink-muted hover:bg-hover hover:text-ink',
-                  ].join(' ')}
-                >
-                  <span className="truncate">{option.name}</span>
-                  {active && <CheckIcon className="size-3.5 shrink-0 text-accent" />}
-                </button>
-              )
-            })}
-            {canCreate && (
+      <Popover
+        anchorRef={triggerRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        aria-label={`Pick ${label.toLowerCase()}`}
+        className="w-(--popover-anchor-width) overflow-hidden"
+      >
+        <input
+          autoComplete="off"
+          spellCheck={false}
+          data-autofocus=""
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          // What is typed here may become a new record's name.
+          maxLength={MAX_LOOKUP_NAME}
+          placeholder="Search…"
+          className="w-full bg-transparent px-2.5 py-2 text-sm text-ink outline-none placeholder:text-ink-faint"
+        />
+        <div className="max-h-52 overflow-y-auto border-t border-line p-1">
+          {filtered.length === 0 && !canCreate && <p className="px-2 py-2 text-xs text-ink-faint">No matches.</p>}
+          {filtered.map((option) => {
+            const active = selectedIds.includes(option.id)
+            return (
               <button
+                key={option.id}
                 type="button"
-                onClick={create}
-                className="flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-sm text-accent transition-colors duration-75 hover:bg-hover"
+                onClick={() => select(option.id)}
+                className={[
+                  'flex w-full items-center justify-between gap-2 rounded-control px-2 py-1.5 text-left text-sm transition-colors duration-75',
+                  active ? 'text-ink' : 'text-ink-muted hover:bg-hover hover:text-ink',
+                ].join(' ')}
               >
-                <PlusIcon className="size-3.5 shrink-0" />
-                <span className="truncate">{`Create "${trimmedQuery}"`}</span>
+                <span className="truncate">{option.name}</span>
+                {active && <CheckIcon className="size-3.5 shrink-0 text-accent" />}
               </button>
-            )}
-          </div>
+            )
+          })}
+          {canCreate && (
+            <button
+              type="button"
+              onClick={create}
+              className="flex w-full items-center gap-1.5 rounded-control px-2 py-1.5 text-left text-sm text-accent transition-colors duration-75 hover:bg-hover"
+            >
+              <PlusIcon className="size-3.5 shrink-0" />
+              <span className="truncate">{`Create "${trimmedQuery}"`}</span>
+            </button>
+          )}
         </div>
-      )}
+      </Popover>
     </div>
   )
 }

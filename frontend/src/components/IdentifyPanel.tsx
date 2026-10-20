@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 
 import { errorMessage } from '../api/client'
 import { useGameCandidates } from '../hooks/useMetadata'
@@ -13,6 +13,7 @@ import { Dots } from './Dots'
 import { Dropdown } from './Dropdown'
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { Notice } from './Notice'
+import { Popover } from './Popover'
 import { Reveal } from './Reveal'
 import { Switch } from './Switch'
 
@@ -799,18 +800,7 @@ function RecordChoice({
 }: RecordChoiceProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function handleClick(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   const matchId = match?.id
   const foldedQuery = foldCase(query.trim())
@@ -852,9 +842,12 @@ function RecordChoice({
     next.kind === choice.kind && (next.kind !== 'existing' || (choice.kind === 'existing' && next.id === choice.id))
 
   return (
-    <div className="relative w-36 shrink-0 sm:w-52" ref={containerRef}>
+    <div className="w-36 shrink-0 sm:w-52">
       <button
+        ref={triggerRef}
         type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="group/trigger flex h-8 w-full items-center gap-1.5 rounded-control bg-surface px-2.5 text-left text-sm text-ink"
       >
@@ -862,40 +855,45 @@ function RecordChoice({
         <ChevronDownIcon className="size-3.5 shrink-0 text-ink-faint transition-colors duration-75 group-hover/trigger:text-ink" />
       </button>
 
-      {open && (
-        <div className="absolute top-full right-0 z-10 mt-1 w-56 animate-[gl-appear_100ms_ease-out] overflow-hidden rounded-control bg-surface shadow-popover motion-reduce:animate-none">
-          <input
-            autoComplete="off"
-            spellCheck={false}
-            autoFocus
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search…"
-            className="w-full bg-transparent px-2.5 py-2 text-sm text-ink outline-none placeholder:text-ink-faint"
-          />
-          <div className="max-h-52 overflow-y-auto border-t border-line p-1">
-            <ChoiceRow selected={isSelected({ kind: 'create' })} onClick={() => pick({ kind: 'create' })}>
-              <PlusIcon className="size-3.5 shrink-0 text-accent" />
-              <span className="truncate">Create “{createName}”</span>
+      <Popover
+        anchorRef={triggerRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        placement="bottom-end"
+        aria-label="Where it goes in the library"
+        className="w-56 overflow-hidden"
+      >
+        <input
+          autoComplete="off"
+          spellCheck={false}
+          data-autofocus=""
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search…"
+          className="w-full bg-transparent px-2.5 py-2 text-sm text-ink outline-none placeholder:text-ink-faint"
+        />
+        <div className="max-h-52 overflow-y-auto border-t border-line p-1">
+          <ChoiceRow selected={isSelected({ kind: 'create' })} onClick={() => pick({ kind: 'create' })}>
+            <PlusIcon className="size-3.5 shrink-0 text-accent" />
+            <span className="truncate">Create “{createName}”</span>
+          </ChoiceRow>
+          {skippable && (
+            <ChoiceRow selected={isSelected({ kind: 'skip' })} onClick={() => pick({ kind: 'skip' })}>
+              <span className="truncate">Skip</span>
             </ChoiceRow>
-            {skippable && (
-              <ChoiceRow selected={isSelected({ kind: 'skip' })} onClick={() => pick({ kind: 'skip' })}>
-                <span className="truncate">Skip</span>
-              </ChoiceRow>
-            )}
-            {filtered.length > 0 && <div className="mx-1 my-1 border-t border-line" />}
-            {filtered.map((record) => (
-              <ChoiceRow
-                key={record.id}
-                selected={isSelected({ kind: 'existing', id: record.id })}
-                onClick={() => pick({ kind: 'existing', id: record.id })}
-              >
-                <span className="truncate">{record.name}</span>
-              </ChoiceRow>
-            ))}
-          </div>
+          )}
+          {filtered.length > 0 && <div className="mx-1 my-1 border-t border-line" />}
+          {filtered.map((record) => (
+            <ChoiceRow
+              key={record.id}
+              selected={isSelected({ kind: 'existing', id: record.id })}
+              onClick={() => pick({ kind: 'existing', id: record.id })}
+            >
+              <span className="truncate">{record.name}</span>
+            </ChoiceRow>
+          ))}
         </div>
-      )}
+      </Popover>
     </div>
   )
 }
