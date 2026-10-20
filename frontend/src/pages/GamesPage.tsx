@@ -11,6 +11,7 @@ import { FilterBar, type FilterField } from '../components/FilterBar'
 import { GameCoverCard } from '../components/GameCoverCard'
 import { GamesStats } from '../components/GamesStats'
 import { GenreTag } from '../components/GenreTag'
+import { IgdbLink } from '../components/IgdbLink'
 import { GridIcon, PlusIcon, SearchIcon, TableIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { Pill } from '../components/Pill'
@@ -271,7 +272,20 @@ export function GamesPage() {
                 imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
                 iconClassName="size-3.5"
               />
-              <span className="truncate font-medium"><Emoji value={game.title} /></span>
+              {/* The IGDB mark right after the name, the way an external
+                  link is usually marked, and only on a game linked to it,
+                  so that the unlinked ones stand out by its absence. */}
+              <span className="flex min-w-0 items-center gap-1">
+                <span className="truncate font-medium"><Emoji value={game.title} /></span>
+                {game.igdb_id != null && (
+                  <IgdbLink
+                    kind="games"
+                    id={game.igdb_id}
+                    aria-label={`View ${game.title} on IGDB`}
+                    className="-m-1.5 shrink-0 p-1.5 text-ink-faint"
+                  />
+                )}
+              </span>
             </span>
           )
         },

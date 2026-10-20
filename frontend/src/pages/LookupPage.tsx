@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
@@ -8,6 +8,7 @@ import { ColorField } from '../components/ColorField'
 import { Emoji } from '../components/Emoji'
 import { EmojiField } from '../components/EmojiField'
 import { Field } from '../components/Field'
+import { IgdbLink } from '../components/IgdbLink'
 import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
@@ -50,51 +51,6 @@ const FILTER_PARAM: Record<LookupKind, string> = {
 }
 
 type SortMode = 'count' | 'name'
-
-/**
- * A developer's, publisher's or platform's link to IGDB: the external-link
- * glyph, which opens the record's page there in a new tab. Without IGDB
- * credentials the API cannot find that page, so the glyph only says the link
- * exists.
- */
-function IgdbLink({
-  kind,
-  id,
-  className = '',
-  children,
-}: {
-  kind: IgdbLinkKind
-  id: number
-  className?: string
-  children?: ReactNode
-}) {
-  const capabilities = useMetadataCapabilities()
-  const content = (
-    <>
-      {children}
-      <ExternalLinkIcon className="size-3 shrink-0" />
-    </>
-  )
-
-  if (!capabilities.data?.identify) {
-    return (
-      <span data-tooltip="Linked to IGDB" className={`inline-flex items-center gap-1 ${className}`}>
-        {content}
-      </span>
-    )
-  }
-  return (
-    <a
-      href={igdbPage(kind, id)}
-      target="_blank"
-      rel="noopener noreferrer"
-      data-tooltip="View on IGDB"
-      className={`inline-flex items-center gap-1 transition-colors duration-75 hover:text-ink ${className}`}
-    >
-      {content}
-    </a>
-  )
-}
 
 /**
  * The IGDB link of a row in the list. A record linked to a single IGDB
