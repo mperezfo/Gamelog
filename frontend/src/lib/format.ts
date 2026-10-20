@@ -28,6 +28,11 @@ function calendarDate(iso: string): Date {
   return new Date(year, month - 1, day)
 }
 
+/** The year out of a date-only ISO string ("2024-05-17"), or '' when there is none. */
+export function yearOf(date: string | null): string {
+  return date ? date.slice(0, 4) : ''
+}
+
 export function formatDate(iso: string | null | undefined, format: DateFormat = 'long'): string {
   if (!iso) return '—'
   const date = calendarDate(iso)

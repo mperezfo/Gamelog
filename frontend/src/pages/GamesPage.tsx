@@ -23,7 +23,7 @@ import { useGames } from '../hooks/useGames'
 import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
 import { STATUS_LABELS, type Game } from '../types/game'
-import { dateRange, dateRangeSpan, formatDate, formatScore } from '../lib/format'
+import { dateRange, dateRangeSpan, formatDate, formatScore, yearOf } from '../lib/format'
 import { preloadImage } from '../lib/cover'
 import { foldCase, fuzzyMatch } from '../lib/fuzzy'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
@@ -54,11 +54,6 @@ const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => bool
   publishers: { label: 'No publisher', test: (g) => !g.publishers || g.publishers.length === 0 },
   // Games never identified through the game form's Identify button.
   igdb: { label: 'No IGDB link', test: (g) => g.igdb_id == null },
-}
-
-/** The year out of a date-only ISO string ("2024-05-17"), or '' when there is none. */
-function yearOf(date: string | null): string {
-  return date ? date.slice(0, 4) : ''
 }
 
 /** Every year present in `dates`, newest first, for a year filter's options. */

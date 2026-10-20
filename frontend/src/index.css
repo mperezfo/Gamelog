@@ -119,6 +119,20 @@
 }
 
 /*
+ * The same colour as a solid fill, for a platform's share of a chart. The
+ * same reasoning as `tint` keeps it visible on either page: its hue and
+ * colourfulness are kept, and its lightness is set mid-way, a step darker on
+ * a light page and a step lighter on a dark one.
+ */
+@utility tint-fill {
+  background-color: oklch(from var(--tint) 0.6 min(c, 0.17) h);
+
+  @variant dark {
+    background-color: oklch(from var(--tint) max(l, 0.62) c h);
+  }
+}
+
+/*
  * Which of the CJK families comes first. Chinese, Japanese and Korean share
  * the Han characters but draw many of them differently, and a title carries
  * no language to pick by, so the reader's own decides (see src/lib/cjk.ts).
