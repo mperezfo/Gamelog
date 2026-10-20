@@ -780,7 +780,7 @@ func (l *lookupImporter[T]) apply(ctx context.Context, name string, icon, color 
 	}
 
 	if errors.Is(err, repository.ErrNotFound) {
-		created := l.build(0, name, cleanOptional(icon), cleanOptional(color))
+		created := l.build(0, name, CleanOptional(icon), CleanOptional(color))
 		if err := l.repo.Create(ctx, &created); err != nil {
 			return 0, false, err
 		}
@@ -797,7 +797,7 @@ func (l *lookupImporter[T]) apply(ctx context.Context, name string, icon, color 
 		color = storedColor
 	}
 
-	updated := l.build(id, name, cleanOptional(icon), cleanOptional(color))
+	updated := l.build(id, name, CleanOptional(icon), CleanOptional(color))
 	if err := l.repo.Update(ctx, &updated); err != nil {
 		return 0, false, err
 	}
@@ -815,9 +815,10 @@ func (l *lookupImporter[T]) link(ctx context.Context, id uint64, igdbIDs []uint6
 	return l.repo.LinkIGDB(ctx, links)
 }
 
-// cleanOptional turns an icon or a colour of nothing but spaces into none at
-// all.
-func cleanOptional(value *string) *string {
+// CleanOptional is optional text as it is stored: without the blank space
+// around it, and none at all when that was all there was. Imported icons and
+// colours go through it, as do the optional text fields of the API.
+func CleanOptional(value *string) *string {
 	if value == nil {
 		return nil
 	}

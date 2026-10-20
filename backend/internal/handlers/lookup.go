@@ -10,6 +10,7 @@ import (
 
 	"github.com/mperezfo/gamelog/internal/models"
 	"github.com/mperezfo/gamelog/internal/repository"
+	"github.com/mperezfo/gamelog/internal/service"
 )
 
 // lookupBody is the writable half of the four simple entities,
@@ -21,7 +22,7 @@ import (
 // a request to reach the database and fail there on length.
 type lookupBody struct {
 	Name string  `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name. Unique, and compared ignoring case and accents." example:"Metroidvania"`
-	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Emoji or short icon shown next to the name." example:"🗺️"`
+	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Emoji or short icon shown next to the name. Stored without the blank space around it; nothing but blank space clears it." example:"🗺️"`
 	// Color only has a column on platforms (migration 00003): genres,
 	// developers and publishers accept it in the same shared body but the
 	// three of them silently ignore it, the same trade-off already made for
@@ -79,25 +80,25 @@ func registerLookups(api huma.API, db *gorm.DB) {
 	registerLookup(api, db,
 		lookupMeta{singular: "genre", plural: "genres", tag: "Genres"},
 		func(id uint64, body lookupBody) models.Genre {
-			return models.Genre{ID: id, Name: body.name(), Icon: body.Icon}
+			return models.Genre{ID: id, Name: body.name(), Icon: body.icon()}
 		})
 
 	registerLookup(api, db,
 		lookupMeta{singular: "developer", plural: "developers", tag: "Developers", igdb: "IGDB company"},
 		func(id uint64, body lookupBody) models.Developer {
-			return models.Developer{ID: id, Name: body.name(), Icon: body.Icon}
+			return models.Developer{ID: id, Name: body.name(), Icon: body.icon()}
 		})
 
 	registerLookup(api, db,
 		lookupMeta{singular: "publisher", plural: "publishers", tag: "Publishers", igdb: "IGDB company"},
 		func(id uint64, body lookupBody) models.Publisher {
-			return models.Publisher{ID: id, Name: body.name(), Icon: body.Icon}
+			return models.Publisher{ID: id, Name: body.name(), Icon: body.icon()}
 		})
 
 	registerLookup(api, db,
 		lookupMeta{singular: "platform", plural: "platforms", tag: "Platforms", igdb: "IGDB platform"},
 		func(id uint64, body lookupBody) models.Platform {
-			return models.Platform{ID: id, Name: body.name(), Icon: body.Icon, Color: body.Color}
+			return models.Platform{ID: id, Name: body.name(), Icon: body.icon(), Color: body.Color}
 		})
 }
 
@@ -115,6 +116,9 @@ func lookupRepo[T repository.Lookup](ctx context.Context, db *gorm.DB) (*reposit
 
 // name is the stored form of the submitted name.
 func (b lookupBody) name() string { return strings.TrimSpace(b.Name) }
+
+// icon is the stored form of the submitted icon.
+func (b lookupBody) icon() *string { return service.CleanOptional(b.Icon) }
 
 // registerLookup registers the five operations of one simple entity.
 //

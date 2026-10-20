@@ -167,6 +167,31 @@ func TestGameAcceptsARelativeCoverImageURL(t *testing.T) {
 	}
 }
 
+func TestGameTextIsStoredWithoutSurroundingBlankSpace(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	created := request(t, handler, http.MethodPost, "/api/games", map[string]any{
+		"title":    "  Celeste ",
+		"status":   models.StatusPlayed,
+		"position": 1,
+		"tagline":  " Climb the mountain\n",
+		"notes":    " \n\t ",
+	})
+	expectStatus(t, created, http.StatusCreated, "creating a game with padded text")
+
+	var game models.Game
+	decode(t, created, &game)
+	if game.Title != "Celeste" {
+		t.Errorf("title = %q, want it trimmed", game.Title)
+	}
+	if game.Tagline == nil || *game.Tagline != "Climb the mountain" {
+		t.Errorf("tagline = %v, want it trimmed", game.Tagline)
+	}
+	if game.Notes != nil {
+		t.Errorf("notes = %q, want none for nothing but blank space", *game.Notes)
+	}
+}
+
 // TestGamePositionIsRequiredAndRoundTrips guards the replace-semantics trap:
 // position has no omitempty, so a client that forgets it gets a 422 rather
 // than silently resetting the board's manual order to zero.

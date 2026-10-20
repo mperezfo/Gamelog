@@ -11,6 +11,7 @@ import (
 
 	"github.com/mperezfo/gamelog/internal/models"
 	"github.com/mperezfo/gamelog/internal/repository"
+	"github.com/mperezfo/gamelog/internal/service"
 )
 
 // gameBody is the writable half of a game.
@@ -33,8 +34,8 @@ type gameBody struct {
 	// Scores are stored as DECIMAL(3,1): anything beyond one decimal is
 	// rounded by the database.
 	Score   *float64 `json:"score,omitempty" minimum:"0" maximum:"10" doc:"Personal score from 0 to 10, with one decimal. Null while the game is unplayed." example:"9.2"`
-	Tagline *string  `json:"tagline,omitempty" maxLength:"255" doc:"Very short personal description, the equivalent of the \"Four words\" Notion field." example:"Lonely bug, big map"`
-	Notes   *string  `json:"notes,omitempty" doc:"Free-form notes."`
+	Tagline *string  `json:"tagline,omitempty" maxLength:"255" doc:"Very short personal description, the equivalent of the \"Four words\" Notion field. Stored without the blank space around it; nothing but blank space clears it." example:"Lonely bug, big map"`
+	Notes   *string  `json:"notes,omitempty" doc:"Free-form notes. Stored without the blank space around them; nothing but blank space clears them."`
 
 	// uri-reference rather than uri: a cover almost always points at this
 	// deployment's own /api/images/{name} (see the Images tag), which has no
@@ -139,8 +140,8 @@ func (b gameBody) model(id uint64) (*models.Game, repository.GameRelations) {
 			Status:        b.Status,
 			Position:      b.Position,
 			Score:         b.Score,
-			Tagline:       b.Tagline,
-			Notes:         b.Notes,
+			Tagline:       service.CleanOptional(b.Tagline),
+			Notes:         service.CleanOptional(b.Notes),
 			CoverImageURL: b.CoverImageURL,
 			CoverFocalX:   b.CoverFocalX,
 			CoverFocalY:   b.CoverFocalY,
