@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import { useDefaultCalendarView } from '../hooks/useSession'
 import { monthGrid, monthLabel, monthNames, weekdayLabels } from '../lib/calendar'
@@ -262,12 +262,8 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                     data-tooltip={game.title}
                     className={`flex w-full items-center truncate overflow-hidden rounded-[3px] text-left font-medium transition-colors duration-75 hover:brightness-95 ${
                       single ? 'flex-col text-center' : 'gap-1 py-0.5 pr-1 pl-0.5 text-[11px]'
-                    } ${game.platform?.color ? '' : 'bg-sunken text-ink hover:bg-hover'} ${unreleased ? UNRELEASED_RING : ''}`}
-                    style={
-                      game.platform?.color
-                        ? { backgroundColor: `${game.platform.color}22`, color: game.platform.color }
-                        : undefined
-                    }
+                    } ${game.platform?.color ? 'tint' : 'bg-sunken text-ink hover:bg-hover'} ${unreleased ? UNRELEASED_RING : ''}`}
+                    style={game.platform?.color ? ({ '--tint': game.platform.color } as CSSProperties) : undefined}
                   >
                     <CoverImage
                       url={game.cover_image_url}

@@ -73,6 +73,26 @@
 }
 
 /*
+ * A platform's own colour (see PlatformBadge), set as `--tint` on the element.
+ * That colour is whatever someone picked, so it cannot be painted as it is:
+ * a pale one vanishes on a light page, and a deep one on a dark page. Only
+ * its hue and its colourfulness are kept, and the lightness is the theme's.
+ * On a light page that is dark text on a pastel of the same hue, which reads
+ * at 4.5:1 or better for any colour, white and greys included (they come out
+ * as a neutral grey). On a dark page the colour is kept as picked, on a 13%
+ * tint of itself, and only lifted when it is too dark to read there.
+ */
+@utility tint {
+  color: oklch(from var(--tint) 0.47 min(c, 0.16) h);
+  background-color: oklch(from var(--tint) 0.95 min(c, 0.045) h);
+
+  @variant dark {
+    color: oklch(from var(--tint) max(l, 0.72) c h);
+    background-color: rgb(from var(--tint) r g b / 13.333%);
+  }
+}
+
+/*
  * Light. The near-black is warm rather than pure #000: on white, a slightly
  * brown black reads as ink instead of as a hole in the page.
  */
