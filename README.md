@@ -18,6 +18,8 @@ Here are [more screenshots](docs/screenshots.md), in desktop and phone formats.
 
 - **Upcoming releases and calendar**: The dashboard lists the next games due out, and a monthly calendar shows either release dates or the dates each game was logged.
 
+- **Stats**: What you have played, year by year or month by month, with the average score of each. Pointing at a platform, genre, developer, publisher, score or how long after release you got to a game picks out its share of every bar, and the whole page can be narrowed to a single year.
+
 - **Image covers**: Each game can have an uploaded cover, with a portrait crop and zoom so it is framed well in portrait views across the app. Lists load small thumbnails as they scroll into view, so a large library stays quick on a phone.
 
 - **Search for a cover**: With IGDB or SteamGridDB configured, the cover's **Search image** button shows the game's covers and artwork from either one, and the picked image is stored as the game's cover like an upload. See [Cover image search](docs/self-hosting.md#cover-image-search).
