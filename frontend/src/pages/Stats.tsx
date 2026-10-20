@@ -9,6 +9,7 @@ import { PlayedChart } from '../components/PlayedChart'
 import { ScoreHistogram } from '../components/ScoreHistogram'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFilterParams } from '../hooks/useFilterParams'
+import { useGameModal } from '../hooks/useGameModal'
 import { useGames } from '../hooks/useGames'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useOffline } from '../hooks/useOffline'
@@ -55,6 +56,7 @@ export function Stats() {
   useDocumentTitle('Stats')
   const games = useGames()
   const offline = useOffline()
+  const modal = useGameModal()
   const [filters, setFilter] = useFilterParams({ year: '' })
   const [kind, setKind] = useState<BreakdownKind>('platforms')
   const [preview, setPreview] = useState<Highlight | null>(null)
@@ -207,6 +209,8 @@ export function Stats() {
                         key={kind}
                         rows={rows}
                         visibleRows={alignment?.rows ?? STACKED_ROWS}
+                        games={scoped}
+                        onOpenGame={modal.openGame}
                         {...selection}
                       />
                     </div>
@@ -225,7 +229,7 @@ export function Stats() {
                           order, rather than the top few. */}
                       <div>
                         <div ref={ageStartRef} style={{ height: alignment?.ageOffset }} aria-hidden="true" />
-                        <BarList rows={age.bands} {...selection} />
+                        <BarList rows={age.bands} games={scoped} onOpenGame={modal.openGame} {...selection} />
                       </div>
                     </Section>
                   )}

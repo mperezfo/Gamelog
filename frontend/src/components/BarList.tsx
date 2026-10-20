@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 
 import { useEdgeFade } from '../hooks/useEdgeFade'
 import { previewHandlers, type Highlight, type SetPreview, type Share } from '../lib/stats'
+import type { Game } from '../types/game'
 import { Emoji } from './Emoji'
+import { GamesPreviewLink } from './GamesPreviewLink'
 import { ChevronRightIcon } from './icons'
 
 interface BarListProps {
@@ -18,6 +20,11 @@ interface BarListProps {
   /** How many rows fit before the list scrolls. Leave it out to show every
    * row. */
   visibleRows?: number
+  /** The games the rows count, to preview a row's games while its link to
+   * the Games page is pointed at, and what opens one of them. Leave them out
+   * for no preview. */
+  games?: Game[]
+  onOpenGame?: (game: Game) => void
 }
 
 /** A row's height: the h-8 of its button and a pixel of padding above and
@@ -30,7 +37,7 @@ const ROW_HEIGHT = 34
  * cannot be read past a handful of slices, and of a separate legend, since
  * the name is right on its bar.
  */
-export function BarList({ rows, activeKey, pinnedKey, onPreview, onPin, visibleRows }: BarListProps) {
+export function BarList({ rows, activeKey, pinnedKey, onPreview, onPin, visibleRows, games, onOpenGame }: BarListProps) {
   const max = Math.max(1, ...rows.map((row) => row.count))
   const fadeRef = useEdgeFade('y')
 
@@ -80,29 +87,48 @@ export function BarList({ rows, activeKey, pinnedKey, onPreview, onPin, visibleR
                 <RowLabel row={row} />
                 <span className="relative shrink-0 text-xs tabular-nums text-ink-muted">{row.count}</span>
               </button>
-              {row.href && (
-                <Link
-                  to={row.href}
-                  data-tooltip="See these games"
-                  aria-label={`See the games: ${row.label}`}
-                  className={[
-                    'flex size-8 shrink-0 items-center justify-center rounded-control text-ink-faint transition-colors duration-75 hover:bg-hover hover:text-ink',
-                    // With a mouse, only on the row under it, pinned or not.
-                    // A touch screen has no hover to bring it up, so there
-                    // it shows on the pinned row, the one a tap picked.
-                    'pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100',
-                    pinned ? '' : 'pointer-coarse:invisible',
-                  ].join(' ')}
-                >
-                  <ChevronRightIcon className="size-4" />
-                </Link>
-              )}
+              {row.href &&
+                (games && onOpenGame ? (
+                  <GamesPreviewLink
+                    to={row.href}
+                    label={`Games: ${row.label}`}
+                    games={games}
+                    test={row.test}
+                    onOpenGame={onOpenGame}
+                    tooltip="See these games"
+                    aria-label={`See the games: ${row.label}`}
+                    className={linkClass(pinned)}
+                  >
+                    <ChevronRightIcon className="size-4" />
+                  </GamesPreviewLink>
+                ) : (
+                  <Link
+                    to={row.href}
+                    data-tooltip="See these games"
+                    aria-label={`See the games: ${row.label}`}
+                    className={linkClass(pinned)}
+                  >
+                    <ChevronRightIcon className="size-4" />
+                  </Link>
+                ))}
             </li>
           )
         })}
       </ul>
     </div>
   )
+}
+
+/** The arrow to a row's games on the Games page. */
+function linkClass(pinned: boolean): string {
+  return [
+    'flex size-8 shrink-0 items-center justify-center rounded-control text-ink-faint transition-colors duration-75 hover:bg-hover hover:text-ink',
+    // With a mouse, only on the row under it, pinned or not. A touch screen
+    // has no hover to bring it up, so there it shows on the pinned row, the
+    // one a tap picked.
+    'pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100',
+    pinned ? '' : 'pointer-coarse:invisible',
+  ].join(' ')
 }
 
 /** A platform's colour as a dot, a genre's emoji, or just the name. The row
