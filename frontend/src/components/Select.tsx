@@ -44,7 +44,7 @@ export function Select<T extends string>({
           options={options}
           disabled={disabled}
           align={align}
-          className="h-9 w-full rounded-control bg-sunken px-2.5 text-sm text-ink transition-colors duration-75"
+          className="h-9 w-full rounded-control bg-field shadow-field px-2.5 text-sm text-ink transition-colors duration-75"
         />
       </div>
       {hint && <p className="text-xs text-ink-faint">{hint}</p>}

@@ -59,7 +59,7 @@ export function EmojiField({ label, value, onChange }: EmojiFieldProps) {
         aria-expanded={open}
         aria-label={value ? `${label}: ${value}` : `${label}: none`}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 min-w-16 items-center justify-center rounded-control bg-sunken px-2.5 text-sm transition-colors duration-75 enabled:hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        className="flex h-9 min-w-16 items-center justify-center rounded-control bg-field shadow-field px-2.5 text-sm transition-colors duration-75 enabled:hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
       >
         {value ? (
           <span className="text-lg leading-none">
@@ -82,7 +82,7 @@ export function EmojiField({ label, value, onChange }: EmojiFieldProps) {
               type="text"
               placeholder="Search emoji…"
               data-autofocus=""
-              className="h-8 w-full rounded-control bg-sunken px-2.5 text-sm text-ink outline-none placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="h-8 w-full rounded-control bg-field shadow-field px-2.5 text-sm text-ink outline-none placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-accent/40"
             />
           </div>
           {/* The scrollbar's gutter on both sides, so that the grid stays in

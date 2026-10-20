@@ -388,7 +388,7 @@ export function GamesPage() {
               data-tooltip="Exact match"
               className={[
                 'flex h-5 items-center justify-center rounded-[4px] px-1 text-[10px] font-semibold transition-colors duration-75',
-                exactMatch ? 'bg-accent/15 text-accent' : 'text-ink-faint hover:bg-hover hover:text-ink-muted',
+                exactMatch ? 'bg-accent-soft text-accent' : 'text-ink-faint hover:bg-hover hover:text-ink-muted',
               ].join(' ')}
             >
               Aa
@@ -416,7 +416,7 @@ export function GamesPage() {
             aria-pressed={view === 'table'}
             className={[
               'flex size-7 items-center justify-center rounded-[3px] transition-colors duration-75',
-              view === 'table' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(15_15_15/0.08)]' : 'text-ink-faint hover:text-ink-muted',
+              view === 'table' ? 'bg-surface text-ink shadow-thumb' : 'text-ink-faint hover:text-ink-muted',
             ].join(' ')}
           >
             <TableIcon className="size-4" />
@@ -428,7 +428,7 @@ export function GamesPage() {
             aria-pressed={view === 'grid'}
             className={[
               'flex size-7 items-center justify-center rounded-[3px] transition-colors duration-75',
-              view === 'grid' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(15_15_15/0.08)]' : 'text-ink-faint hover:text-ink-muted',
+              view === 'grid' ? 'bg-surface text-ink shadow-thumb' : 'text-ink-faint hover:text-ink-muted',
             ].join(' ')}
           >
             <GridIcon className="size-4" />

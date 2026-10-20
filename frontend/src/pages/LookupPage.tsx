@@ -144,7 +144,7 @@ function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
         <ExternalLinkIcon className="size-3" />
       </button>
       {open && (
-        <span className="absolute top-full left-0 z-10 mt-1.5 flex w-max max-w-[min(20rem,70vw)] animate-[gl-appear_100ms_ease-out] flex-col rounded-control bg-surface p-1 shadow-[0_8px_24px_rgba(0,0,0,0.18)] motion-reduce:animate-none">
+        <span className="absolute top-full left-0 z-10 mt-1.5 flex w-max max-w-[min(20rem,70vw)] animate-[gl-appear_100ms_ease-out] flex-col rounded-control bg-surface p-1 shadow-popover motion-reduce:animate-none">
           {ids.map((id) => (
             <a
               key={id}
@@ -250,7 +250,7 @@ export function LookupPage({ kind, title }: LookupPageProps) {
                 data-tooltip="Sort by number of games"
                 className={[
                   'h-full rounded-control px-2.5 text-xs font-medium transition-colors duration-75',
-                  sortMode === 'count' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(15_15_15/0.08)]' : 'text-ink-faint hover:text-ink-muted',
+                  sortMode === 'count' ? 'bg-surface text-ink shadow-thumb' : 'text-ink-faint hover:text-ink-muted',
                 ].join(' ')}
               >
                 Count
@@ -262,7 +262,7 @@ export function LookupPage({ kind, title }: LookupPageProps) {
                 data-tooltip="Sort alphabetically"
                 className={[
                   'h-full rounded-control px-2.5 text-xs font-medium transition-colors duration-75',
-                  sortMode === 'name' ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(15_15_15/0.08)]' : 'text-ink-faint hover:text-ink-muted',
+                  sortMode === 'name' ? 'bg-surface text-ink shadow-thumb' : 'text-ink-faint hover:text-ink-muted',
                 ].join(' ')}
               >
                 Name
@@ -280,7 +280,7 @@ export function LookupPage({ kind, title }: LookupPageProps) {
       {list.isPending && <p className="text-[13px] text-ink-faint">Loading…</p>}
 
       {editing === 'new' && (
-        <div className="mb-4 rounded-control border border-line bg-sunken p-4">
+        <div className="mb-4 rounded-control border border-line bg-raised p-4">
           <LookupForm kind={kind} onDone={() => setEditing(null)} />
         </div>
       )}

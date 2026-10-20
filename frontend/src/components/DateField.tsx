@@ -206,7 +206,7 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
       <label className="text-[13px] font-medium text-ink-muted">{label}</label>
       <div
         ref={fieldRef}
-        className="relative flex h-9 items-center gap-1 rounded-control bg-sunken pr-7 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"
+        className="relative flex h-9 items-center gap-1 rounded-control bg-field shadow-field pr-7 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"
       >
         {order.map((kind, index) => (
           <span key={kind} className="flex items-center gap-1">

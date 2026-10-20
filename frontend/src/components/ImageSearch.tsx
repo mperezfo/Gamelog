@@ -133,7 +133,7 @@ function SourceImages({
             // The linked game may not be among the title's matches, and IGDB
             // is not asked for its name only to show it here.
             placeholder="The linked game"
-            className="h-9 w-full rounded-control bg-sunken px-2.5 text-sm text-ink sm:w-96"
+            className="h-9 w-full rounded-control bg-field shadow-field px-2.5 text-sm text-ink sm:w-96"
           />
         </div>
       )}

@@ -75,7 +75,7 @@ export function Dialog({ 'aria-label': ariaLabel, onClose, children }: DialogPro
           // A fixed height rather than one that follows the content, so
           // that the panel does not jump as results come in.
           'sm:h-[min(85vh,56rem)] sm:max-w-5xl sm:rounded-control sm:pt-0 sm:pb-0',
-          'sm:shadow-[0_16px_48px_rgba(0,0,0,0.24)]',
+          'sm:shadow-dialog',
         ].join(' ')}
       >
         {children}

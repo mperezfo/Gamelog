@@ -489,7 +489,7 @@ export function Dashboard() {
 
                   <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' }}>
                     {activeGame && (
-                      <div className="w-64 rotate-2 scale-105 opacity-95 shadow-[0_16px_32px_rgba(0,0,0,0.28)]">
+                      <div className="w-64 rotate-2 scale-105 opacity-95 shadow-drag">
                         <GameCard game={activeGame} onClick={() => {}} />
                       </div>
                     )}

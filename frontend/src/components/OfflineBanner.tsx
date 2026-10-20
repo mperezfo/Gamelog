@@ -43,14 +43,14 @@ export function OfflineBanner() {
   return (
     <p
       role="status"
-      className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/25 bg-amber-500/10 px-4 py-1.5 text-[12px] text-amber-800 dark:text-amber-200"
+      className="flex shrink-0 items-center justify-center gap-2 border-b border-warn/25 bg-warn/10 px-4 py-1.5 text-[12px] text-warn-ink"
     >
       <CloudOffIcon className="size-3.5 shrink-0" />
       <span className="truncate">
         <span className="font-medium">{simulated ? 'Offline (simulated)' : 'Offline'}</span>
-        <span className="opacity-80"> · read-only copy from this device</span>
+        <span className="text-warn-ink-muted"> · read-only copy from this device</span>
         {age && (
-          <span className="opacity-60">
+          <span className="text-warn-ink-faint">
             <span className="hidden sm:inline">, saved {age.long}</span>
             <span className="sm:hidden"> · {age.short}</span>
           </span>

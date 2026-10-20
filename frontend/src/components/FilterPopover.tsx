@@ -64,7 +64,7 @@ export function FilterPopover({ anchorRef, open, onClose, width = 224, children 
     <div
       ref={popoverRef}
       style={{ top: position.top, left: position.left, width }}
-      className="fixed z-30 overflow-hidden rounded-control border border-line bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+      className="fixed z-30 overflow-hidden rounded-control border border-line bg-surface shadow-popover"
     >
       {children}
     </div>

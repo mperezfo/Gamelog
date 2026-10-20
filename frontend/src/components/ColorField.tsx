@@ -56,7 +56,7 @@ export function ColorField({ label, value, onChange }: ColorFieldProps) {
         aria-expanded={open}
         aria-label={`${label}: ${value}`}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 w-11 items-center justify-center rounded-control bg-sunken transition-colors duration-75 enabled:hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+        className="flex h-9 w-11 items-center justify-center rounded-control bg-field shadow-field transition-colors duration-75 enabled:hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
       >
         <span className="size-5 rounded-[3px] shadow-[inset_0_0_0_1px_rgb(0_0_0/0.1)]" style={{ backgroundColor: value }} />
       </button>
@@ -120,7 +120,7 @@ function HexInput({ value, onChange }: { value: string; onChange: (value: string
         }
       }}
       onBlur={() => setDraft(value)}
-      className="h-8 w-full rounded-control bg-sunken px-2.5 text-sm text-ink uppercase tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      className="h-8 w-full rounded-control bg-field shadow-field px-2.5 text-sm text-ink uppercase tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
     />
   )
 }

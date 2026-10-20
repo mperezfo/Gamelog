@@ -37,12 +37,12 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
         type="button"
         onClick={onClick}
         onPointerEnter={preload}
-        className={`flex w-full max-w-[420px] items-center gap-2 rounded-control bg-sunken py-1 pr-2.5 pl-1 text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
+        className={`flex w-full max-w-[420px] items-center gap-2 rounded-control bg-raised py-1 pr-2.5 pl-1 shadow-card text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
       >
         <CoverImage
           url={game.cover_image_url}
           size="sm"
-          className="aspect-square size-7 rounded-[3px] bg-canvas"
+          className="aspect-square size-7 rounded-[3px] bg-well"
           imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
           style={coverFocalStyle(game)}
           iconClassName="size-3.5"
@@ -57,12 +57,12 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
       type="button"
       onClick={onClick}
       onPointerEnter={preload}
-      className={`flex w-full max-w-[420px] flex-col gap-2 rounded-control bg-sunken p-2 text-left transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
+      className={`flex w-full max-w-[420px] flex-col gap-2 rounded-control bg-raised p-2 text-left shadow-card transition-colors duration-75 hover:bg-hover ${unreleased ? UNRELEASED_RING : ''}`}
     >
       <CoverImage
         url={game.cover_image_url}
         size="md"
-        className="aspect-video w-full rounded-control bg-canvas"
+        className="aspect-video w-full rounded-control bg-well"
         imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
         iconClassName="size-6"
       />
