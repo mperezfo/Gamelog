@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -113,26 +114,44 @@ func New(clientID, clientSecret string) *Client {
 	}
 }
 
+// searchFields are the fields of a game that a search asks for.
+const searchFields = "name,first_release_date,platforms.name,platforms.abbreviation,cover.image_id," +
+	"involved_companies.company.name,involved_companies.company.country," +
+	"involved_companies.developer,involved_companies.publisher"
+
 // Search looks games up by title, most relevant first. Editions of a game
 // (a "Game of the Year Edition" and the like) are left out, so that the
 // results are the games themselves.
+//
+// IGDB's search ignores common words ("the", "against") and ranks games by
+// what is left, so a title made mostly of them can fall far down its results:
+// "Against the Storm" is a search for "storm", and comes 14th. Games named
+// exactly the title, ignoring case, are looked up on their own and come first.
 func (c *Client) Search(ctx context.Context, title string) ([]Game, error) {
-	query := fmt.Sprintf(
-		`search "%s"; `+
-			`fields name,first_release_date,platforms.name,platforms.abbreviation,cover.image_id,`+
-			`involved_companies.company.name,involved_companies.company.country,`+
-			`involved_companies.developer,involved_companies.publisher; `+
-			`where version_parent = null; limit %d;`,
-		escape(title), searchLimit,
-	)
-
-	var results []apiGame
-	if err := c.query(ctx, "games", query, &results); err != nil {
+	var exact []apiGame
+	query := fmt.Sprintf(`fields %s; where name ~ "%s" & version_parent = null; limit %d;`,
+		searchFields, escape(title), searchLimit)
+	if err := c.query(ctx, "games", query, &exact); err != nil {
 		return nil, err
 	}
 
-	games := make([]Game, 0, len(results))
-	for _, result := range results {
+	var searched []apiGame
+	query = fmt.Sprintf(`search "%s"; fields %s; where version_parent = null; limit %d;`,
+		escape(title), searchFields, searchLimit)
+	if err := c.query(ctx, "games", query, &searched); err != nil {
+		return nil, err
+	}
+
+	games := make([]Game, 0, searchLimit)
+	seen := map[uint64]bool{}
+	for _, result := range slices.Concat(exact, searched) {
+		if len(games) == searchLimit {
+			break
+		}
+		if seen[result.ID] {
+			continue
+		}
+		seen[result.ID] = true
 		games = append(games, result.game())
 	}
 	return games, nil
@@ -465,7 +484,7 @@ func (i apiImage) image(kind, thumbSize string) Image {
 	}
 }
 
-// apiGame is a game as the search query above returns it.
+// apiGame is a game as the search queries above return it.
 type apiGame struct {
 	ID               uint64        `json:"id"`
 	Name             string        `json:"name"`
