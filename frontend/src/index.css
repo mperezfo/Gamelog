@@ -344,6 +344,12 @@
     -webkit-touch-callout: none;
   }
 
+  /* Nor on anything with a tooltip, which a long press shows instead (see
+     Tooltips). */
+  [data-tooltip] {
+    -webkit-touch-callout: none;
+  }
+
   /* For a loading indicator: it only fades in once the wait has lasted
      long enough to notice, so a fast load (restoring the copy on the
      device, an image from the cache) never flashes it at all. */

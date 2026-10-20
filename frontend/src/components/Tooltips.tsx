@@ -17,6 +17,14 @@ const SHOW_DELAY_MS = 500
  * reads them off without a wait at each. */
 const WARM_MS = 300
 
+/** How long a finger rests on something before its tooltip shows. About
+ * what a phone waits before treating a touch as a long press. */
+const LONG_PRESS_MS = 500
+
+/** How far a finger can drift, in pixels, before a long press becomes the
+ * start of a scroll instead. */
+const PRESS_SLOP = 10
+
 /** Between the tooltip and what it is about. */
 const GAP = 6
 
@@ -26,6 +34,16 @@ const MARGIN = 8
 interface Tip {
   anchor: HTMLElement
   text: string
+}
+
+/** A finger held on something with a tooltip. */
+interface Press {
+  anchor: HTMLElement
+  x: number
+  y: number
+  timer: ReturnType<typeof setTimeout>
+  /** Whether it lasted long enough to be a long press. */
+  long: boolean
 }
 
 /**
@@ -41,7 +59,9 @@ interface Tip {
  * cut short shows its full text, the way it used to as a `title`.
  *
  * It shows for a mouse and for keyboard focus, which a `title` never did,
- * and not for touch: a tap is a press, there is nothing to rest on.
+ * and on a touch screen for a long press: a tap is a press, there is nothing
+ * to rest on, so a finger held still on something shows its tooltip instead,
+ * without pressing it, until it lifts or moves off.
  *
  * Drawn into `document.body`, for the same reason as Dialog, and positioned
  * with `fixed` above the element, or below it where there is no room above.
@@ -60,6 +80,7 @@ export function Tooltips() {
     let hiddenAt = -Infinity
     let timer: ReturnType<typeof setTimeout> | undefined
     let frame = 0
+    let press: Press | null = null
 
     function show(anchor: HTMLElement) {
       const text = textFor(anchor)
@@ -129,6 +150,7 @@ export function Tooltips() {
     // a disabled button is often the one with the most to explain (Identify
     // without IGDB credentials, say).
     function handlePointerMove(event: PointerEvent) {
+      if (event.pointerType === 'touch') handleTouchMove(event)
       if (event.pointerType !== 'mouse') return
       const anchor = anchorFor(document.elementFromPoint(event.clientX, event.clientY))
       if (anchor === current) return
@@ -148,10 +170,80 @@ export function Tooltips() {
     }
 
     // Pressing something hides its tooltip without warming up the next one:
-    // the pointer is busy, not reading.
-    function handlePointerDown() {
+    // the pointer is busy, not reading. A finger, though, may be starting a
+    // long press.
+    function handlePointerDown(event: PointerEvent) {
+      endPress()
       hide()
       hiddenAt = -Infinity
+      if (event.pointerType !== 'touch' || !event.isPrimary) return
+      const anchor = anchorFor(document.elementFromPoint(event.clientX, event.clientY))
+      if (!anchor) return
+      const started: Press = {
+        anchor,
+        x: event.clientX,
+        y: event.clientY,
+        long: false,
+        timer: setTimeout(() => {
+          started.long = true
+          current = anchor
+          show(anchor)
+        }, LONG_PRESS_MS),
+      }
+      press = started
+    }
+
+    // A finger that drifts before the press is long enough is scrolling;
+    // one that moves off what it is holding after that is done reading.
+    function handleTouchMove(event: PointerEvent) {
+      if (!press || !event.isPrimary) return
+      if (!press.long) {
+        if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > PRESS_SLOP) endPress()
+        return
+      }
+      if (!press.anchor.contains(document.elementFromPoint(event.clientX, event.clientY))) {
+        current = null
+        hide()
+      }
+    }
+
+    function handlePointerUp(event: PointerEvent) {
+      if (!press || !event.isPrimary) return
+      // A long press only ever showed a tooltip: the click the browser sends
+      // as the finger lifts would press the button as well.
+      if (press.long && event.type === 'pointerup') swallowClick()
+      endPress()
+      current = null
+      hide()
+    }
+
+    function endPress() {
+      if (!press) return
+      clearTimeout(press.timer)
+      press = null
+    }
+
+    let swallowTimer: ReturnType<typeof setTimeout> | undefined
+    function swallow(event: MouseEvent) {
+      event.preventDefault()
+      event.stopPropagation()
+      stopSwallowing()
+    }
+    function swallowClick() {
+      window.addEventListener('click', swallow, true)
+      // In case no click comes, so that the next real one is not lost.
+      clearTimeout(swallowTimer)
+      swallowTimer = setTimeout(stopSwallowing, 600)
+    }
+    function stopSwallowing() {
+      window.removeEventListener('click', swallow, true)
+      clearTimeout(swallowTimer)
+    }
+
+    // Holding a link or a picture brings up the browser's own menu for it,
+    // which would cover the tooltip.
+    function handleContextMenu(event: MouseEvent) {
+      if (press) event.preventDefault()
     }
 
     function handleFocusIn(event: FocusEvent) {
@@ -167,6 +259,7 @@ export function Tooltips() {
     }
 
     function reset() {
+      endPress()
       current = null
       hide()
     }
@@ -174,6 +267,9 @@ export function Tooltips() {
     document.addEventListener('pointermove', handlePointerMove)
     document.addEventListener('pointerout', handlePointerOut)
     document.addEventListener('pointerdown', handlePointerDown, true)
+    document.addEventListener('pointerup', handlePointerUp, true)
+    document.addEventListener('pointercancel', handlePointerUp, true)
+    document.addEventListener('contextmenu', handleContextMenu, true)
     document.addEventListener('keydown', hide, true)
     document.addEventListener('focusin', handleFocusIn)
     document.addEventListener('focusout', handleFocusOut)
@@ -184,6 +280,9 @@ export function Tooltips() {
       document.removeEventListener('pointermove', handlePointerMove)
       document.removeEventListener('pointerout', handlePointerOut)
       document.removeEventListener('pointerdown', handlePointerDown, true)
+      document.removeEventListener('pointerup', handlePointerUp, true)
+      document.removeEventListener('pointercancel', handlePointerUp, true)
+      document.removeEventListener('contextmenu', handleContextMenu, true)
       document.removeEventListener('keydown', hide, true)
       document.removeEventListener('focusin', handleFocusIn)
       document.removeEventListener('focusout', handleFocusOut)
@@ -192,6 +291,8 @@ export function Tooltips() {
       window.removeEventListener('resize', reset)
       clearTimeout(timer)
       cancelAnimationFrame(frame)
+      endPress()
+      stopSwallowing()
       describe(null)
     }
   }, [id])
