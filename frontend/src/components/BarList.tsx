@@ -1,10 +1,12 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useEdgeFade } from '../hooks/useEdgeFade'
 import { previewHandlers, type Highlight, type SetPreview, type Share } from '../lib/stats'
+import type { Game } from '../types/game'
 import { CountryFlag } from './CountryFlag'
 import { Emoji } from './Emoji'
+import { GamesPreviewLink } from './GamesPreviewLink'
 import { ChevronRightIcon } from './icons'
 
 interface BarListProps {
@@ -19,6 +21,16 @@ interface BarListProps {
   /** How many rows fit before the list scrolls. Leave it out to show every
    * row. */
   visibleRows?: number
+  /** The games the rows count, to preview a row's games while its link to
+   * the Games page is pointed at, and what opens one of them. Leave them out
+   * for no preview. */
+  games?: Game[]
+  onOpenGame?: (game: Game) => void
+  /** What the preview says of each game beside its score (see
+   * GamesPreview). */
+  previewDetail?: (game: Game) => ReactNode
+  /** And in what order it lists them (see GamesPreview). */
+  previewOrder?: (a: Game, b: Game) => number
 }
 
 /** A row's height: the h-8 of its button and a pixel of padding above and
@@ -31,7 +43,18 @@ const ROW_HEIGHT = 34
  * cannot be read past a handful of slices, and of a separate legend, since
  * the name is right on its bar.
  */
-export function BarList({ rows, activeKey, pinnedKey, onPreview, onPin, visibleRows }: BarListProps) {
+export function BarList({
+  rows,
+  activeKey,
+  pinnedKey,
+  onPreview,
+  onPin,
+  visibleRows,
+  games,
+  onOpenGame,
+  previewDetail,
+  previewOrder,
+}: BarListProps) {
   const max = Math.max(1, ...rows.map((row) => row.count))
   const fadeRef = useEdgeFade('y')
 
@@ -57,7 +80,7 @@ export function BarList({ rows, activeKey, pinnedKey, onPreview, onPin, visibleR
 
           return (
             // The row as a whole previews, link included, for the same reason.
-            <li key={row.key} className="group flex items-center gap-0.5 py-px" style={tint} {...previewHandlers(row, onPreview)}>
+            <li key={row.key} className="group flex items-center py-px" style={tint} {...previewHandlers(row, onPreview)}>
               <button
                 type="button"
                 aria-pressed={pinned}
@@ -81,29 +104,55 @@ export function BarList({ rows, activeKey, pinnedKey, onPreview, onPin, visibleR
                 <RowLabel row={row} />
                 <span className="relative shrink-0 text-xs tabular-nums text-ink-muted">{row.count}</span>
               </button>
-              {row.href && (
-                <Link
-                  to={row.href}
-                  data-tooltip="See these games"
-                  aria-label={`See the games: ${row.label}`}
-                  className={[
-                    'flex size-8 shrink-0 items-center justify-center rounded-control text-ink-faint transition-colors duration-75 hover:bg-hover hover:text-ink',
-                    // With a mouse, only on the row under it, pinned or not.
-                    // A touch screen has no hover to bring it up, so there
-                    // it shows on the pinned row, the one a tap picked.
-                    'pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100',
-                    pinned ? '' : 'pointer-coarse:invisible',
-                  ].join(' ')}
-                >
-                  <ChevronRightIcon className="size-4" />
-                </Link>
-              )}
+              {row.href &&
+                (games && onOpenGame ? (
+                  <GamesPreviewLink
+                    to={row.href}
+                    label={row.label}
+                    games={games}
+                    test={row.test}
+                    detail={previewDetail}
+                    order={previewOrder}
+                    onOpenGame={onOpenGame}
+                    tooltip="See these games"
+                    aria-label={`See the games: ${row.label}`}
+                    className={linkClass(pinned)}
+                  >
+                    <ChevronRightIcon className="size-4" />
+                  </GamesPreviewLink>
+                ) : (
+                  <Link
+                    to={row.href}
+                    data-tooltip="See these games"
+                    aria-label={`See the games: ${row.label}`}
+                    className={linkClass(pinned)}
+                  >
+                    <ChevronRightIcon className="size-4" />
+                  </Link>
+                ))}
             </li>
           )
         })}
       </ul>
     </div>
   )
+}
+
+/** The arrow to a row's games on the Games page. */
+function linkClass(pinned: boolean): string {
+  return [
+    'ml-0.5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-control text-ink-faint',
+    'transition-colors duration-75 hover:bg-hover hover:text-ink',
+    // With a mouse, only on the row under it, pinned or not, in a place
+    // kept for it.
+    'pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100',
+    // A touch screen has no hover to bring it up, so there it shows on the
+    // pinned row, the one a tap picked. The other rows take its room as
+    // well, and the pinned one makes way for it as it slides in.
+    'pointer-coarse:transition-[width,margin-left,opacity,visibility] pointer-coarse:duration-200 pointer-coarse:ease-out',
+    'motion-reduce:transition-none',
+    pinned ? '' : 'pointer-coarse:invisible pointer-coarse:ml-0 pointer-coarse:w-0 pointer-coarse:opacity-0',
+  ].join(' ')
 }
 
 /** A platform's colour as a dot, a genre's emoji, a company's flag, or just

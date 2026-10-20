@@ -1,7 +1,11 @@
-import type { CSSProperties } from 'react'
+import { useRef, type CSSProperties, type PointerEvent } from 'react'
 
 import { formatScore } from '../lib/format'
-import { averageScore, type Bucket, type Highlight } from '../lib/stats'
+import { averageScore, dayLabel, type Bucket, type Highlight } from '../lib/stats'
+import type { Game } from '../types/game'
+import { useHoverPreview } from '../hooks/useHoverPreview'
+import { GamesPreview } from './GamesPreview'
+import { Popover } from './Popover'
 
 interface PlayedChartProps {
   buckets: Bucket[]
@@ -10,6 +14,11 @@ interface PlayedChartProps {
   highlight: Highlight | null
   /** Makes each bar a button: a year opens its months. */
   onSelect?: (key: string) => void
+  /** The year the bars are the months of, or empty when they are years. */
+  year: string
+  /** Pointing at a bar previews its games (the highlighted ones, when
+   * something is), with the day each was played; this opens one of them. */
+  onOpenGame?: (game: Game) => void
 }
 
 /** Past this many bars, a phone shows "'19" and "J" instead of "2019" and
@@ -33,7 +42,10 @@ const LABEL_ROOM = '16px'
  * just the range they cover rather than 0 to 10, where they would read as
  * one flat line. The numbers say what the dots only hint at.
  */
-export function PlayedChart({ buckets, highlight, onSelect }: PlayedChartProps) {
+export function PlayedChart({ buckets, highlight, onSelect, year, onOpenGame }: PlayedChartProps) {
+  const preview = useHoverPreview<string>()
+  // The bar the preview hangs off, set as the pointer reaches it.
+  const anchorRef = useRef<HTMLElement | null>(null)
   const max = Math.max(1, ...buckets.map((bucket) => bucket.games.length))
   const shortOnPhone = buckets.length > MAX_FULL_LABELS
 
@@ -51,6 +63,10 @@ export function PlayedChart({ buckets, highlight, onSelect }: PlayedChartProps) 
   // over the highest dot.
   const dotBottom = (average: number) => `${4 + ((average - low) / (high - low || 1)) * 24}px`
 
+  const previewed = columns.find((column) => column.bucket.key === preview.open)
+  const heading = (bucket: Bucket) =>
+    [year ? `${bucket.label} ${year}` : bucket.label, highlight?.label].filter(Boolean).join(', ')
+
   const tint = highlight?.color ? ({ '--tint': highlight.color } as CSSProperties) : undefined
   const fill = highlight?.color ? 'tint-fill' : 'bg-accent'
 
@@ -61,6 +77,7 @@ export function PlayedChart({ buckets, highlight, onSelect }: PlayedChartProps) 
           const count = bucket.games.length
           const label = `${bucket.label}: ${tooltipCount(count, marked.length, highlight)}`
           const Bar = onSelect ? 'button' : 'div'
+          const previewable = Boolean(onOpenGame) && marked.length > 0
 
           return (
             <div key={bucket.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end">
@@ -72,12 +89,34 @@ export function PlayedChart({ buckets, highlight, onSelect }: PlayedChartProps) 
                 </span>
               )}
               <Bar
-                {...(onSelect ? { type: 'button' as const, onClick: () => onSelect(bucket.key), 'aria-label': label } : {})}
-                data-tooltip={count > 0 ? label : undefined}
+                {...(onSelect
+                  ? {
+                      type: 'button' as const,
+                      onClick: () => {
+                        preview.close()
+                        onSelect(bucket.key)
+                      },
+                      'aria-label': label,
+                    }
+                  : {})}
+                {...(previewable
+                  ? {
+                      onPointerEnter: (event: PointerEvent<HTMLElement>) => {
+                        anchorRef.current = event.currentTarget
+                        preview.enter(bucket.key, event)
+                      },
+                      onPointerLeave: preview.leave,
+                    }
+                  : {})}
+                // The preview says it better while it shows.
+                data-tooltip={count > 0 && preview.open !== bucket.key ? label : undefined}
                 className={[
                   'flex w-full max-w-12 flex-col justify-end overflow-hidden rounded-t-[3px] bg-line-strong',
                   'transition-[height,background-color] duration-200 ease-out motion-reduce:transition-none',
-                  onSelect && count > 0 ? 'cursor-pointer hover:bg-ink-faint/60' : '',
+                  // Lit under the pointer whenever it holds games, a month
+                  // as well as a year, though only a year is a button.
+                  count > 0 ? 'hover:bg-ink-faint/60' : '',
+                  onSelect && count > 0 ? 'cursor-pointer' : '',
                 ].join(' ')}
                 style={{ height: `calc((100% - ${LABEL_ROOM}) * ${count / max})` }}
               >
@@ -92,6 +131,32 @@ export function PlayedChart({ buckets, highlight, onSelect }: PlayedChartProps) 
           )
         })}
       </div>
+
+      {/* Keyed by the bar, so that moving to the next one places the
+          preview under it afresh. */}
+      <Popover
+        key={preview.open ?? ''}
+        hover
+        anchorRef={anchorRef}
+        open={Boolean(previewed && onOpenGame)}
+        onClose={preview.close}
+        placement="bottom"
+        aria-label={previewed ? `Games: ${heading(previewed.bucket)}` : undefined}
+        onPointerEnter={preview.keep}
+        onPointerLeave={preview.leave}
+      >
+        {previewed && onOpenGame && (
+          <GamesPreview
+            heading={heading(previewed.bucket)}
+            games={previewed.marked}
+            detail={(game) => (game.logged_date ? dayLabel(game.logged_date) : null)}
+            onOpenGame={(game) => {
+              preview.close()
+              onOpenGame(game)
+            }}
+          />
+        )}
+      </Popover>
 
       <div className="flex gap-1 sm:gap-2" aria-hidden="true">
         {buckets.map((bucket) => (

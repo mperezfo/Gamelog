@@ -10,7 +10,6 @@ dist/
 
 # Claude Code worktrees live inside the repository
 .claude
-CLAUDE.md
 
 # Nix
 .direnv/
