@@ -114,7 +114,10 @@ export function PlayedChart({ buckets, highlight, onSelect, year, onOpenGame }: 
                 className={[
                   'flex w-full max-w-12 flex-col justify-end overflow-hidden rounded-t-[3px] bg-line-strong',
                   'transition-[height,background-color] duration-200 ease-out motion-reduce:transition-none',
-                  onSelect && count > 0 ? 'cursor-pointer hover:bg-ink-faint/60' : '',
+                  // Lit under the pointer whenever it holds games, a month
+                  // as well as a year, though only a year is a button.
+                  count > 0 ? 'hover:bg-ink-faint/60' : '',
+                  onSelect && count > 0 ? 'cursor-pointer' : '',
                 ].join(' ')}
                 style={{ height: `calc((100% - ${LABEL_ROOM}) * ${count / max})` }}
               >

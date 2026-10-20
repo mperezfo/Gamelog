@@ -28,6 +28,8 @@ interface BarListProps {
   /** What the preview says of each game beside its score (see
    * GamesPreview). */
   previewDetail?: (game: Game) => ReactNode
+  /** And in what order it lists them (see GamesPreview). */
+  previewOrder?: (a: Game, b: Game) => number
 }
 
 /** A row's height: the h-8 of its button and a pixel of padding above and
@@ -50,6 +52,7 @@ export function BarList({
   games,
   onOpenGame,
   previewDetail,
+  previewOrder,
 }: BarListProps) {
   const max = Math.max(1, ...rows.map((row) => row.count))
   const fadeRef = useEdgeFade('y')
@@ -108,6 +111,7 @@ export function BarList({
                     games={games}
                     test={row.test}
                     detail={previewDetail}
+                    order={previewOrder}
                     onOpenGame={onOpenGame}
                     tooltip="See these games"
                     aria-label={`See the games: ${row.label}`}

@@ -228,6 +228,18 @@ export function median(values: number[]): number | null {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
 }
 
+/** Played longest ago first. */
+export function byLoggedDate(a: Game, b: Game): number {
+  return (a.logged_date ?? '').localeCompare(b.logged_date ?? '')
+}
+
+/** Played closest to its release first, then longest ago first. A game
+ * missing either date goes last. */
+export function byTimeAfterRelease(a: Game, b: Game): number {
+  const days = (game: Game) => daysAfterRelease(game) ?? Infinity
+  return days(a) - days(b) || byLoggedDate(a, b)
+}
+
 /** "Mar 2024": the month of a date-only ISO string, for a game's logged
  * date in a preview. Just "Mar" where the year goes without saying. */
 export function monthLabel(date: string, withYear = true): string {

@@ -16,6 +16,7 @@ interface GamesPreviewLinkProps {
   test: (game: Game) => boolean
   /** See GamesPreview. */
   detail?: (game: Game) => ReactNode
+  order?: (a: Game, b: Game) => number
   onOpenGame: (game: Game) => void
   tooltip: string
   className: string
@@ -41,6 +42,7 @@ export function GamesPreviewLink({
   games,
   test,
   detail,
+  order,
   onOpenGame,
   tooltip,
   className,
@@ -73,6 +75,7 @@ export function GamesPreviewLink({
           heading={label}
           games={open ? games.filter(test) : []}
           detail={detail}
+          order={order}
           onOpenGame={(game) => {
             preview.close()
             onOpenGame(game)

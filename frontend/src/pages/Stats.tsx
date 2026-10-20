@@ -18,6 +18,7 @@ import { daysAfterRelease } from '../lib/releaseAge'
 import {
   averageScore,
   breakdown,
+  byTimeAfterRelease,
   formatAfterRelease,
   formatYears,
   inYear,
@@ -253,6 +254,7 @@ export function Stats() {
                           games={scoped}
                           onOpenGame={modal.openGame}
                           previewDetail={timeAfterRelease}
+                          previewOrder={byTimeAfterRelease}
                           {...selection}
                         />
                       </div>

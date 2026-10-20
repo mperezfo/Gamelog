@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, type ReactNode } from 'react'
 
 import { useEdgeFade } from '../hooks/useEdgeFade'
 import { formatScore } from '../lib/format'
+import { byLoggedDate } from '../lib/stats'
 import type { Game } from '../types/game'
 import { CoverImage } from './CoverImage'
 import { Emoji } from './Emoji'
@@ -12,20 +13,20 @@ interface GamesPreviewProps {
   games: Game[]
   /** A word on each game beside its score: when it was played, on what. */
   detail?: (game: Game) => ReactNode
+  /** The order of the games, played longest ago first unless told
+   * otherwise. */
+  order?: (a: Game, b: Game) => number
   onOpenGame: (game: Game) => void
 }
 
 /**
  * A short list of games in a popup, one compact line each (cover, title,
- * a detail, score), newest logged first, with their count at the top. It
+ * a detail, score), with their count at the top. It
  * scrolls inside itself when it is long, and the page does not scroll under
  * it. A game opens its panel.
  */
-export function GamesPreview({ heading, games, detail, onOpenGame }: GamesPreviewProps) {
-  const sorted = useMemo(
-    () => [...games].sort((a, b) => (b.logged_date ?? '').localeCompare(a.logged_date ?? '')),
-    [games],
-  )
+export function GamesPreview({ heading, games, detail, order = byLoggedDate, onOpenGame }: GamesPreviewProps) {
+  const sorted = useMemo(() => [...games].sort(order), [games, order])
 
   const fadeRef = useEdgeFade('y')
   const listRef = useRef<HTMLDivElement | null>(null)
