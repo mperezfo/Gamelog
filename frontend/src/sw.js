@@ -9,12 +9,21 @@
 //   copy can never go stale and is served without asking the server first.
 //   Cache Storage also outlives the HTTP cache, which Android is quick to
 //   evict for an installed app.
+// - The emoji images and the fonts for scripts other than Latin, each kept
+//   the first time it is used rather than with the shell.
 //
-// This file is not served as is: the build fills in the two values below
+// This file is not served as is: the build fills in the three values below
 // (see serviceWorkerPlugin in vite.config.ts).
 
 const SHELL_CACHE = 'gamelog-shell-__SHELL_VERSION__'
 const SHELL_FILES = ['__SHELL_FILES__']
+
+// The fonts for Cyrillic, Greek, Vietnamese, Chinese, Japanese and Korean
+// (see --font-sans in index.css), split into well over four hundred pieces
+// of which a browser only asks for those something on screen needs. Like
+// the rest of the build, each is named after its contents.
+const FONT_FILES = ['__FONT_FILES__']
+const FONTS_CACHE = 'gamelog-fonts-v1'
 
 // Bumping the version drops every image cached under the previous one.
 const IMAGES_CACHE = 'gamelog-images-v1'
@@ -31,6 +40,7 @@ const EMOJI_CACHE = 'gamelog-emoji-v16'
 const NAVIGATION_TIMEOUT_MS = 3000
 
 const shellFiles = new Set(SHELL_FILES)
+const fontFiles = new Set(FONT_FILES)
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -54,6 +64,7 @@ self.addEventListener('activate', (event) => {
           (name.startsWith('gamelog-shell-') && name !== SHELL_CACHE)
       )
       await Promise.all(stale.map((name) => caches.delete(name)))
+      await pruneFonts()
       await self.clients.claim()
     })()
   )
@@ -75,6 +86,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(navigation(request))
   } else if (shellFiles.has(url.pathname)) {
     event.respondWith(shellFile(request))
+  } else if (fontFiles.has(url.pathname)) {
+    event.respondWith(cachedFont(event, request))
   }
 })
 
@@ -138,6 +151,29 @@ async function cachedEmoji(event, request) {
     event.waitUntil(cache.put(request, response.clone()))
   }
   return response
+}
+
+/** Named after their contents, so a cached copy is always right. */
+async function cachedFont(event, request) {
+  const cache = await caches.open(FONTS_CACHE)
+  const cached = await cache.match(request, { ignoreVary: true })
+  if (cached) return cached
+
+  const response = await fetch(request)
+  if (isStorable(response)) {
+    event.waitUntil(cache.put(request, response.clone()))
+  }
+  return response
+}
+
+/** Drops the fonts a previous build used and this one no longer does, which
+ * a new version of a font package leaves behind under its old names. */
+async function pruneFonts() {
+  const cache = await caches.open(FONTS_CACHE)
+  const requests = await cache.keys()
+  await Promise.all(
+    requests.filter((request) => !fontFiles.has(new URL(request.url).pathname)).map((request) => cache.delete(request))
+  )
 }
 
 /** Fetches and keeps every image not cached yet, a few at a time so that a

@@ -106,4 +106,4 @@ If you want it to work differently, please fork it! You are free to modify your 
 
 [MIT](LICENSE)
 
-The interface bundles the [Figtree](https://github.com/erikdkennedy/figtree) typeface, under the SIL Open Font License, and Google's [Noto Emoji](https://github.com/googlefonts/noto-emoji) images, under the Apache License 2.0.
+The interface bundles the [Figtree](https://github.com/erikdkennedy/figtree) typeface and, for other scripts, Google's [Noto Sans](https://github.com/notofonts/latin-greek-cyrillic) and [Noto Sans CJK](https://github.com/notofonts/noto-cjk), all under the SIL Open Font License, and Google's [Noto Emoji](https://github.com/googlefonts/noto-emoji) images, under the Apache License 2.0.

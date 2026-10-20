@@ -68,13 +68,17 @@
   /*
    * Figtree, served with the application (see main.tsx) rather than left to
    * whatever each system has, so that the interface reads the same on every
-   * device. The system's own sans-serif only stands in for the scripts
-   * Figtree does not cover (Cyrillic, Greek, CJK titles) and for the moment
-   * before it loads, and its emoji font for an emoji typed into ordinary
-   * text (icons are drawn as images, see Emoji.tsx).
+   * device. It only covers Latin, so Noto Sans, also served, draws Cyrillic,
+   * Greek and Vietnamese, and the Noto Sans CJK families Chinese, Japanese
+   * and Korean (see --gl-font-cjk). Each is split by script and by
+   * `unicode-range`, so a browser only downloads what something on screen
+   * needs. The system's own sans-serif only stands in for whatever is left
+   * and for the moment before a font loads, and its emoji font for an emoji
+   * typed into a field (shown anywhere else, emoji are drawn as images, see
+   * Emoji.tsx).
    */
-  --font-sans: 'Figtree Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-    'Noto Color Emoji';
+  --font-sans: 'Figtree Variable', 'Noto Sans Variable', var(--gl-font-cjk), ui-sans-serif, system-ui, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji';
 
   /* Small radii throughout. Nothing here is a pill or a rounded card. */
   --radius-control: 4px;
@@ -112,6 +116,30 @@
     color: oklch(from var(--tint) max(l, 0.72) c h);
     background-color: rgb(from var(--tint) r g b / 13.333%);
   }
+}
+
+/*
+ * Which of the CJK families comes first. Chinese, Japanese and Korean share
+ * the Han characters but draw many of them differently, and a title carries
+ * no language to pick by, so the reader's own decides (see src/lib/cjk.ts).
+ * Anyone else gets Japanese and then Korean, which between them draw kana
+ * and Hangul as their own: in a game library, Japanese titles are the
+ * likeliest in any of these scripts.
+ */
+:root {
+  --gl-font-cjk: 'Noto Sans JP Variable', 'Noto Sans KR Variable', 'Noto Sans SC Variable', 'Noto Sans TC Variable';
+}
+
+:root[data-cjk='ko'] {
+  --gl-font-cjk: 'Noto Sans KR Variable', 'Noto Sans JP Variable', 'Noto Sans SC Variable', 'Noto Sans TC Variable';
+}
+
+:root[data-cjk='zh-hans'] {
+  --gl-font-cjk: 'Noto Sans SC Variable', 'Noto Sans TC Variable', 'Noto Sans JP Variable', 'Noto Sans KR Variable';
+}
+
+:root[data-cjk='zh-hant'] {
+  --gl-font-cjk: 'Noto Sans TC Variable', 'Noto Sans SC Variable', 'Noto Sans JP Variable', 'Noto Sans KR Variable';
 }
 
 /*
