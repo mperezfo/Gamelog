@@ -28,6 +28,35 @@ func TestIGDBCredentialsGoTogether(t *testing.T) {
 	}
 }
 
+func TestIGDBSearchLimit(t *testing.T) {
+	tests := []struct {
+		value   string
+		want    int
+		wantErr bool
+	}{
+		{"", 10, false},
+		{"25", 25, false},
+		{"1", 1, false},
+		{"500", 500, false},
+		{"0", 0, true},
+		{"501", 0, true},
+		{"-3", 0, true},
+		{"ten", 0, true},
+	}
+	for _, test := range tests {
+		t.Setenv("GAMELOG_IGDB_SEARCH_LIMIT", test.value)
+
+		cfg, err := Load("")
+		if (err != nil) != test.wantErr {
+			t.Errorf("%q: err = %v, want an error: %v", test.value, err, test.wantErr)
+			continue
+		}
+		if err == nil && cfg.IGDBSearchLimit != test.want {
+			t.Errorf("%q: IGDBSearchLimit = %d, want %d", test.value, cfg.IGDBSearchLimit, test.want)
+		}
+	}
+}
+
 func TestSteamGridDBKeyIsOptional(t *testing.T) {
 	for _, key := range []string{"", "key"} {
 		t.Setenv("GAMELOG_STEAMGRIDDB_API_KEY", key)

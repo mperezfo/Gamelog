@@ -38,10 +38,6 @@ const (
 	// thumbnail that suits its kind (see Images).
 	imageURL = "https://images.igdb.com/igdb/image/upload/%s/%s.jpg"
 
-	// searchLimit is how many games a search returns. A title rarely needs
-	// more than a handful to find the right one among remakes and remasters.
-	searchLimit = 10
-
 	// tokenMargin renews a token this long before it expires, so that one
 	// is never sent in the last seconds of its life.
 	tokenMargin = time.Hour
@@ -96,14 +92,17 @@ type Client struct {
 	tokenURL     string
 	apiURL       string
 	now          func() time.Time
+	// searchLimit is how many games a search returns at most.
+	searchLimit int
 
 	mu      sync.Mutex
 	token   string
 	expires time.Time
 }
 
-// New builds a client for the given Twitch application.
-func New(clientID, clientSecret string) *Client {
+// New builds a client for the given Twitch application, whose searches return
+// at most searchLimit games.
+func New(clientID, clientSecret string, searchLimit int) *Client {
 	return &Client{
 		clientID:     clientID,
 		clientSecret: clientSecret,
@@ -111,6 +110,7 @@ func New(clientID, clientSecret string) *Client {
 		tokenURL:     defaultTokenURL,
 		apiURL:       defaultAPIURL,
 		now:          time.Now,
+		searchLimit:  searchLimit,
 	}
 }
 
@@ -130,22 +130,22 @@ const searchFields = "name,first_release_date,platforms.name,platforms.abbreviat
 func (c *Client) Search(ctx context.Context, title string) ([]Game, error) {
 	var exact []apiGame
 	query := fmt.Sprintf(`fields %s; where name ~ "%s" & version_parent = null; limit %d;`,
-		searchFields, escape(title), searchLimit)
+		searchFields, escape(title), c.searchLimit)
 	if err := c.query(ctx, "games", query, &exact); err != nil {
 		return nil, err
 	}
 
 	var searched []apiGame
 	query = fmt.Sprintf(`search "%s"; fields %s; where version_parent = null; limit %d;`,
-		escape(title), searchFields, searchLimit)
+		escape(title), searchFields, c.searchLimit)
 	if err := c.query(ctx, "games", query, &searched); err != nil {
 		return nil, err
 	}
 
-	games := make([]Game, 0, searchLimit)
+	games := make([]Game, 0, c.searchLimit)
 	seen := map[uint64]bool{}
 	for _, result := range slices.Concat(exact, searched) {
-		if len(games) == searchLimit {
+		if len(games) == c.searchLimit {
 			break
 		}
 		if seen[result.ID] {

@@ -23,7 +23,8 @@ import (
 const (
 	defaultAPIURL = "https://www.steamgriddb.com/api/v2"
 
-	// searchLimit is how many games a search returns, the same as IGDB's.
+	// searchLimit is how many games a search returns, the same as IGDB's by
+	// default.
 	searchLimit = 10
 
 	// maxResponseSize caps what is read from the API.

@@ -70,8 +70,11 @@ func newFakeIGDB(t *testing.T, response string) *fakeIGDB {
 	return fake
 }
 
+// testSearchLimit is the search limit of the clients the tests build.
+const testSearchLimit = 10
+
 func (f *fakeIGDB) client() *Client {
-	client := New("id", "secret")
+	client := New("id", "secret", testSearchLimit)
 	client.tokenURL = f.server.URL + "/token"
 	client.apiURL = f.server.URL + "/v4"
 	return client
@@ -166,8 +169,8 @@ func TestSearchPutsExactMatchesFirst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Search: %v", err)
 	}
-	if len(games) != searchLimit {
-		t.Fatalf("got %d games, want %d", len(games), searchLimit)
+	if len(games) != testSearchLimit {
+		t.Fatalf("got %d games, want %d", len(games), testSearchLimit)
 	}
 	if games[0].ID != 147519 {
 		t.Errorf("first game = %d %q, want the exact match", games[0].ID, games[0].Name)
@@ -177,8 +180,27 @@ func TestSearchPutsExactMatchesFirst(t *testing.T) {
 			t.Errorf("the exact match is listed twice")
 		}
 	}
-	if games[searchLimit-1].ID != 108 {
-		t.Errorf("last game = %d, want the search results to fill the rest in order", games[searchLimit-1].ID)
+	if games[testSearchLimit-1].ID != 108 {
+		t.Errorf("last game = %d, want the search results to fill the rest in order", games[testSearchLimit-1].ID)
+	}
+}
+
+func TestSearchHonoursTheLimit(t *testing.T) {
+	fake := newFakeIGDB(t, `[{"id": 1, "name": "One"}, {"id": 2, "name": "Two"}, {"id": 3, "name": "Three"}]`)
+	client := fake.client()
+	client.searchLimit = 2
+
+	games, err := client.Search(context.Background(), "Celeste")
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(games) != 2 {
+		t.Errorf("got %d games, want 2", len(games))
+	}
+	for _, query := range fake.queries {
+		if !strings.HasSuffix(query, "limit 2;") {
+			t.Errorf("query = %q, want it to ask for 2 games", query)
+		}
 	}
 }
 
@@ -246,7 +268,7 @@ func TestSearchReportsAFailedResponse(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	client := New("id", "secret")
+	client := New("id", "secret", testSearchLimit)
 	client.tokenURL = server.URL + "/token"
 	client.apiURL = server.URL + "/v4"
 
