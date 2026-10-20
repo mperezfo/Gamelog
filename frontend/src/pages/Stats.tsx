@@ -74,7 +74,7 @@ export function Stats() {
   const buckets = useMemo(() => (year ? monthBuckets(scoped) : yearBuckets(played)), [year, scoped, played])
   const rows = useMemo(() => breakdown(scoped, kind, year), [scoped, kind, year])
   const bins = useMemo(() => scoreBins(scoped), [scoped])
-  const age = useMemo(() => releaseAge(scoped), [scoped])
+  const age = useMemo(() => releaseAge(scoped, year), [scoped, year])
   const average = averageScore(scoped)
 
   const backlog = useMemo(() => {
