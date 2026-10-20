@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -77,8 +78,8 @@ func TestSearchMapsResults(t *testing.T) {
 		"platforms": [{"id": 6, "name": "PC (Microsoft Windows)", "abbreviation": "PC"}, {"id": 167, "name": "PlayStation 5"}],
 		"cover": {"id": 1, "image_id": "co6bo0"},
 		"involved_companies": [
-			{"company": {"id": 37, "name": "Capcom"}, "developer": true, "publisher": true},
-			{"company": {"id": 37, "name": "Capcom"}, "developer": true, "publisher": false},
+			{"company": {"id": 37, "name": "Capcom", "country": 392}, "developer": true, "publisher": true},
+			{"company": {"id": 37, "name": "Capcom", "country": 392}, "developer": true, "publisher": false},
 			{"company": {"id": 900, "name": "Some Port House"}, "developer": true, "publisher": false}
 		]
 	}, {
@@ -108,10 +109,10 @@ func TestSearchMapsResults(t *testing.T) {
 	if want := "https://images.igdb.com/igdb/image/upload/t_cover_small/co6bo0.jpg"; game.CoverURL == nil || *game.CoverURL != want {
 		t.Errorf("CoverURL = %v, want %q", game.CoverURL, want)
 	}
-	if len(game.Developers) != 2 || game.Developers[0] != (Company{37, "Capcom"}) || game.Developers[1] != (Company{900, "Some Port House"}) {
+	if len(game.Developers) != 2 || game.Developers[0] != (Company{37, "Capcom", "JP"}) || game.Developers[1] != (Company{900, "Some Port House", ""}) {
 		t.Errorf("Developers = %v", game.Developers)
 	}
-	if len(game.Publishers) != 1 || game.Publishers[0] != (Company{37, "Capcom"}) {
+	if len(game.Publishers) != 1 || game.Publishers[0] != (Company{37, "Capcom", "JP"}) {
 		t.Errorf("Publishers = %v", game.Publishers)
 	}
 
@@ -288,7 +289,7 @@ func TestCompanies(t *testing.T) {
 		body, _ := io.ReadAll(r.Body)
 		query = string(body)
 		// IGDB answers in an order of its own.
-		_, _ = io.WriteString(w, `[{"id":37,"name":"Capcom"},{"id":70,"name":"Nintendo"}]`)
+		_, _ = io.WriteString(w, `[{"id":37,"name":"Capcom","country":392},{"id":70,"name":"Nintendo","country":392},{"id":1,"name":"Gone","country":810}]`)
 	})
 	fake.server.Config.Handler = mux
 
@@ -296,11 +297,13 @@ func TestCompanies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Companies: %v", err)
 	}
-	if !strings.Contains(query, "where id = (70,1,37);") {
-		t.Errorf("query = %q, want the three ids", query)
+	if !strings.Contains(query, "fields name,country;") || !strings.Contains(query, "where id = (70,1,37);") {
+		t.Errorf("query = %q, want the names and countries of the three ids", query)
 	}
-	if len(companies) != 2 || companies[0] != (Company{70, "Nintendo"}) || companies[1] != (Company{37, "Capcom"}) {
-		t.Errorf("companies = %v, want Nintendo then Capcom, in the order asked for", companies)
+	// A numeric code ISO 3166-1 no longer has is no country at all.
+	want := []Company{{70, "Nintendo", "JP"}, {1, "Gone", ""}, {37, "Capcom", "JP"}}
+	if !slices.Equal(companies, want) {
+		t.Errorf("companies = %v, want %v, in the order asked for", companies, want)
 	}
 }
 

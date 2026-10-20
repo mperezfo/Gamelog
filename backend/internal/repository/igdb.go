@@ -7,6 +7,8 @@ import (
 	"slices"
 	"strings"
 
+	"gorm.io/gorm"
+
 	"github.com/mperezfo/gamelog/internal/models"
 )
 
@@ -15,6 +17,10 @@ import (
 type IGDBLink struct {
 	ID     uint64
 	IGDBID uint64
+	// Country is where IGDB says the company is from, as an ISO 3166-1
+	// two-letter code, to give a developer or publisher that has none yet.
+	// Empty for none, and always for a platform.
+	Country string
 }
 
 // NewLookup is a developer, publisher or platform that a game write names
@@ -23,6 +29,8 @@ type IGDBLink struct {
 type NewLookup struct {
 	Name   string
 	IGDBID *uint64
+	// Country is the IGDB company's, as in IGDBLink.
+	Country string
 }
 
 // errNotLinkable is returned when asking a genre repository about IGDB. It
@@ -42,6 +50,9 @@ type igdbLinkSpec struct {
 	// that linking it again moves it: true for companies, false for
 	// platforms (see migration 00018).
 	exclusive bool
+	// countryTable is the entity's own table, when it has a country that a
+	// link can fill in (see migration 00019): developers and publishers.
+	countryTable string
 }
 
 // igdbLinkTable describes the link table of T. Genres have none.
@@ -49,11 +60,11 @@ func igdbLinkTable[T Lookup]() (igdbLinkSpec, bool) {
 	var zero T
 	switch any(zero).(type) {
 	case models.Developer:
-		return igdbLinkSpec{"developer_igdb_companies", "igdb_company_id", "developer_id", "IGDBCompanyIDs", true}, true
+		return igdbLinkSpec{"developer_igdb_companies", "igdb_company_id", "developer_id", "IGDBCompanyIDs", true, "developers"}, true
 	case models.Publisher:
-		return igdbLinkSpec{"publisher_igdb_companies", "igdb_company_id", "publisher_id", "IGDBCompanyIDs", true}, true
+		return igdbLinkSpec{"publisher_igdb_companies", "igdb_company_id", "publisher_id", "IGDBCompanyIDs", true, "publishers"}, true
 	case models.Platform:
-		return igdbLinkSpec{"platform_igdb_platforms", "igdb_platform_id", "platform_id", "IGDBPlatformIDs", false}, true
+		return igdbLinkSpec{"platform_igdb_platforms", "igdb_platform_id", "platform_id", "IGDBPlatformIDs", false, ""}, true
 	default:
 		return igdbLinkSpec{}, false
 	}
@@ -96,6 +107,10 @@ func (r *LookupRepository[T]) igdbLinks(ctx context.Context, record uint64) (map
 // new one: it stands for one record at most, and the latest choice is the
 // one to keep. An IGDB platform keeps the platforms it was linked to, and
 // gains the new one.
+//
+// A link that carries a country gives it to a developer or publisher with
+// none: one set by hand is never overwritten, and of several links to the
+// same record the first one with a country wins.
 //
 // Every record has to be the owner's, or nothing is written and
 // ErrInvalidReference is returned, the same as for a game naming somebody
@@ -144,6 +159,31 @@ func (r *LookupRepository[T]) LinkIGDB(ctx context.Context, links []IGDBLink) er
 			strings.Join(placeholders, ", ")+
 			" ON DUPLICATE KEY UPDATE "+onDuplicate,
 		values...,
+	).Error
+	if err != nil {
+		return translate(err)
+	}
+
+	if spec.countryTable == "" {
+		return nil
+	}
+	for _, link := range links {
+		if link.Country == "" {
+			continue
+		}
+		if err := fillCountry(ctx, r.db, spec.countryTable, r.userID, link.ID, link.Country); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// fillCountry gives a developer or publisher (table names which) a country,
+// unless it already has one.
+func fillCountry(ctx context.Context, db *gorm.DB, table string, userID, id uint64, code string) error {
+	err := db.WithContext(ctx).Exec(
+		"UPDATE "+table+" SET country = ? WHERE user_id = ? AND id = ? AND country IS NULL",
+		code, userID, id,
 	).Error
 	return translate(err)
 }

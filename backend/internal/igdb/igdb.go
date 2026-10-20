@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/mperezfo/gamelog/internal/country"
 )
 
 const (
@@ -55,6 +57,9 @@ var errUnauthorized = errors.New("igdb: unauthorized")
 type Company struct {
 	ID   uint64
 	Name string
+	// Country is where it is from, as an ISO 3166-1 two-letter code, or
+	// empty when IGDB does not say.
+	Country string
 }
 
 // Platform is a system as IGDB lists it.
@@ -115,7 +120,8 @@ func (c *Client) Search(ctx context.Context, title string) ([]Game, error) {
 	query := fmt.Sprintf(
 		`search "%s"; `+
 			`fields name,first_release_date,platforms.name,platforms.abbreviation,cover.image_id,`+
-			`involved_companies.company.name,involved_companies.developer,involved_companies.publisher; `+
+			`involved_companies.company.name,involved_companies.company.country,`+
+			`involved_companies.developer,involved_companies.publisher; `+
 			`where version_parent = null; limit %d;`,
 		escape(title), searchLimit,
 	)
@@ -194,13 +200,13 @@ const maxByID = 50
 // Companies returns the companies with the given ids, in the order asked
 // for. An id IGDB does not know is left out.
 func (c *Client) Companies(ctx context.Context, ids []uint64) ([]Company, error) {
-	results, err := byID[apiCompany](ctx, c, "companies", "name", ids)
+	results, err := byID[apiCompany](ctx, c, "companies", "name,country", ids)
 	if err != nil {
 		return nil, err
 	}
 	companies := make([]Company, 0, len(results))
 	for _, result := range results {
-		companies = append(companies, Company{ID: result.ID, Name: result.Name})
+		companies = append(companies, result.company())
 	}
 	return companies, nil
 }
@@ -418,9 +424,16 @@ func decodeResponse(resp *http.Response, what string, target any) error {
 type apiCompany struct {
 	ID   uint64 `json:"id"`
 	Name string `json:"name"`
+	// Country is ISO 3166-1's numeric code (724 for Spain), or 0.
+	Country int `json:"country"`
 }
 
 func (c apiCompany) id() uint64 { return c.ID }
+
+func (c apiCompany) company() Company {
+	code, _ := country.FromNumeric(c.Country)
+	return Company{ID: c.ID, Name: c.Name, Country: code}
+}
 
 // apiPlatform is a platform as the API returns it.
 type apiPlatform struct {
@@ -462,12 +475,9 @@ type apiGame struct {
 		ImageID string `json:"image_id"`
 	} `json:"cover"`
 	InvolvedCompanies []struct {
-		Company struct {
-			ID   uint64 `json:"id"`
-			Name string `json:"name"`
-		} `json:"company"`
-		Developer bool `json:"developer"`
-		Publisher bool `json:"publisher"`
+		Company   apiCompany `json:"company"`
+		Developer bool       `json:"developer"`
+		Publisher bool       `json:"publisher"`
 	} `json:"involved_companies"`
 }
 
@@ -503,7 +513,7 @@ func (g apiGame) game() Game {
 	seenDevelopers := map[uint64]bool{}
 	seenPublishers := map[uint64]bool{}
 	for _, involved := range g.InvolvedCompanies {
-		company := Company{ID: involved.Company.ID, Name: involved.Company.Name}
+		company := involved.Company.company()
 		if company.ID == 0 || company.Name == "" {
 			continue
 		}

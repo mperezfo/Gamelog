@@ -47,12 +47,12 @@ func (e *Exporter) Export(ctx context.Context) (*Document, error) {
 		return nil, err
 	}
 	if document.Developers, err = exportLookups(ctx, e.db, e.userID, func(d models.Developer) LookupEntry {
-		return LookupEntry{Name: d.Name, Icon: d.Icon, IGDBCompanyIDs: d.IGDBCompanyIDs}
+		return LookupEntry{Name: d.Name, Country: d.Country, IGDBCompanyIDs: d.IGDBCompanyIDs}
 	}); err != nil {
 		return nil, err
 	}
 	if document.Publishers, err = exportLookups(ctx, e.db, e.userID, func(p models.Publisher) LookupEntry {
-		return LookupEntry{Name: p.Name, Icon: p.Icon, IGDBCompanyIDs: p.IGDBCompanyIDs}
+		return LookupEntry{Name: p.Name, Country: p.Country, IGDBCompanyIDs: p.IGDBCompanyIDs}
 	}); err != nil {
 		return nil, err
 	}

@@ -82,12 +82,24 @@ type gameBody struct {
 type newLookupBody struct {
 	Name          string  `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name of the developer or publisher." example:"Team Cherry"`
 	IGDBCompanyID *uint64 `json:"igdb_company_id,omitempty" doc:"IGDB company the record stands for, to link it to. See GET /api/metadata/games." example:"9346"`
+	Country       *string `json:"country,omitempty" pattern:"^[A-Z]{2}$" doc:"Where IGDB says the company is from, as an ISO 3166-1 two-letter code (see GET /api/metadata/games): given to the record when it has no country yet." example:"AU"`
+}
+
+// Resolve implements huma.ResolverWithPath.
+func (b *newLookupBody) Resolve(_ huma.Context, prefix *huma.PathBuffer) []error {
+	return validCountry(b.Country, prefix.With("country"))
 }
 
 // companyLinkBody ties an existing developer or publisher to an IGDB company.
 type companyLinkBody struct {
-	ID            uint64 `json:"id" doc:"Id of the developer or publisher. Must exist." example:"3"`
-	IGDBCompanyID uint64 `json:"igdb_company_id" doc:"IGDB company it stands for." example:"9346"`
+	ID            uint64  `json:"id" doc:"Id of the developer or publisher. Must exist." example:"3"`
+	IGDBCompanyID uint64  `json:"igdb_company_id" doc:"IGDB company it stands for." example:"9346"`
+	Country       *string `json:"country,omitempty" pattern:"^[A-Z]{2}$" doc:"Where IGDB says the company is from, as an ISO 3166-1 two-letter code (see GET /api/metadata/games): given to the record when it has no country yet, never in place of one it has." example:"AU"`
+}
+
+// Resolve implements huma.ResolverWithPath.
+func (b *companyLinkBody) Resolve(_ huma.Context, prefix *huma.PathBuffer) []error {
+	return validCountry(b.Country, prefix.With("country"))
 }
 
 // newPlatformBody is the platform a game write names rather than numbers.
@@ -105,7 +117,11 @@ type platformLinkBody struct {
 func newLookups(bodies []newLookupBody) []repository.NewLookup {
 	out := make([]repository.NewLookup, 0, len(bodies))
 	for _, body := range bodies {
-		out = append(out, repository.NewLookup{Name: strings.TrimSpace(body.Name), IGDBID: body.IGDBCompanyID})
+		out = append(out, repository.NewLookup{
+			Name:    strings.TrimSpace(body.Name),
+			IGDBID:  body.IGDBCompanyID,
+			Country: valueOf(body.Country),
+		})
 	}
 	return out
 }
@@ -113,9 +129,17 @@ func newLookups(bodies []newLookupBody) []repository.NewLookup {
 func companyLinks(bodies []companyLinkBody) []repository.IGDBLink {
 	out := make([]repository.IGDBLink, 0, len(bodies))
 	for _, body := range bodies {
-		out = append(out, repository.IGDBLink{ID: body.ID, IGDBID: body.IGDBCompanyID})
+		out = append(out, repository.IGDBLink{ID: body.ID, IGDBID: body.IGDBCompanyID, Country: valueOf(body.Country)})
 	}
 	return out
+}
+
+// valueOf is optional text as a plain string, empty for none.
+func valueOf(text *string) string {
+	if text == nil {
+		return ""
+	}
+	return *text
 }
 
 func (b gameBody) newPlatform() *repository.NewLookup {

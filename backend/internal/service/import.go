@@ -12,6 +12,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/mperezfo/gamelog/internal/country"
 	"github.com/mperezfo/gamelog/internal/models"
 	"github.com/mperezfo/gamelog/internal/repository"
 )
@@ -194,32 +195,38 @@ func newImportRun(tx *gorm.DB, userID uint64, report *ImportReport) *importRun {
 		games:  repository.NewGameRepository(tx, userID),
 		report: report,
 
-		// Only a platform has a colour (see models.Platform), so the other
-		// three build functions take and ignore it: one generic importer for
-		// all four is worth a parameter three of them do nothing with.
+		// Each entity keeps only the attributes it has a column for (see
+		// lookupAttributes) and ignores the rest: one generic importer for
+		// all four is worth fields some of them do nothing with.
 		platforms: newLookupImporter(tx, userID,
-			func(id uint64, name string, icon, color *string) models.Platform {
-				return models.Platform{ID: id, Name: name, Icon: icon, Color: color}
+			func(id uint64, name string, a lookupAttributes) models.Platform {
+				return models.Platform{ID: id, Name: name, Icon: a.Icon, Color: a.Color}
 			},
-			func(p *models.Platform) (uint64, *string, *string) { return p.ID, p.Icon, p.Color }),
+			func(p *models.Platform) (uint64, lookupAttributes) {
+				return p.ID, lookupAttributes{Icon: p.Icon, Color: p.Color}
+			}),
 
 		genres: newLookupImporter(tx, userID,
-			func(id uint64, name string, icon, _ *string) models.Genre {
-				return models.Genre{ID: id, Name: name, Icon: icon}
+			func(id uint64, name string, a lookupAttributes) models.Genre {
+				return models.Genre{ID: id, Name: name, Icon: a.Icon}
 			},
-			func(g *models.Genre) (uint64, *string, *string) { return g.ID, g.Icon, nil }),
+			func(g *models.Genre) (uint64, lookupAttributes) { return g.ID, lookupAttributes{Icon: g.Icon} }),
 
 		developers: newLookupImporter(tx, userID,
-			func(id uint64, name string, icon, _ *string) models.Developer {
-				return models.Developer{ID: id, Name: name, Icon: icon}
+			func(id uint64, name string, a lookupAttributes) models.Developer {
+				return models.Developer{ID: id, Name: name, Country: a.Country}
 			},
-			func(d *models.Developer) (uint64, *string, *string) { return d.ID, d.Icon, nil }),
+			func(d *models.Developer) (uint64, lookupAttributes) {
+				return d.ID, lookupAttributes{Country: d.Country}
+			}),
 
 		publishers: newLookupImporter(tx, userID,
-			func(id uint64, name string, icon, _ *string) models.Publisher {
-				return models.Publisher{ID: id, Name: name, Icon: icon}
+			func(id uint64, name string, a lookupAttributes) models.Publisher {
+				return models.Publisher{ID: id, Name: name, Country: a.Country}
 			},
-			func(p *models.Publisher) (uint64, *string, *string) { return p.ID, p.Icon, nil }),
+			func(p *models.Publisher) (uint64, lookupAttributes) {
+				return p.ID, lookupAttributes{Country: p.Country}
+			}),
 	}
 }
 
@@ -316,7 +323,18 @@ func (r *importRun) importLookups(ctx context.Context, section section) error {
 			}
 		}
 
-		id, created, err := section.port.apply(ctx, name, icon, color)
+		// Empty clears it, like an icon; anything else has to be a country.
+		var countryCode *string
+		if entry.Country != nil && hasCountry(section.name) {
+			if code, ok := country.Normalize(*entry.Country); ok || code == "" {
+				countryCode = &code
+			} else {
+				r.warn(section.name, index, name, fmt.Sprintf(
+					"%q is not a two-letter country code (ISO 3166-1), so it was left out", code))
+			}
+		}
+
+		id, created, err := section.port.apply(ctx, name, lookupAttributes{Icon: icon, Color: color, Country: countryCode})
 		if err != nil {
 			return err
 		}
@@ -705,11 +723,26 @@ type lookupPort interface {
 	// the library does not have it yet.
 	resolve(ctx context.Context, name string) (id uint64, created bool, err error)
 	// apply writes one entry of the section of the document devoted to the
-	// entity. color is only ever written for a platform.
-	apply(ctx context.Context, name string, icon, color *string) (id uint64, created bool, err error)
+	// entity, with whichever of the attributes it has.
+	apply(ctx context.Context, name string, attributes lookupAttributes) (id uint64, created bool, err error)
 	// link ties the record to the IGDB records it stands for. Genres cannot
 	// be linked; see section.links.
 	link(ctx context.Context, id uint64, igdbIDs []uint64) error
+}
+
+// lookupAttributes are what a simple entity carries besides its name: an
+// icon for a genre or a platform, a colour for a platform, a country for a
+// developer or a publisher. Each is left out (nil) to keep what is stored,
+// and empty to clear it.
+type lookupAttributes struct {
+	Icon    *string
+	Color   *string
+	Country *string
+}
+
+// hasCountry reports whether the entity of a section is one with a country.
+func hasCountry(section string) bool {
+	return section == "developers" || section == "publishers"
 }
 
 // lookupImporter implements lookupPort for one entity.
@@ -718,8 +751,8 @@ type lookupPort interface {
 // parameter: set a field and read one. Everything else is shared.
 type lookupImporter[T repository.Lookup] struct {
 	repo    *repository.LookupRepository[T]
-	build   func(id uint64, name string, icon, color *string) T
-	inspect func(*T) (id uint64, icon, color *string)
+	build   func(id uint64, name string, attributes lookupAttributes) T
+	inspect func(*T) (id uint64, attributes lookupAttributes)
 
 	// cache remembers the names already looked up, so that a document naming
 	// the same developer on forty games costs one query rather than forty.
@@ -731,8 +764,8 @@ type lookupImporter[T repository.Lookup] struct {
 func newLookupImporter[T repository.Lookup](
 	tx *gorm.DB,
 	userID uint64,
-	build func(id uint64, name string, icon, color *string) T,
-	inspect func(*T) (uint64, *string, *string),
+	build func(id uint64, name string, attributes lookupAttributes) T,
+	inspect func(*T) (uint64, lookupAttributes),
 ) *lookupImporter[T] {
 	return &lookupImporter[T]{
 		repo:    repository.NewLookupRepository[T](tx, userID),
@@ -753,16 +786,16 @@ func (l *lookupImporter[T]) resolve(ctx context.Context, name string) (uint64, b
 		return 0, false, err
 	}
 	if err == nil {
-		id, _, _ := l.inspect(record)
+		id, _ := l.inspect(record)
 		l.cache[cacheKey(name)] = id
 		return id, false, nil
 	}
 
-	created := l.build(0, name, nil, nil)
+	created := l.build(0, name, lookupAttributes{})
 	if err := l.repo.Create(ctx, &created); err != nil {
 		return 0, false, err
 	}
-	id, _, _ := l.inspect(&created)
+	id, _ := l.inspect(&created)
 	l.cache[cacheKey(name)] = id
 	return id, true, nil
 }
@@ -770,39 +803,46 @@ func (l *lookupImporter[T]) resolve(ctx context.Context, name string) (uint64, b
 // apply writes one entry of the entity own section.
 //
 // The document wins over the library for what it carries: an entry renames a
-// record whose stored spelling differs, and sets the icon and, for a
-// platform, the colour it brings. Either one left out is kept, and an empty
-// one is cleared.
-func (l *lookupImporter[T]) apply(ctx context.Context, name string, icon, color *string) (uint64, bool, error) {
+// record whose stored spelling differs, and sets the attributes it brings.
+// One left out is kept, and an empty one is cleared.
+func (l *lookupImporter[T]) apply(ctx context.Context, name string, attributes lookupAttributes) (uint64, bool, error) {
 	record, err := l.repo.FindByName(ctx, name)
 	if err != nil && !errors.Is(err, repository.ErrNotFound) {
 		return 0, false, err
 	}
 
 	if errors.Is(err, repository.ErrNotFound) {
-		created := l.build(0, name, CleanOptional(icon), CleanOptional(color))
+		created := l.build(0, name, attributes.cleaned())
 		if err := l.repo.Create(ctx, &created); err != nil {
 			return 0, false, err
 		}
-		id, _, _ := l.inspect(&created)
+		id, _ := l.inspect(&created)
 		l.cache[cacheKey(name)] = id
 		return id, true, nil
 	}
 
-	id, storedIcon, storedColor := l.inspect(record)
-	if icon == nil {
-		icon = storedIcon
+	id, stored := l.inspect(record)
+	if attributes.Icon == nil {
+		attributes.Icon = stored.Icon
 	}
-	if color == nil {
-		color = storedColor
+	if attributes.Color == nil {
+		attributes.Color = stored.Color
+	}
+	if attributes.Country == nil {
+		attributes.Country = stored.Country
 	}
 
-	updated := l.build(id, name, CleanOptional(icon), CleanOptional(color))
+	updated := l.build(id, name, attributes.cleaned())
 	if err := l.repo.Update(ctx, &updated); err != nil {
 		return 0, false, err
 	}
 	l.cache[cacheKey(name)] = id
 	return id, false, nil
+}
+
+// cleaned is the attributes as they are stored (see CleanOptional).
+func (a lookupAttributes) cleaned() lookupAttributes {
+	return lookupAttributes{Icon: CleanOptional(a.Icon), Color: CleanOptional(a.Color), Country: CleanOptional(a.Country)}
 }
 
 // link ties one record to the IGDB records it stands for, on top of the

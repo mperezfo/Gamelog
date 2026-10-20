@@ -85,11 +85,14 @@ type Genre struct {
 
 // Developer is a game developer.
 type Developer struct {
-	ID     uint64  `gorm:"column:id;primaryKey" json:"id"`
-	UserID uint64  `gorm:"column:user_id" json:"-"`
-	Name   string  `gorm:"column:name" json:"name"`
-	Slug   string  `gorm:"column:slug" json:"slug"`
-	Icon   *string `gorm:"column:icon" json:"icon"`
+	ID     uint64 `gorm:"column:id;primaryKey" json:"id"`
+	UserID uint64 `gorm:"column:user_id" json:"-"`
+	Name   string `gorm:"column:name" json:"name"`
+	Slug   string `gorm:"column:slug" json:"slug"`
+	// Country is where the developer is from, as an ISO 3166-1 two-letter
+	// code ("ES"), in place of the icon the other two simple entities have.
+	// See migration 00019.
+	Country *string `gorm:"column:country" json:"country"`
 	// IGDBCompanyIDs are the IGDB companies the developer stands for. They
 	// live in a table of their own (see migration 00016) and are filled in
 	// by LookupRepository's List and Get only, never written through here.
@@ -98,11 +101,12 @@ type Developer struct {
 
 // Publisher is a game publisher.
 type Publisher struct {
-	ID     uint64  `gorm:"column:id;primaryKey" json:"id"`
-	UserID uint64  `gorm:"column:user_id" json:"-"`
-	Name   string  `gorm:"column:name" json:"name"`
-	Slug   string  `gorm:"column:slug" json:"slug"`
-	Icon   *string `gorm:"column:icon" json:"icon"`
+	ID     uint64 `gorm:"column:id;primaryKey" json:"id"`
+	UserID uint64 `gorm:"column:user_id" json:"-"`
+	Name   string `gorm:"column:name" json:"name"`
+	Slug   string `gorm:"column:slug" json:"slug"`
+	// Country: see Developer.Country.
+	Country *string `gorm:"column:country" json:"country"`
 	// IGDBCompanyIDs: see Developer.IGDBCompanyIDs.
 	IGDBCompanyIDs []uint64 `gorm:"-" json:"igdb_company_ids,omitempty"`
 }

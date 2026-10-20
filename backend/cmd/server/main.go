@@ -23,10 +23,12 @@ import (
 	"github.com/mperezfo/gamelog/internal/auth"
 	"github.com/mperezfo/gamelog/internal/config"
 	"github.com/mperezfo/gamelog/internal/database"
+	"github.com/mperezfo/gamelog/internal/igdb"
 	"github.com/mperezfo/gamelog/internal/imagefile"
 	"github.com/mperezfo/gamelog/internal/models"
 	"github.com/mperezfo/gamelog/internal/repository"
 	"github.com/mperezfo/gamelog/internal/router"
+	"github.com/mperezfo/gamelog/internal/service"
 )
 
 // version identifies the running build: a git tag, or a short commit hash
@@ -143,6 +145,9 @@ func run(tasks maintenance) error {
 	if err := backfillSlugs(ctx, authentication, db); err != nil {
 		return err
 	}
+	if cfg.IGDBEnabled() {
+		go backfillCompanyCountries(ctx, db, igdb.New(cfg.IGDBClientID, cfg.IGDBClientSecret))
+	}
 
 	srv := &http.Server{
 		Addr:              net.JoinHostPort("", strconv.Itoa(cfg.Port)),
@@ -227,6 +232,22 @@ func sweepSessions(ctx context.Context, authentication *auth.Service) {
 	}
 	if swept > 0 {
 		slog.Info("swept expired sessions", "sessions", swept)
+	}
+}
+
+// backfillCompanyCountries gives the developers and publishers linked to
+// IGDB before countries existed the country IGDB has for them, once (see
+// service.BackfillCompanyCountries). In the background, since it waits on
+// IGDB, and nothing depends on it: a failure only means trying again on the
+// next start.
+func backfillCompanyCountries(ctx context.Context, db *gorm.DB, client *igdb.Client) {
+	filled, err := service.BackfillCompanyCountries(ctx, db, client.Companies, time.Now())
+	if err != nil {
+		slog.Warn("could not fill in the countries of developers and publishers from IGDB", "error", err)
+		return
+	}
+	if filled > 0 {
+		slog.Info("filled in countries of developers and publishers from IGDB", "records", filled)
 	}
 }
 
