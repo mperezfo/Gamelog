@@ -11,6 +11,7 @@ import { FilterBar, type FilterField } from '../components/FilterBar'
 import { GameCoverCard } from '../components/GameCoverCard'
 import { GamesStats } from '../components/GamesStats'
 import { GenreTag } from '../components/GenreTag'
+import { IgdbLink } from '../components/IgdbLink'
 import { GridIcon, PlusIcon, SearchIcon, TableIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { Pill } from '../components/Pill'
@@ -262,6 +263,27 @@ export function GamesPage() {
         },
       },
       {
+        // Whether the game is linked to IGDB: the mark on the ones that are,
+        // nothing on the rest, so the gaps stand out. Sortable, which groups
+        // the two together.
+        id: 'igdb',
+        header: 'IGDB',
+        size: 64,
+        accessorFn: (game) => (game.igdb_id != null ? 1 : 0),
+        cell: (info) => {
+          const game = info.row.original
+          if (game.igdb_id == null) return null
+          return (
+            <IgdbLink
+              kind="games"
+              id={game.igdb_id}
+              aria-label={`View ${game.title} on IGDB`}
+              className="-m-1.5 p-1.5 text-ink-faint"
+            />
+          )
+        },
+      },
+      {
         accessorKey: 'status',
         header: 'Status',
         size: 110,
@@ -461,6 +483,7 @@ export function GamesPage() {
                     onClick={() => modal.openGame(game)}
                     caption={game.platform?.name}
                     className="w-full"
+                    igdbMark
                   />
                 ))}
               </div>
