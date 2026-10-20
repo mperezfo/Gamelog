@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 
 import { useEdgeFade } from '../hooks/useEdgeFade'
 import { previewHandlers, type Highlight, type SetPreview, type Share } from '../lib/stats'
+import { CountryFlag } from './CountryFlag'
 import { Emoji } from './Emoji'
 import { ChevronRightIcon } from './icons'
 
@@ -105,7 +106,8 @@ export function BarList({ rows, activeKey, pinnedKey, onPreview, onPin, visibleR
   )
 }
 
-/** A platform's colour as a dot, a genre's emoji, or just the name. The row
+/** A platform's colour as a dot, a genre's emoji, a company's flag, or just
+ * the name. The row
  * for games with none ("No platform") reads quieter. */
 function RowLabel({ row }: { row: Share }) {
   const lookup = row.lookup
@@ -117,6 +119,7 @@ function RowLabel({ row }: { row: Share }) {
           <Emoji value={lookup.icon} />
         </span>
       )}
+      {lookup?.country && <CountryFlag code={lookup.country} />}
       <span className="truncate">
         <Emoji value={row.label} />
       </span>

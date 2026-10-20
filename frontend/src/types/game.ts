@@ -118,12 +118,17 @@ export interface NewLookup {
   name: string
   /** The IGDB company to link it to, when it came from Identify. */
   igdb_company_id?: number | null
+  /** Where IGDB says that company is from, for the new record to take. */
+  country?: string
 }
 
 /** An existing developer or publisher and the IGDB company it stands for. */
 export interface CompanyLink {
   id: number
   igdb_company_id: number
+  /** Where IGDB says the company is from, for a record that has no country
+   * yet to take: one it has is never replaced. */
+  country?: string
 }
 
 /** Filters GET /api/games and /api/games/stats both accept. */

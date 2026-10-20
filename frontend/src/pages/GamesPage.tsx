@@ -308,7 +308,9 @@ export function GamesPage() {
           return (
             <span className="flex flex-wrap gap-1">
               {developers.map((d) => (
-                <Pill key={d.id}>{d.name}</Pill>
+                <Pill key={d.id} country={d.country}>
+                  {d.name}
+                </Pill>
               ))}
             </span>
           )
@@ -325,7 +327,9 @@ export function GamesPage() {
           return (
             <span className="flex flex-wrap gap-1">
               {publishers.map((p) => (
-                <Pill key={p.id}>{p.name}</Pill>
+                <Pill key={p.id} country={p.country}>
+                  {p.name}
+                </Pill>
               ))}
             </span>
           )
