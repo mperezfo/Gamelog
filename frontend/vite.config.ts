@@ -48,7 +48,8 @@ function apiProxy(): ProxyOptions {
 
 /**
  * Emits src/sw.js as the build's /sw.js, filled in with the list of files to
- * keep as the offline app shell and a version derived from their contents.
+ * keep as the offline app shell, a version derived from their contents, and
+ * the fonts kept only as they are first used.
  *
  * It runs once the whole build, public/ included, is on disk, so the list is
  * exactly what gets deployed. A build with the same contents gets the same
@@ -66,7 +67,7 @@ function serviceWorkerPlugin(): Plugin {
       outDir = resolve(config.root, config.build.outDir)
     },
     async closeBundle() {
-      const files = (await readdir(outDir, { recursive: true, withFileTypes: true }))
+      const built = (await readdir(outDir, { recursive: true, withFileTypes: true }))
         .filter((entry) => entry.isFile())
         .map((entry) => '/' + relative(outDir, join(entry.parentPath, entry.name)).split(sep).join('/'))
         .filter((path) => path !== '/sw.js')
@@ -74,6 +75,13 @@ function serviceWorkerPlugin(): Plugin {
         // it is first shown instead (see emojiPlugin).
         .filter((path) => !path.startsWith(EMOJI_PATH))
         .sort()
+      // The fonts for the scripts Figtree lacks (see --font-sans in
+      // index.css): some twenty megabytes, in pieces a browser only asks
+      // for when something on screen needs them, so they are kept as they
+      // are first used too, rather than all downloaded with the shell.
+      const isFont = (path: string) => /^\/assets\/noto-sans-[\w-]+\.woff2$/.test(path)
+      const files = built.filter((path) => !isFont(path))
+      const fonts = built.filter(isFont)
 
       const hash = createHash('sha256')
       for (const path of files) {
@@ -88,6 +96,7 @@ function serviceWorkerPlugin(): Plugin {
       const output = source
         .replace('__SHELL_VERSION__', hash.digest('hex').slice(0, 12))
         .replace("['__SHELL_FILES__']", JSON.stringify(shell))
+        .replace("['__FONT_FILES__']", JSON.stringify(fonts))
       await writeFile(join(outDir, 'sw.js'), output)
     },
   }
