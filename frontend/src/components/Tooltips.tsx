@@ -17,6 +17,14 @@ const SHOW_DELAY_MS = 500
  * reads them off without a wait at each. */
 const WARM_MS = 300
 
+/** How long a finger rests on something before its tooltip shows. About
+ * what a phone waits before treating a touch as a long press. */
+const LONG_PRESS_MS = 500
+
+/** How far a finger can drift, in pixels, before a long press becomes the
+ * start of a scroll instead. */
+const PRESS_SLOP = 10
+
 /** Between the tooltip and what it is about. */
 const GAP = 6
 
@@ -26,6 +34,16 @@ const MARGIN = 8
 interface Tip {
   anchor: HTMLElement
   text: string
+}
+
+/** A finger held on something with a tooltip. */
+interface Press {
+  anchor: HTMLElement
+  x: number
+  y: number
+  timer: ReturnType<typeof setTimeout>
+  /** Whether it lasted long enough to be a long press. */
+  long: boolean
 }
 
 /**
@@ -41,7 +59,9 @@ interface Tip {
  * cut short shows its full text, the way it used to as a `title`.
  *
  * It shows for a mouse and for keyboard focus, which a `title` never did,
- * and not for touch: a tap is a press, there is nothing to rest on.
+ * and on a touch screen for a long press: a tap is a press, there is nothing
+ * to rest on, so a finger held still on something shows its tooltip instead,
+ * without pressing it, until it lifts or moves off.
  *
  * Drawn into `document.body`, for the same reason as Dialog, and positioned
  * with `fixed` above the element, or below it where there is no room above.
@@ -60,6 +80,7 @@ export function Tooltips() {
     let hiddenAt = -Infinity
     let timer: ReturnType<typeof setTimeout> | undefined
     let frame = 0
+    let press: Press | null = null
 
     function show(anchor: HTMLElement) {
       const text = textFor(anchor)
@@ -148,10 +169,97 @@ export function Tooltips() {
     }
 
     // Pressing something hides its tooltip without warming up the next one:
-    // the pointer is busy, not reading.
+    // the pointer is busy, not reading. Not while a finger is holding
+    // something, though: a browser simulating touch (Firefox's responsive
+    // mode) sends the mouse's own pointer events along with the touch.
     function handlePointerDown() {
+      if (press) return
       hide()
       hiddenAt = -Infinity
+    }
+
+    // A long press is read from touch events rather than pointer events:
+    // every touch screen sends them, and so does a desktop browser
+    // simulating one, whose pointer events can still say "mouse".
+    function handleTouchStart(event: TouchEvent) {
+      endPress()
+      hide()
+      hiddenAt = -Infinity
+      if (event.touches.length !== 1) return
+      const { clientX, clientY } = event.touches[0]
+      const anchor = anchorFor(document.elementFromPoint(clientX, clientY))
+      if (!anchor) return
+      const started: Press = {
+        anchor,
+        x: clientX,
+        y: clientY,
+        long: false,
+        timer: setTimeout(() => {
+          started.long = true
+          current = anchor
+          show(anchor)
+        }, LONG_PRESS_MS),
+      }
+      press = started
+    }
+
+    // A finger that drifts before the press is long enough is scrolling;
+    // one that moves off what it is holding after that is done reading.
+    function handleTouchMove(event: TouchEvent) {
+      if (!press || event.touches.length !== 1) return
+      const { clientX, clientY } = event.touches[0]
+      if (!press.long) {
+        if (Math.hypot(clientX - press.x, clientY - press.y) > PRESS_SLOP) endPress()
+        return
+      }
+      if (!press.anchor.contains(document.elementFromPoint(clientX, clientY))) {
+        current = null
+        hide()
+      }
+    }
+
+    function handleTouchEnd(event: TouchEvent) {
+      if (!press) return
+      // A long press only ever showed a tooltip: the click the browser sends
+      // as the finger lifts would press the button as well. Cancelling the
+      // touch's end is what keeps it from sending one; swallowing it is for
+      // a browser that sends it anyway.
+      if (press.long && event.type === 'touchend') {
+        if (event.cancelable) event.preventDefault()
+        swallowClick()
+      }
+      endPress()
+      current = null
+      hide()
+    }
+
+    function endPress() {
+      if (!press) return
+      clearTimeout(press.timer)
+      press = null
+    }
+
+    let swallowTimer: ReturnType<typeof setTimeout> | undefined
+    function swallow(event: MouseEvent) {
+      event.preventDefault()
+      event.stopPropagation()
+      stopSwallowing()
+    }
+    function swallowClick() {
+      window.addEventListener('click', swallow, true)
+      // In case no click comes, so that the next real one is not lost.
+      clearTimeout(swallowTimer)
+      swallowTimer = setTimeout(stopSwallowing, 600)
+    }
+    function stopSwallowing() {
+      window.removeEventListener('click', swallow, true)
+      clearTimeout(swallowTimer)
+    }
+
+    // Holding a link or a picture brings up the browser's own menu for it,
+    // which would cover the tooltip.
+    function handleContextMenu(event: MouseEvent) {
+      if (press) event.preventDefault()
     }
 
     function handleFocusIn(event: FocusEvent) {
@@ -167,6 +275,7 @@ export function Tooltips() {
     }
 
     function reset() {
+      endPress()
       current = null
       hide()
     }
@@ -174,6 +283,12 @@ export function Tooltips() {
     document.addEventListener('pointermove', handlePointerMove)
     document.addEventListener('pointerout', handlePointerOut)
     document.addEventListener('pointerdown', handlePointerDown, true)
+    document.addEventListener('touchstart', handleTouchStart, { capture: true, passive: true })
+    document.addEventListener('touchmove', handleTouchMove, { capture: true, passive: true })
+    // Not passive, to be able to cancel the end of a long press.
+    document.addEventListener('touchend', handleTouchEnd, { capture: true, passive: false })
+    document.addEventListener('touchcancel', handleTouchEnd, true)
+    document.addEventListener('contextmenu', handleContextMenu, true)
     document.addEventListener('keydown', hide, true)
     document.addEventListener('focusin', handleFocusIn)
     document.addEventListener('focusout', handleFocusOut)
@@ -184,6 +299,11 @@ export function Tooltips() {
       document.removeEventListener('pointermove', handlePointerMove)
       document.removeEventListener('pointerout', handlePointerOut)
       document.removeEventListener('pointerdown', handlePointerDown, true)
+      document.removeEventListener('touchstart', handleTouchStart, { capture: true })
+      document.removeEventListener('touchmove', handleTouchMove, { capture: true })
+      document.removeEventListener('touchend', handleTouchEnd, { capture: true })
+      document.removeEventListener('touchcancel', handleTouchEnd, true)
+      document.removeEventListener('contextmenu', handleContextMenu, true)
       document.removeEventListener('keydown', hide, true)
       document.removeEventListener('focusin', handleFocusIn)
       document.removeEventListener('focusout', handleFocusOut)
@@ -192,6 +312,8 @@ export function Tooltips() {
       window.removeEventListener('resize', reset)
       clearTimeout(timer)
       cancelAnimationFrame(frame)
+      endPress()
+      stopSwallowing()
       describe(null)
     }
   }, [id])
