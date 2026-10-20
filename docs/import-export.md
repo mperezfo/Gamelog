@@ -16,10 +16,20 @@
   ],
   "genres": [{ "name": "Metroidvania", "icon": "🗺️" }],
   "developers": [
-    { "name": "Team Cherry", "icon": null, "igdb_company_ids": [9346] }
+    {
+      "name": "Team Cherry",
+      "icon": null,
+      "country": "AU",
+      "igdb_company_ids": [9346]
+    }
   ],
   "publishers": [
-    { "name": "Team Cherry", "icon": null, "igdb_company_ids": [9346] }
+    {
+      "name": "Team Cherry",
+      "icon": null,
+      "country": "AU",
+      "igdb_company_ids": [9346]
+    }
   ],
   "games": [
     {
@@ -45,6 +55,8 @@
 Relations are written **by name, never by id**. An id belongs to one database, while a name is what you typed, so the file survives being imported into another copy of Gamelog, edited in a text editor, or kept as the backup of a database that no longer exists.
 
 `igdb_company_ids` are the IGDB companies a developer or publisher has been linked to through the game form's Identify button, and `igdb_platform_ids` the IGDB platforms a platform has. They are left out of a record with none, and an import links them again on top of any the record already has; an older file without them imports as before. On an import they can also be a single number or a string (`"37, 1234"`), and anything that is not an id is left out with a warning rather than failing the import.
+
+A developer's or publisher's `country` is where it is from, as an ISO 3166-1 two-letter code (`"AU"`), left out when it has none. Developers and publishers have a country instead of an icon, so their `icon` is always `null`, and an icon on one in a file is ignored; genres and platforms have no country. An import reads the code in either case, and anything that is not a country is left out with a warning.
 
 A game's `position` is its manual order on the dashboard board, among the games of its column logged on the same date (or with none), lower first. A file without it imports as before: a game already in the library keeps its own, and a new one gets 0.
 

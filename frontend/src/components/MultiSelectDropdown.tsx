@@ -4,6 +4,7 @@ import { foldCase } from '../lib/fuzzy'
 import type { NewLookup } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import { CheckIcon, PlusIcon, XIcon } from './icons'
+import { CountryFlag } from './CountryFlag'
 import { Emoji } from './Emoji'
 import { Popover } from './Popover'
 
@@ -96,6 +97,7 @@ export function MultiSelectDropdown({
             key={option.id}
             className="inline-flex items-center gap-1 rounded-[4px] bg-hover px-1.5 py-0.5 text-xs font-medium text-ink"
           >
+            {option.country && <CountryFlag code={option.country} />}
             <Emoji value={option.name} />
             <span
               role="button"
@@ -170,7 +172,10 @@ export function MultiSelectDropdown({
                   active ? 'text-ink' : 'text-ink-muted hover:bg-hover hover:text-ink',
                 ].join(' ')}
               >
-                <span className="truncate"><Emoji value={option.name} /></span>
+                <span className="flex min-w-0 items-center gap-1.5">
+                  {option.country && <CountryFlag code={option.country} />}
+                  <span className="truncate"><Emoji value={option.name} /></span>
+                </span>
                 {active && <CheckIcon className="size-3.5 shrink-0 text-accent" />}
               </button>
             )

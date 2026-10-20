@@ -8,13 +8,14 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"gorm.io/gorm"
 
+	"github.com/mperezfo/gamelog/internal/country"
 	"github.com/mperezfo/gamelog/internal/models"
 	"github.com/mperezfo/gamelog/internal/repository"
 	"github.com/mperezfo/gamelog/internal/service"
 )
 
-// lookupBody is the writable half of the four simple entities,
-// which share the same id/name/icon shape and therefore the same operations.
+// lookupBody is the writable half of the four simple entities, which share
+// the same shape and therefore the same operations.
 //
 // The name is capped at 100 characters, the shortest of the four columns
 // (genres and platforms; developers and publishers allow 150). One shared
@@ -22,7 +23,11 @@ import (
 // a request to reach the database and fail there on length.
 type lookupBody struct {
 	Name string  `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name. Unique, and compared ignoring case and accents." example:"Metroidvania"`
-	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Emoji or short icon shown next to the name. Stored without the blank space around it; nothing but blank space clears it." example:"🗺️"`
+	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Emoji or short icon shown next to the name. Genres and platforms only. Stored without the blank space around it; nothing but blank space clears it." example:"🗺️"`
+	// Country has a column on developers and publishers only (migration
+	// 00019), in place of the icon, and is ignored for the other two like
+	// color is.
+	Country *string `json:"country,omitempty" pattern:"^[A-Z]{2}$" doc:"Where the developer or publisher is from, as an ISO 3166-1 two-letter code. Developers and publishers only." example:"JP"`
 	// Color only has a column on platforms (migration 00003): genres,
 	// developers and publishers accept it in the same shared body but the
 	// three of them silently ignore it, the same trade-off already made for
@@ -86,13 +91,13 @@ func registerLookups(api huma.API, db *gorm.DB) {
 	registerLookup(api, db,
 		lookupMeta{singular: "developer", plural: "developers", tag: "Developers", igdb: "IGDB company"},
 		func(id uint64, body lookupBody) models.Developer {
-			return models.Developer{ID: id, Name: body.name(), Icon: body.icon()}
+			return models.Developer{ID: id, Name: body.name(), Country: body.Country}
 		})
 
 	registerLookup(api, db,
 		lookupMeta{singular: "publisher", plural: "publishers", tag: "Publishers", igdb: "IGDB company"},
 		func(id uint64, body lookupBody) models.Publisher {
-			return models.Publisher{ID: id, Name: body.name(), Icon: body.icon()}
+			return models.Publisher{ID: id, Name: body.name(), Country: body.Country}
 		})
 
 	registerLookup(api, db,
@@ -119,6 +124,24 @@ func (b lookupBody) name() string { return strings.TrimSpace(b.Name) }
 
 // icon is the stored form of the submitted icon.
 func (b lookupBody) icon() *string { return service.CleanOptional(b.Icon) }
+
+// Resolve implements huma.ResolverWithPath: a country has to be one.
+func (b *lookupBody) Resolve(_ huma.Context, prefix *huma.PathBuffer) []error {
+	return validCountry(b.Country, prefix.With("country"))
+}
+
+// validCountry checks an optional country of a request body, which the
+// schema only knows as two capital letters.
+func validCountry(code *string, location string) []error {
+	if code == nil || country.Valid(*code) {
+		return nil
+	}
+	return []error{&huma.ErrorDetail{
+		Location: location,
+		Message:  "expected a country, as an ISO 3166-1 two-letter code",
+		Value:    *code,
+	}}
+}
 
 // registerLookup registers the five operations of one simple entity.
 //
@@ -203,7 +226,7 @@ func registerLookup[T repository.Lookup](
 		Method:      http.MethodPut,
 		Path:        item,
 		Summary:     "Replace a " + meta.singular,
-		Description: "Overwrites every field: an icon left out of the body is cleared.",
+		Description: "Overwrites every field: an icon or a country left out of the body is cleared.",
 		Tags:        tags,
 		Errors:      []int{http.StatusUnauthorized, http.StatusNotFound, http.StatusConflict},
 	}, func(ctx context.Context, input *updateLookupInput) (*lookupOutput[T], error) {

@@ -65,6 +65,8 @@ export interface CompanyMatch {
   igdb_company_id: number
   /** The company's name on IGDB. */
   name: string
+  /** Where IGDB says it is from, as a two-letter code, or null. */
+  country: string | null
   match: MatchTarget | null
 }
 

@@ -9,6 +9,7 @@ import type { CompanyLink, NewLookup, NewPlatform, PlatformLink } from '../types
 import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import type { CompanyMatch, GameCandidate, MatchTarget, PlatformMatch } from '../types/metadata'
 import { Button } from './Button'
+import { CountryFlag } from './CountryFlag'
 import { Dots } from './Dots'
 import { Dropdown } from './Dropdown'
 import { Emoji } from './Emoji'
@@ -262,6 +263,7 @@ function resolve(companies: CompanyMatch[], choices: Choice[]): CompanyResolutio
         resolution.links.push({
           id: choice.id,
           igdb_company_id: company.igdb_company_id,
+          ...(company.country ? { country: company.country } : {}),
         })
     } else if (choice.kind === 'create') {
       const name = recordName(company.name)
@@ -269,6 +271,7 @@ function resolve(companies: CompanyMatch[], choices: Choice[]): CompanyResolutio
         resolution.pending.push({
           name,
           igdb_company_id: company.igdb_company_id,
+          ...(company.country ? { country: company.country } : {}),
         })
       }
     }
@@ -748,6 +751,7 @@ function CompanySection({
                   >
                     {company.name}
                   </span>
+                  {company.country && <CountryFlag code={company.country} />}
                   <Leader />
                   <RecordChoice
                     match={company.match}

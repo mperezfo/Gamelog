@@ -530,7 +530,7 @@ func findOrCreateLookups[T Lookup](
 		}
 		ids = append(ids, id)
 		if record.IGDBID != nil {
-			links = append(links, IGDBLink{ID: id, IGDBID: *record.IGDBID})
+			links = append(links, IGDBLink{ID: id, IGDBID: *record.IGDBID, Country: record.Country})
 		}
 	}
 	return ids, links, nil

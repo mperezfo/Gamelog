@@ -65,6 +65,7 @@ type matchTarget struct {
 type companyMatch struct {
 	IGDBCompanyID uint64       `json:"igdb_company_id" doc:"IGDB's id for the company." example:"10100"`
 	Name          string       `json:"name" doc:"The company's name on IGDB." example:"Sony Interactive Entertainment"`
+	Country       *string      `json:"country" doc:"Where the company is from on IGDB, as an ISO 3166-1 two-letter code, to send along with its link (see the game writes' developer_links). Null when IGDB does not say." example:"JP"`
 	Match         *matchTarget `json:"match" doc:"The developer or publisher of the library this company most likely is. Null when none is close enough to suggest."`
 }
 
@@ -435,9 +436,22 @@ func lookupIdentity[T models.Developer | models.Publisher](record T) (uint64, st
 func (m *companyMatcher) matchAll(companies []igdb.Company) []companyMatch {
 	out := make([]companyMatch, 0, len(companies))
 	for _, company := range companies {
-		out = append(out, companyMatch{IGDBCompanyID: company.ID, Name: company.Name, Match: m.match(company)})
+		out = append(out, companyMatch{
+			IGDBCompanyID: company.ID,
+			Name:          company.Name,
+			Country:       optional(company.Country),
+			Match:         m.match(company),
+		})
 	}
 	return out
+}
+
+// optional is text that may be empty, as JSON: null when it is.
+func optional(text string) *string {
+	if text == "" {
+		return nil
+	}
+	return &text
 }
 
 // match prefers a link, which is the user's own earlier choice, over any

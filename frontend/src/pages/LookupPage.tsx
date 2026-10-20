@@ -5,6 +5,8 @@ import { errorMessage } from '../api/client'
 import { igdbPage } from '../api/metadata'
 import { Button } from '../components/Button'
 import { ColorField } from '../components/ColorField'
+import { CountryField } from '../components/CountryField'
+import { CountryFlag } from '../components/CountryFlag'
 import { Emoji } from '../components/Emoji'
 import { EmojiField } from '../components/EmojiField'
 import { Field } from '../components/Field'
@@ -37,6 +39,12 @@ type IgdbLinkKind = 'companies' | 'platforms'
 const IGDB_NOUN: Record<IgdbLinkKind, { one: string; many: string }> = {
   companies: { one: 'company', many: 'companies' },
   platforms: { one: 'platform', many: 'platforms' },
+}
+
+/** Developers and publishers have a country, where the other two have an
+ * icon. */
+function hasCountry(kind: LookupKind): boolean {
+  return kind === 'developers' || kind === 'publishers'
 }
 
 /** A default so a new platform doesn't start colorless. */
@@ -282,6 +290,7 @@ function LookupRow({
           ) : (
             <span className="flex min-w-0 items-center gap-2 text-sm text-ink">
               {item.icon && <span aria-hidden="true"><Emoji value={item.icon} /></span>}
+              {item.country && <CountryFlag code={item.country} />}
               {/* The link to IGDB hangs off the name itself, the way an
                   external link is usually marked, rather than trailing the
                   count. */}
@@ -355,6 +364,7 @@ function LookupForm({
 }) {
   const [name, setName] = useState(item?.name ?? '')
   const [icon, setIcon] = useState(item?.icon ?? '')
+  const [country, setCountry] = useState(item?.country ?? '')
   const [color, setColor] = useState(item?.color ?? DEFAULT_COLOR)
   const links = item ? igdbLinksOf(kind, item) : { kind: 'companies' as const, ids: [] }
   // IGDB links to forget on Save, struck through until then.
@@ -369,7 +379,9 @@ function LookupForm({
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim()) return
-    const input = { name: name.trim(), icon: icon.trim() || null, color: kind === 'platforms' ? color : null }
+    const input = hasCountry(kind)
+      ? { name: name.trim(), country: country || null }
+      : { name: name.trim(), icon: icon.trim() || null, color: kind === 'platforms' ? color : null }
 
     if (item) {
       update.mutate({ id: item.id, input, unlink: unlinking }, { onSuccess: onDone })
@@ -393,6 +405,8 @@ function LookupForm({
         />
         {kind === 'platforms' ? (
           <ColorField label="Color" value={color} onChange={setColor} />
+        ) : hasCountry(kind) ? (
+          <CountryField label="Country" value={country} onChange={setCountry} />
         ) : (
           <EmojiField label="Icon" value={icon} onChange={setIcon} />
         )}

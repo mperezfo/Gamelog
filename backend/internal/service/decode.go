@@ -96,8 +96,8 @@ func (l *ImportLibrary) UnmarshalJSON(data []byte) error {
 }
 
 // ImportLookup is one genre, developer, publisher or platform of an import.
-// It is written either as an object or, when there is no icon to carry, as
-// the bare name.
+// It is written either as an object or, when there is nothing but the name
+// to carry, as the bare name.
 type ImportLookup struct {
 	ImportName
 }
@@ -107,8 +107,9 @@ type ImportName struct {
 	_ struct{} `additionalProperties:"true"`
 
 	Name            *string `json:"name,omitempty" nullable:"true" doc:"Name of the record. An existing record is found by this name, ignoring case and accents." example:"Metroidvania"`
-	Icon            *string `json:"icon,omitempty" nullable:"true" doc:"Emoji or short icon. Left out, an existing icon is kept; sent empty, it is cleared." example:"🗺️"`
+	Icon            *string `json:"icon,omitempty" nullable:"true" doc:"Emoji or short icon. Only applied to a genre or a platform; ignored for the other two, which have a country instead. Left out, an existing icon is kept; sent empty, it is cleared." example:"🗺️"`
 	Color           *string `json:"color,omitempty" nullable:"true" doc:"Hex colour (\"#3b82f6\"). Only applied to a platform; ignored for the other three, the same way an icon they cannot have would be. Left out, an existing colour is kept; sent empty, it is cleared." example:"#3b82f6"`
+	Country         *string `json:"country,omitempty" nullable:"true" doc:"Where the record is from, as an ISO 3166-1 two-letter code, in either case. Only applied to a developer or a publisher; ignored for the other two. Anything else is left out, with a warning. Left out, an existing country is kept; sent empty, it is cleared." example:"ES"`
 	IGDBCompanyIDs  *IDList `json:"igdb_company_ids,omitempty" doc:"IGDB companies the record stands for, linked on top of any it already has. Only applied to a developer or a publisher; ignored, with a warning, for the other two."`
 	IGDBPlatformIDs *IDList `json:"igdb_platform_ids,omitempty" doc:"IGDB platforms the record stands for, linked on top of any it already has. Only applied to a platform; ignored, with a warning, for the other three."`
 }
@@ -224,6 +225,8 @@ var lookupFields = map[string]string{
 
 	"icon": "icon", "emoji": "icon", "symbol": "icon",
 	"icono": "icon",
+
+	"country": "country", "countrycode": "country", "pais": "country",
 
 	"color": "color", "colour": "color", "hex": "color",
 	"colorcode": "color", "colourcode": "color", "hexcolor": "color",

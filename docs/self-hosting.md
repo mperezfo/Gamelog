@@ -209,6 +209,8 @@ The backend exchanges them for an access token on its own and renews it when it 
 
 When a developer or publisher is applied, Gamelog remembers which IGDB company it stands for, so the next game from the same company is recognised outright instead of guessed from its name. Several IGDB companies can point at the same record, which is how "Sony Computer Entertainment" and "Sony Interactive Entertainment" can both be your "Sony". Platforms are remembered the same way, except that one IGDB platform can stand for several of yours: IGDB's PC can be both your "PC" and your "Steam Deck", and the one with the most games is suggested. A link that turns out wrong can be removed from the developer's, publisher's or platform's edit form. These links travel with an [export](import-export.md) and a backup.
 
+A developer or publisher also takes the country IGDB has for its company, shown as a flag, unless it already has one: a country set by hand in the edit form is never overwritten. The first time the server starts with IGDB credentials, it looks up the countries of the developers and publishers that were linked before countries existed, once and in the background, so that nothing has to be identified again for them.
+
 ## Cover image search
 
 The cover's **Search image** button looks the game's title up and shows its images to pick a cover from: heroes and grids (portrait and landscape) from [SteamGridDB](https://www.steamgriddb.com), and covers and artworks from IGDB. Each source configured gets a tab of its own, SteamGridDB's first and open by default, and the button stays disabled until at least one is. A game identified on IGDB shows the images of that game first; otherwise the top match for the title is shown, with the other matches a click away.
