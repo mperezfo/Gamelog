@@ -15,7 +15,7 @@ interface DialogProps {
  * Rendered into `document.body` rather than where it is used: it opens from
  * inside the game modal, which is a transformed element, and a transformed
  * ancestor makes `fixed` position against itself instead of the viewport
- * (see Dropdown).
+ * (see Popover).
  */
 export function Dialog({ 'aria-label': ariaLabel, onClose, children }: DialogProps) {
   const panelRef = useRef<HTMLDivElement>(null)
@@ -37,11 +37,14 @@ export function Dialog({ 'aria-label': ariaLabel, onClose, children }: DialogPro
   // Escape closes the dialog alone, not the game modal under it, which
   // listens on the document. An Escape from inside the dialog is handled by
   // onKeyDown below, after anything in it that has its own use for the key
-  // (an open Dropdown closes first). This catches one from outside it, such
-  // as from the body once a button that had focus is disabled.
+  // (an open Popover closes first). This catches one from outside it, such
+  // as from the body once a button that had focus is disabled, but not one
+  // from a Popover opened from it, which is drawn outside it too.
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || panelRef.current?.contains(event.target as Node)) return
+      if (event.key !== 'Escape') return
+      const target = event.target as Element
+      if (panelRef.current?.contains(target) || target.closest?.('[data-popover]')) return
       event.stopPropagation()
       onCloseRef.current()
     }

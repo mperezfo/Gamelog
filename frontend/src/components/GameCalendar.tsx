@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import { useDefaultCalendarView } from '../hooks/useSession'
 import { monthGrid, monthLabel, monthNames, weekdayLabels } from '../lib/calendar'
@@ -10,6 +10,7 @@ import { Button } from './Button'
 import { Dropdown } from './Dropdown'
 import { ChevronDownIcon, ChevronUpIcon } from './icons'
 import { CoverImage } from './CoverImage'
+import { Popover } from './Popover'
 
 type DateField = 'release_date' | 'logged_date'
 
@@ -58,16 +59,7 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [yearDraft, setYearDraft] = useState(String(month.getFullYear()))
   const [yearInvalid, setYearInvalid] = useState(false)
-  const pickerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!pickerOpen) return
-    function handleClick(event: MouseEvent) {
-      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) setPickerOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [pickerOpen])
+  const pickerButtonRef = useRef<HTMLButtonElement>(null)
 
   function commitYearDraft() {
     if (!isValidYear(yearDraft)) {
@@ -120,9 +112,12 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
       </div>
 
       <div className="flex items-center justify-between gap-2">
-        <div className="relative" ref={pickerRef}>
+        <div>
           <button
+            ref={pickerButtonRef}
             type="button"
+            aria-haspopup="dialog"
+            aria-expanded={pickerOpen}
             onClick={() => {
               // Opens on the year shown, whatever was left typed last time.
               if (!pickerOpen) {
@@ -136,75 +131,79 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
             {monthLabel(month)}
           </button>
 
-          {pickerOpen && (
-            <div className="absolute top-full left-0 z-10 mt-1 flex items-center gap-1.5 rounded-control bg-surface p-2 shadow-popover">
-              <Dropdown
-                aria-label="Month"
-                value={String(month.getMonth())}
-                onChange={(value) => {
-                  setMonth((m) => new Date(m.getFullYear(), Number(value), 1))
-                  // A year left half typed gives way to the one shown.
-                  setYearDraft(String(month.getFullYear()))
+          <Popover
+            anchorRef={pickerButtonRef}
+            open={pickerOpen}
+            onClose={() => setPickerOpen(false)}
+            aria-label="Pick the month"
+            className="flex items-center gap-1.5 p-2"
+          >
+            <Dropdown
+              aria-label="Month"
+              value={String(month.getMonth())}
+              onChange={(value) => {
+                setMonth((m) => new Date(m.getFullYear(), Number(value), 1))
+                // A year left half typed gives way to the one shown.
+                setYearDraft(String(month.getFullYear()))
+                setYearInvalid(false)
+              }}
+              options={MONTH_OPTIONS}
+              className="h-8 rounded-control bg-field shadow-field px-2 text-sm text-ink"
+            />
+            <div className="relative flex">
+              <input
+                aria-label="Year"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={4}
+                value={yearDraft}
+                onChange={(event) => {
+                  setYearDraft(event.target.value.replace(/\D/g, ''))
                   setYearInvalid(false)
                 }}
-                options={MONTH_OPTIONS}
-                className="h-8 rounded-control bg-field shadow-field px-2 text-sm text-ink"
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') commitYearDraft()
+                  else if (event.key === 'ArrowUp') {
+                    event.preventDefault()
+                    if (isValidYear(yearDraft)) stepYear(1)
+                  } else if (event.key === 'ArrowDown') {
+                    event.preventDefault()
+                    if (isValidYear(yearDraft)) stepYear(-1)
+                  }
+                }}
+                onBlur={commitYearDraft}
+                className={[
+                  'h-8 w-20 rounded-control bg-field shadow-field py-0 pl-2 pr-6 text-sm text-ink outline-none',
+                  yearInvalid ? 'ring-1 ring-danger' : '',
+                ].join(' ')}
               />
-              <div className="relative flex">
-                <input
-                  aria-label="Year"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={4}
-                  value={yearDraft}
-                  onChange={(event) => {
-                    setYearDraft(event.target.value.replace(/\D/g, ''))
-                    setYearInvalid(false)
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') commitYearDraft()
-                    else if (event.key === 'ArrowUp') {
-                      event.preventDefault()
-                      if (isValidYear(yearDraft)) stepYear(1)
-                    } else if (event.key === 'ArrowDown') {
-                      event.preventDefault()
-                      if (isValidYear(yearDraft)) stepYear(-1)
-                    }
-                  }}
-                  onBlur={commitYearDraft}
-                  className={[
-                    'h-8 w-20 rounded-control bg-field shadow-field py-0 pl-2 pr-6 text-sm text-ink outline-none',
-                    yearInvalid ? 'ring-1 ring-danger' : '',
-                  ].join(' ')}
-                />
-                <div className="absolute inset-y-0 right-1 flex flex-col justify-center">
-                  <button
-                    type="button"
-                    aria-label="Next year"
-                    tabIndex={-1}
-                    disabled={!isValidYear(yearDraft)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => stepYear(1)}
-                    className="flex h-3.5 w-4 items-center justify-center text-ink-faint hover:text-ink disabled:pointer-events-none disabled:opacity-30"
-                  >
-                    <ChevronUpIcon className="size-3" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Previous year"
-                    tabIndex={-1}
-                    disabled={!isValidYear(yearDraft)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => stepYear(-1)}
-                    className="flex h-3.5 w-4 items-center justify-center text-ink-faint hover:text-ink disabled:pointer-events-none disabled:opacity-30"
-                  >
-                    <ChevronDownIcon className="size-3" />
-                  </button>
-                </div>
+              <div className="absolute inset-y-0 right-1 flex flex-col justify-center">
+                <button
+                  type="button"
+                  aria-label="Next year"
+                  tabIndex={-1}
+                  disabled={!isValidYear(yearDraft)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => stepYear(1)}
+                  className="flex h-3.5 w-4 items-center justify-center text-ink-faint hover:text-ink disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronUpIcon className="size-3" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Previous year"
+                  tabIndex={-1}
+                  disabled={!isValidYear(yearDraft)}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => stepYear(-1)}
+                  className="flex h-3.5 w-4 items-center justify-center text-ink-faint hover:text-ink disabled:pointer-events-none disabled:opacity-30"
+                >
+                  <ChevronDownIcon className="size-3" />
+                </button>
               </div>
             </div>
-          )}
+          </Popover>
         </div>
 
         <div className="flex items-center gap-1">

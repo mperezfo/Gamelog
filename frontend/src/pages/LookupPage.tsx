@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
@@ -12,6 +12,7 @@ import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../com
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { PlatformBadge } from '../components/PlatformBadge'
+import { Popover } from '../components/Popover'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFilterParams } from '../hooks/useFilterParams'
 import { useGames } from '../hooks/useGames'
@@ -104,24 +105,8 @@ function IgdbLink({
 function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
   const capabilities = useMetadataCapabilities()
   const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLSpanElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const named = useIgdbNames(kind, ids, open)
-
-  useEffect(() => {
-    if (!open) return
-    function handleClick(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false)
-    }
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    document.addEventListener('keydown', handleKey)
-    return () => {
-      document.removeEventListener('mousedown', handleClick)
-      document.removeEventListener('keydown', handleKey)
-    }
-  }, [open])
 
   if (ids.length === 1 || !capabilities.data?.identify) {
     return <IgdbLink kind={kind} id={ids[0]} className="shrink-0 text-ink-faint" />
@@ -132,8 +117,9 @@ function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
   const names = new Map((named.data ?? []).map((record) => [record.id, record.name]))
 
   return (
-    <span ref={containerRef} className="relative inline-flex shrink-0">
+    <span className="inline-flex shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         data-tooltip={`Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`}
@@ -143,25 +129,29 @@ function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
       >
         <ExternalLinkIcon className="size-3" />
       </button>
-      {open && (
-        <span className="absolute top-full left-0 z-10 mt-1.5 flex w-max max-w-[min(20rem,70vw)] animate-[gl-appear_100ms_ease-out] flex-col rounded-control bg-surface p-1 shadow-popover motion-reduce:animate-none">
-          {ids.map((id) => (
-            <a
-              key={id}
-              href={igdbPage(kind, id)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => setOpen(false)}
-              className="flex items-center justify-between gap-3 rounded-control px-2 py-1.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
-            >
-              <span className="truncate">
-                {names.get(id) ?? `${IGDB_NOUN[kind].one} ${id}`}
-              </span>
-              <ExternalLinkIcon className="size-3 shrink-0 text-ink-faint" />
-            </a>
-          ))}
-        </span>
-      )}
+      <Popover
+        anchorRef={triggerRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        aria-label={`IGDB ${IGDB_NOUN[kind].many}`}
+        className="flex w-max max-w-[min(20rem,70vw)] flex-col p-1"
+      >
+        {ids.map((id) => (
+          <a
+            key={id}
+            href={igdbPage(kind, id)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setOpen(false)}
+            className="flex items-center justify-between gap-3 rounded-control px-2 py-1.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
+          >
+            <span className="truncate">
+              {names.get(id) ?? `${IGDB_NOUN[kind].one} ${id}`}
+            </span>
+            <ExternalLinkIcon className="size-3 shrink-0 text-ink-faint" />
+          </a>
+        ))}
+      </Popover>
     </span>
   )
 }
