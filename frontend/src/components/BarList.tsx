@@ -79,7 +79,7 @@ export function BarList({
 
           return (
             // The row as a whole previews, link included, for the same reason.
-            <li key={row.key} className="group flex items-center gap-0.5 py-px" style={tint} {...previewHandlers(row, onPreview)}>
+            <li key={row.key} className="group flex items-center py-px" style={tint} {...previewHandlers(row, onPreview)}>
               <button
                 type="button"
                 aria-pressed={pinned}
@@ -140,12 +140,17 @@ export function BarList({
 /** The arrow to a row's games on the Games page. */
 function linkClass(pinned: boolean): string {
   return [
-    'flex size-8 shrink-0 items-center justify-center rounded-control text-ink-faint transition-colors duration-75 hover:bg-hover hover:text-ink',
-    // With a mouse, only on the row under it, pinned or not. A touch screen
-    // has no hover to bring it up, so there it shows on the pinned row, the
-    // one a tap picked.
+    'ml-0.5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-control text-ink-faint',
+    'transition-colors duration-75 hover:bg-hover hover:text-ink',
+    // With a mouse, only on the row under it, pinned or not, in a place
+    // kept for it.
     'pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 focus-visible:opacity-100',
-    pinned ? '' : 'pointer-coarse:invisible',
+    // A touch screen has no hover to bring it up, so there it shows on the
+    // pinned row, the one a tap picked. The other rows take its room as
+    // well, and the pinned one makes way for it as it slides in.
+    'pointer-coarse:transition-[width,margin-left,opacity,visibility] pointer-coarse:duration-200 pointer-coarse:ease-out',
+    'motion-reduce:transition-none',
+    pinned ? '' : 'pointer-coarse:invisible pointer-coarse:ml-0 pointer-coarse:w-0 pointer-coarse:opacity-0',
   ].join(' ')
 }
 
