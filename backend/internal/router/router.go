@@ -111,7 +111,7 @@ func igdbSource(cfg config.Config) handlers.IGDB {
 	if !cfg.IGDBEnabled() {
 		return nil
 	}
-	return igdb.New(cfg.IGDBClientID, cfg.IGDBClientSecret)
+	return igdb.New(cfg.IGDBClientID, cfg.IGDBClientSecret, cfg.IGDBSearchLimit)
 }
 
 // steamGridDBSource builds the SteamGridDB client when the deployment has a

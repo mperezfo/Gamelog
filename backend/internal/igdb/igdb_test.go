@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -24,6 +25,8 @@ type fakeIGDB struct {
 	queries     []string
 	authHeaders []string
 	response    string
+	// respond, when set, answers each query in place of response.
+	respond func(query string) string
 }
 
 func newFakeIGDB(t *testing.T, response string) *fakeIGDB {
@@ -55,6 +58,10 @@ func newFakeIGDB(t *testing.T, response string) *fakeIGDB {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
+		if fake.respond != nil {
+			_, _ = io.WriteString(w, fake.respond(string(body)))
+			return
+		}
 		_, _ = io.WriteString(w, fake.response)
 	})
 
@@ -63,8 +70,11 @@ func newFakeIGDB(t *testing.T, response string) *fakeIGDB {
 	return fake
 }
 
+// testSearchLimit is the search limit of the clients the tests build.
+const testSearchLimit = 10
+
 func (f *fakeIGDB) client() *Client {
-	client := New("id", "secret")
+	client := New("id", "secret", testSearchLimit)
 	client.tokenURL = f.server.URL + "/token"
 	client.apiURL = f.server.URL + "/v4"
 	return client
@@ -128,8 +138,69 @@ func TestSearchEscapesTheTitle(t *testing.T) {
 	if _, err := fake.client().Search(context.Background(), `Say "hi" \o/`); err != nil {
 		t.Fatalf("Search: %v", err)
 	}
-	if want := `search "Say \"hi\" \\o/";`; !strings.HasPrefix(fake.queries[0], want) {
-		t.Errorf("query = %q, want it to start with %q", fake.queries[0], want)
+	if len(fake.queries) != 2 {
+		t.Fatalf("sent %d queries, want 2", len(fake.queries))
+	}
+	if want := `where name ~ "Say \"hi\" \\o/" &`; !strings.Contains(fake.queries[0], want) {
+		t.Errorf("exact query = %q, want it to contain %q", fake.queries[0], want)
+	}
+	if want := `search "Say \"hi\" \\o/";`; !strings.HasPrefix(fake.queries[1], want) {
+		t.Errorf("search query = %q, want it to start with %q", fake.queries[1], want)
+	}
+}
+
+func TestSearchPutsExactMatchesFirst(t *testing.T) {
+	fake := newFakeIGDB(t, "")
+	fake.respond = func(query string) string {
+		if strings.HasPrefix(query, "search ") {
+			// IGDB's search leaves "against" and "the" out, and ranks the
+			// game itself below whatever else has "storm" in its name.
+			var results []string
+			for id := range 10 {
+				results = append(results, `{"id": `+strconv.Itoa(100+id)+`, "name": "Storm `+strconv.Itoa(id)+`"}`)
+			}
+			results[9] = `{"id": 147519, "name": "Against the Storm"}`
+			return "[" + strings.Join(results, ",") + "]"
+		}
+		return `[{"id": 147519, "name": "Against the Storm"}]`
+	}
+
+	games, err := fake.client().Search(context.Background(), "against the storm")
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(games) != testSearchLimit {
+		t.Fatalf("got %d games, want %d", len(games), testSearchLimit)
+	}
+	if games[0].ID != 147519 {
+		t.Errorf("first game = %d %q, want the exact match", games[0].ID, games[0].Name)
+	}
+	for _, game := range games[1:] {
+		if game.ID == 147519 {
+			t.Errorf("the exact match is listed twice")
+		}
+	}
+	if games[testSearchLimit-1].ID != 108 {
+		t.Errorf("last game = %d, want the search results to fill the rest in order", games[testSearchLimit-1].ID)
+	}
+}
+
+func TestSearchHonoursTheLimit(t *testing.T) {
+	fake := newFakeIGDB(t, `[{"id": 1, "name": "One"}, {"id": 2, "name": "Two"}, {"id": 3, "name": "Three"}]`)
+	client := fake.client()
+	client.searchLimit = 2
+
+	games, err := client.Search(context.Background(), "Celeste")
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(games) != 2 {
+		t.Errorf("got %d games, want 2", len(games))
+	}
+	for _, query := range fake.queries {
+		if !strings.HasSuffix(query, "limit 2;") {
+			t.Errorf("query = %q, want it to ask for 2 games", query)
+		}
 	}
 }
 
@@ -181,8 +252,8 @@ func TestTokenIsRenewedAfterAnUnauthorizedResponse(t *testing.T) {
 	if got := fake.tokens.Load(); got != 2 {
 		t.Errorf("fetched %d tokens, want 2", got)
 	}
-	if len(fake.authHeaders) != 2 || fake.authHeaders[1] != "Bearer token-2" {
-		t.Errorf("Authorization headers = %v, want the retry to carry the new token", fake.authHeaders)
+	if len(fake.authHeaders) != 3 || fake.authHeaders[1] != "Bearer token-2" || fake.authHeaders[2] != "Bearer token-2" {
+		t.Errorf("Authorization headers = %v, want the retry and what follows to carry the new token", fake.authHeaders)
 	}
 }
 
@@ -197,7 +268,7 @@ func TestSearchReportsAFailedResponse(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	client := New("id", "secret")
+	client := New("id", "secret", testSearchLimit)
 	client.tokenURL = server.URL + "/token"
 	client.apiURL = server.URL + "/v4"
 

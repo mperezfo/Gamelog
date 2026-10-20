@@ -75,11 +75,19 @@ type Config struct {
 	IGDBClientID     string
 	IGDBClientSecret string
 
+	// IGDBSearchLimit is how many games the Identify button's search offers
+	// at most. Ten is a handful to find the right one among remakes and
+	// remasters; IGDB itself returns at most 500 per query.
+	IGDBSearchLimit int
+
 	// SteamGridDBAPIKey is a SteamGridDB API key (steamgriddb.com, under the
 	// account's preferences), which the cover image search looks games up
 	// with alongside IGDB. Left out, SteamGridDB is simply not offered.
 	SteamGridDBAPIKey string
 }
+
+// maxIGDBSearchLimit is the most games IGDB returns for one query.
+const maxIGDBSearchLimit = 500
 
 // IGDBEnabled reports whether IGDB credentials are configured.
 func (c Config) IGDBEnabled() bool {
@@ -154,6 +162,14 @@ func Load(dotEnvPath string) (Config, error) {
 		return Config{}, errors.New("GAMELOG_IGDB_CLIENT_ID and GAMELOG_IGDB_CLIENT_SECRET must be set together")
 	}
 
+	igdbSearchLimit, err := src.integer("GAMELOG_IGDB_SEARCH_LIMIT", 10)
+	if err != nil {
+		return Config{}, err
+	}
+	if igdbSearchLimit < 1 || igdbSearchLimit > maxIGDBSearchLimit {
+		return Config{}, fmt.Errorf("GAMELOG_IGDB_SEARCH_LIMIT: %d must be between 1 and %d", igdbSearchLimit, maxIGDBSearchLimit)
+	}
+
 	return Config{
 		Port:            port,
 		DBHost:          src.text("GAMELOG_DB_HOST", "127.0.0.1"),
@@ -171,6 +187,7 @@ func Load(dotEnvPath string) (Config, error) {
 
 		IGDBClientID:     igdbClientID,
 		IGDBClientSecret: igdbClientSecret,
+		IGDBSearchLimit:  igdbSearchLimit,
 
 		SteamGridDBAPIKey: src.text("GAMELOG_STEAMGRIDDB_API_KEY", ""),
 	}, nil

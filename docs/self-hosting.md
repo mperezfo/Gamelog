@@ -190,6 +190,7 @@ Everything is configured through environment variables. Every variable has a def
 | `GAMELOG_DOCS` | `true` | Serve the interactive API documentation at `/api/docs` |
 | `GAMELOG_IGDB_CLIENT_ID` | — | Client ID of a Twitch application, for looking games up on IGDB. See [Game metadata](#game-metadata-igdb) |
 | `GAMELOG_IGDB_CLIENT_SECRET` | — | Its client secret. Set both or neither |
+| `GAMELOG_IGDB_SEARCH_LIMIT` | `10` | How many games the Identify button offers at most, from 1 to 500 |
 | `GAMELOG_STEAMGRIDDB_API_KEY` | — | A SteamGridDB API key, for searching cover images there as well. See [Cover image search](#cover-image-search) |
 | `GAMELOG_PORT` | `8080` | Backend port. Inside the image it is an internal detail between Caddy and the backend: the container's public port is always 9999 |
 
