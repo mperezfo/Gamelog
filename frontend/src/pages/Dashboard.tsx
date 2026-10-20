@@ -363,7 +363,11 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col gap-8 px-4 py-5 sm:px-6 sm:py-6">
+    // Capped, and centred past the cap, for an ultra-wide screen, where the
+    // board and the calendar would otherwise drift apart. The cap is about
+    // what the page gets on a 1920-pixel monitor, so up to there nothing
+    // changes, and the two halves keep the balance they have on one.
+    <div className="mx-auto flex w-full max-w-[1880px] flex-col gap-8 px-4 py-5 sm:px-6 sm:py-6">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-semibold tracking-tight text-ink">Dashboard</h1>
         <Button variant="primary" onClick={modal.openNew} disabled={offline}>
