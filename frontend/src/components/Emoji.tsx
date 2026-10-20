@@ -48,8 +48,12 @@ function Grapheme({ text }: { text: string }) {
       draggable={false}
       decoding="async"
       onError={() => setFailed(true)}
-      // About the size an emoji font draws at, on the text's baseline.
-      className="inline-block size-[1.15em] align-[-0.2em] select-none"
+      // About the size an emoji font draws at, on the text's baseline. The
+      // alt text transparent: Firefox draws it in the box until the image
+      // has loaded, which would flash the system's own emoji, smaller and
+      // lower, before every reload settles. One that fails is shown as text
+      // anyway (see above).
+      className="inline-block size-[1.15em] align-[-0.2em] text-transparent select-none"
     />
   )
 }
