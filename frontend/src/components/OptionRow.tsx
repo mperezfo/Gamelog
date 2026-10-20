@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react'
 
 import { CheckIcon } from './icons'
+import { Emoji } from './Emoji'
 
 interface OptionRowProps extends Omit<ComponentProps<'button'>, 'children'> {
   label: string
@@ -23,7 +24,9 @@ export function OptionRow({ label, active, className = '', ...props }: OptionRow
       ].join(' ')}
       {...props}
     >
-      <span className="truncate">{label}</span>
+      <span className="truncate">
+        <Emoji value={label} />
+      </span>
       {active && <CheckIcon className="size-3.5 shrink-0 text-accent" />}
     </button>
   )

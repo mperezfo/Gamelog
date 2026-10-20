@@ -25,7 +25,7 @@ export function PlatformBadge({ platform, className = '' }: PlatformBadgeProps) 
       style={platform.color ? ({ '--tint': platform.color } as CSSProperties) : undefined}
     >
       {platform.icon && <span aria-hidden="true"><Emoji value={platform.icon} /></span>}
-      <span className="truncate">{platform.name}</span>
+      <span className="truncate"><Emoji value={platform.name} /></span>
     </span>
   )
 }

@@ -330,7 +330,7 @@ function LookupRow({
                   external link is usually marked, rather than trailing the
                   count. */}
               <span className="flex min-w-0 items-center gap-1">
-                <span className="truncate">{item.name}</span>
+                <span className="truncate"><Emoji value={item.name} /></span>
                 {links.ids.length > 0 && <IgdbLinks kind={links.kind} ids={links.ids} />}
               </span>
             </span>
@@ -367,7 +367,7 @@ function LookupRow({
       {confirming && (
         <div className="flex flex-col gap-2 pb-3 sm:max-w-[420px]">
           <p className="text-[13px] leading-relaxed text-ink-muted">
-            Deleting <span className="font-medium text-ink">{item.name}</span> is refused while any
+            Deleting <span className="font-medium text-ink"><Emoji value={item.name} /></span> is refused while any
             game still uses it.
           </p>
           {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}

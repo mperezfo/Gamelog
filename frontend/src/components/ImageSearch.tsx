@@ -10,6 +10,7 @@ import { Dots } from './Dots'
 import { Dropdown } from './Dropdown'
 import { XIcon } from './icons'
 import { Notice } from './Notice'
+import { Emoji } from './Emoji'
 
 const KIND_NAMES: Record<ImageKind, string> = {
   cover: 'Cover',
@@ -47,7 +48,7 @@ export function ImageSearch({ title, igdbId, sources, onPick, onClose }: ImageSe
       <div className="flex shrink-0 flex-col gap-3 border-b border-line px-4 pt-4 pb-3 sm:px-5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="min-w-0 truncate text-base font-semibold tracking-tight text-ink">
-            Images for “{title}”
+            Images for “<Emoji value={title} />”
           </h2>
           <Button variant="ghost" className="shrink-0 px-2" onClick={onClose} aria-label="Close">
             <XIcon />

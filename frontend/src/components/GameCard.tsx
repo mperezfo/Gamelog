@@ -47,7 +47,7 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
           style={coverFocalStyle(game)}
           iconClassName="size-3.5"
         />
-        <span className="min-w-0 flex-1 truncate text-[13px] text-ink">{game.title}</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-ink"><Emoji value={game.title} /></span>
       </button>
     )
   }
@@ -68,11 +68,11 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
       />
 
       <div className="flex min-w-0 flex-col gap-0.5 px-0.5 pb-0.5">
-        <span className="truncate text-sm font-medium text-ink">{game.title}</span>
+        <span className="truncate text-sm font-medium text-ink"><Emoji value={game.title} /></span>
         {genre && (
           <span className="flex items-center gap-1 truncate text-xs text-ink-faint">
             {genre.icon && <span aria-hidden="true"><Emoji value={genre.icon} /></span>}
-            {genre.name}
+            <Emoji value={genre.name} />
           </span>
         )}
       </div>

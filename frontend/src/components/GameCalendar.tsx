@@ -10,6 +10,7 @@ import { Button } from './Button'
 import { Dropdown } from './Dropdown'
 import { ChevronDownIcon, ChevronUpIcon } from './icons'
 import { CoverImage } from './CoverImage'
+import { Emoji } from './Emoji'
 import { Popover } from './Popover'
 
 type DateField = 'release_date' | 'logged_date'
@@ -272,7 +273,9 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                       iconClassName={single ? 'size-3.5' : 'size-2.5'}
                       overlay={single}
                     />
-                    <span className={single ? 'w-full truncate px-1.5 py-0.5 text-[11px]' : 'truncate'}>{game.title}</span>
+                    <span className={single ? 'w-full truncate px-1.5 py-0.5 text-[11px]' : 'truncate'}>
+                      <Emoji value={game.title} />
+                    </span>
                   </button>
                 )
               })}

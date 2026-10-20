@@ -7,7 +7,7 @@ export function GenreTag({ genre }: { genre: Lookup }) {
   return (
     <span className="inline-flex items-center gap-1 text-[13px] text-ink-muted">
       {genre.icon && <span aria-hidden="true"><Emoji value={genre.icon} /></span>}
-      {genre.name}
+      <Emoji value={genre.name} />
     </span>
   )
 }

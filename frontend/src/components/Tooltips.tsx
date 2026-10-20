@@ -1,6 +1,8 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { Emoji } from './Emoji'
+
 /** What Tailwind ellipsises. One of these that is actually cut short shows
  * its full text, with no attribute needed. */
 const TRUNCATED = '.truncate, [class*="line-clamp-"]'
@@ -92,7 +94,7 @@ export function Tooltips() {
       if (tip) {
         const { anchor, text } = tip
         if (anchor.hasAttribute('aria-describedby')) return
-        if (text === anchor.getAttribute('aria-label') || text === anchor.textContent?.trim()) return
+        if (text === anchor.getAttribute('aria-label') || text === visibleText(anchor).trim()) return
         anchor.setAttribute('aria-describedby', id)
         anchor.dataset.tooltipDescribed = ''
       } else if (shown && 'tooltipDescribed' in shown.anchor.dataset) {
@@ -216,7 +218,7 @@ export function Tooltips() {
         'animate-[gl-appear_100ms_ease-out] motion-reduce:animate-none',
       ].join(' ')}
     >
-      {tip.text}
+      <Emoji value={tip.text} />
     </div>,
     document.body,
   )
@@ -234,7 +236,15 @@ function textFor(element: HTMLElement): string {
   if (element.dataset.tooltip) return element.dataset.tooltip
   if (!element.matches(TRUNCATED)) return ''
   const truncated = element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight
-  return truncated ? (element.textContent?.trim() ?? '') : ''
+  return truncated ? visibleText(element).trim() : ''
+}
+
+/** The text of an element as it reads, emoji included: one drawn as an
+ * image (see Emoji) is only in its `alt`, which `textContent` leaves out. */
+function visibleText(node: Node): string {
+  if (node instanceof HTMLImageElement) return node.alt
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? ''
+  return Array.from(node.childNodes, visibleText).join('')
 }
 
 /** Centred above `anchor`, or below it where there is no room above, and

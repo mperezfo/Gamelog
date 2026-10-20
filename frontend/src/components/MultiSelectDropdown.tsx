@@ -4,6 +4,7 @@ import { foldCase } from '../lib/fuzzy'
 import type { NewLookup } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import { CheckIcon, PlusIcon, XIcon } from './icons'
+import { Emoji } from './Emoji'
 import { Popover } from './Popover'
 
 interface MultiSelectDropdownProps {
@@ -95,7 +96,7 @@ export function MultiSelectDropdown({
             key={option.id}
             className="inline-flex items-center gap-1 rounded-[4px] bg-hover px-1.5 py-0.5 text-xs font-medium text-ink"
           >
-            {option.name}
+            <Emoji value={option.name} />
             <span
               role="button"
               tabIndex={-1}
@@ -119,7 +120,7 @@ export function MultiSelectDropdown({
                 of lower-case text sit visibly high, while on its baseline
                 they line up with the name's x-height. */}
             <span className="inline-flex items-baseline gap-1">
-              {item.name}
+              <Emoji value={item.name} />
               <span className="text-[10px] leading-none font-semibold tracking-wide text-accent uppercase">new</span>
             </span>
             <span
@@ -169,7 +170,7 @@ export function MultiSelectDropdown({
                   active ? 'text-ink' : 'text-ink-muted hover:bg-hover hover:text-ink',
                 ].join(' ')}
               >
-                <span className="truncate">{option.name}</span>
+                <span className="truncate"><Emoji value={option.name} /></span>
                 {active && <CheckIcon className="size-3.5 shrink-0 text-accent" />}
               </button>
             )
