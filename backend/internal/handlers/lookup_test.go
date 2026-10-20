@@ -70,6 +70,32 @@ func TestLookupCRUD(t *testing.T) {
 	expectStatus(t, gone, http.StatusNotFound, "reading a deleted genre")
 }
 
+func TestLookupIconIsStoredWithoutSurroundingBlankSpace(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	// An empty want is no icon at all.
+	for _, tc := range []struct{ name, icon, want string }{
+		{"Metroidvania", " 🗺️ ", "🗺️"},
+		{"Roguelike", "   ", ""},
+	} {
+		created := request(t, handler, http.MethodPost, "/api/genres", map[string]any{"name": tc.name, "icon": tc.icon})
+		expectStatus(t, created, http.StatusCreated, "creating "+tc.name)
+
+		var genre models.Genre
+		decode(t, created, &genre)
+		got := ""
+		if genre.Icon != nil {
+			got = *genre.Icon
+			if got == "" {
+				t.Errorf("%s: icon = an empty string, want none at all", tc.name)
+			}
+		}
+		if got != tc.want {
+			t.Errorf("%s: icon = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestLookupRejectsADuplicateName(t *testing.T) {
 	handler := newRouter(t, testsupport.NewDatabase(t), false)
 

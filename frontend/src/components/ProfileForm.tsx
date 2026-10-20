@@ -18,7 +18,7 @@ export function ProfileForm({ user }: { user: User }) {
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim()) return
-    update.mutate({ name, avatarUrl: avatarUrl || null })
+    update.mutate({ name: name.trim(), avatarUrl: avatarUrl.trim() || null })
   }
 
   return (

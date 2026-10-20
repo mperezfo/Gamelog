@@ -194,7 +194,7 @@ function CreateUser() {
     event.preventDefault()
     if (!username.trim()) return
     create.mutate(
-      { username, password },
+      { username: username.trim(), password },
       {
         onSuccess: () => {
           setUsername('')

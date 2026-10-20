@@ -413,7 +413,7 @@ function LookupForm({
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim()) return
-    const input = { name, icon: icon || null, color: kind === 'platforms' ? color : null }
+    const input = { name: name.trim(), icon: icon.trim() || null, color: kind === 'platforms' ? color : null }
 
     if (item) {
       update.mutate({ id: item.id, input, unlink: unlinking }, { onSuccess: onDone })

@@ -297,16 +297,18 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     // submitted than a click on it.
     if (duplicateGame || coverBusy || !title.trim()) return
 
+    // Sent without the blank space around it, as it is stored, so that the
+    // cached copy matches the server's.
     const input: GameInput = {
-      title,
+      title: title.trim(),
       status,
       // Untouched by this form — carried through as-is so a regular edit
       // never disturbs the dashboard board's manual order.
       position: game?.position ?? Date.now(),
       score: score === '' ? null : Number(score),
-      tagline: tagline || null,
-      notes: notes || null,
-      cover_image_url: coverImageUrl || null,
+      tagline: tagline.trim() || null,
+      notes: notes.trim() || null,
+      cover_image_url: coverImageUrl.trim() || null,
       cover_focal_x: coverFocalX,
       cover_focal_y: coverFocalY,
       cover_zoom: coverZoom,
