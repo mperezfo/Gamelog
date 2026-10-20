@@ -228,6 +228,21 @@ export function median(values: number[]): number | null {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
 }
 
+/** "Mar 2024": the month of a date-only ISO string, for a game's logged
+ * date in a preview. */
+export function monthLabel(date: string): string {
+  return `${MONTH_ABBREVIATIONS[monthOf(date)]} ${date.slice(0, 4)}`
+}
+
+/** How long after its release a game was played, as a person would say it:
+ * "Day one", "5 days", "3 weeks", "8 months", "2 years". */
+export function formatAfterRelease(days: number): string {
+  if (days < 1) return 'Day one'
+  if (days < 14) return days < 2 ? '1 day' : `${Math.floor(days)} days`
+  if (days < 61) return `${Math.round(days / 7)} weeks`
+  return formatYears(days / YEAR_DAYS)
+}
+
 /** A number of years as a person would say it: "8 months", "2 years". */
 export function formatYears(years: number): string {
   // Months are rounded first, so that 11.7 of them read as "a year" rather

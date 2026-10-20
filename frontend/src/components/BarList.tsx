@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { useEdgeFade } from '../hooks/useEdgeFade'
@@ -25,6 +25,9 @@ interface BarListProps {
    * for no preview. */
   games?: Game[]
   onOpenGame?: (game: Game) => void
+  /** What the preview says of each game beside its score (see
+   * GamesPreview). */
+  previewDetail?: (game: Game) => ReactNode
 }
 
 /** A row's height: the h-8 of its button and a pixel of padding above and
@@ -37,7 +40,17 @@ const ROW_HEIGHT = 34
  * cannot be read past a handful of slices, and of a separate legend, since
  * the name is right on its bar.
  */
-export function BarList({ rows, activeKey, pinnedKey, onPreview, onPin, visibleRows, games, onOpenGame }: BarListProps) {
+export function BarList({
+  rows,
+  activeKey,
+  pinnedKey,
+  onPreview,
+  onPin,
+  visibleRows,
+  games,
+  onOpenGame,
+  previewDetail,
+}: BarListProps) {
   const max = Math.max(1, ...rows.map((row) => row.count))
   const fadeRef = useEdgeFade('y')
 
@@ -91,9 +104,10 @@ export function BarList({ rows, activeKey, pinnedKey, onPreview, onPin, visibleR
                 (games && onOpenGame ? (
                   <GamesPreviewLink
                     to={row.href}
-                    label={`Games: ${row.label}`}
+                    label={row.label}
                     games={games}
                     test={row.test}
+                    detail={previewDetail}
                     onOpenGame={onOpenGame}
                     tooltip="See these games"
                     aria-label={`See the games: ${row.label}`}

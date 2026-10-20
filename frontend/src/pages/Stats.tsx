@@ -14,11 +14,14 @@ import { useGames } from '../hooks/useGames'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useOffline } from '../hooks/useOffline'
 import { formatScore } from '../lib/format'
+import { daysAfterRelease } from '../lib/releaseAge'
 import {
   averageScore,
   breakdown,
+  formatAfterRelease,
   formatYears,
   inYear,
+  monthLabel,
   monthBuckets,
   playedGames,
   playedYears,
@@ -28,11 +31,24 @@ import {
   type BreakdownKind,
   type Highlight,
 } from '../lib/stats'
+import type { Game } from '../types/game'
 
 /** Rows of the breakdown before it scrolls, below `lg`, where it sits on its
  * own above Scores rather than beside it. From `lg` up the column beside it
  * decides instead (see useAlignedRows). */
 const STACKED_ROWS = 8
+
+/** What a game's line says in the preview of a breakdown row: the month it
+ * was played in. */
+function loggedMonth(game: Game) {
+  return game.logged_date ? monthLabel(game.logged_date) : null
+}
+
+/** And in the preview of an age band: how long after its release. */
+function timeAfterRelease(game: Game) {
+  const days = daysAfterRelease(game)
+  return days == null ? null : formatAfterRelease(days)
+}
 
 const BREAKDOWN_LABELS: Record<BreakdownKind, string> = {
   platforms: 'Platforms',
@@ -175,6 +191,8 @@ export function Stats() {
               >
                 <PlayedChart
                   buckets={buckets}
+                  year={year}
+                  onOpenGame={modal.openGame}
                   highlight={active}
                   onSelect={year ? undefined : (key) => setFilter('year', key)}
                 />
@@ -211,6 +229,7 @@ export function Stats() {
                         visibleRows={alignment?.rows ?? STACKED_ROWS}
                         games={scoped}
                         onOpenGame={modal.openGame}
+                        previewDetail={loggedMonth}
                         {...selection}
                       />
                     </div>
@@ -229,7 +248,13 @@ export function Stats() {
                           order, rather than the top few. */}
                       <div>
                         <div ref={ageStartRef} style={{ height: alignment?.ageOffset }} aria-hidden="true" />
-                        <BarList rows={age.bands} games={scoped} onOpenGame={modal.openGame} {...selection} />
+                        <BarList
+                          rows={age.bands}
+                          games={scoped}
+                          onOpenGame={modal.openGame}
+                          previewDetail={timeAfterRelease}
+                          {...selection}
+                        />
                       </div>
                     </Section>
                   )}

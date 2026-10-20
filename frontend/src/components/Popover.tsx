@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
+  type PointerEvent,
   type ReactNode,
   type Ref,
   type RefObject,
@@ -50,6 +51,10 @@ interface PopoverProps {
    * without passing over anything else. The visible box keeps its usual
    * distance through a transparent margin, which is part of the panel. */
   hover?: boolean
+  /** For a hover popover whose content is not a child of what opened it in
+   * React's tree, to tell when the pointer is over it. */
+  onPointerEnter?: (event: PointerEvent<HTMLDivElement>) => void
+  onPointerLeave?: (event: PointerEvent<HTMLDivElement>) => void
   ref?: Ref<HTMLDivElement>
   children: ReactNode
 }
@@ -94,6 +99,8 @@ export function Popover({
   onKeyDown,
   className = '',
   hover = false,
+  onPointerEnter,
+  onPointerLeave,
   ref,
   children,
 }: PopoverProps) {
@@ -224,6 +231,8 @@ export function Popover({
         data-popover=""
         aria-label={ariaLabel}
         tabIndex={-1}
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
         onKeyDown={(event) => {
           onKeyDown?.(event)
           // A key from a popover opened inside this one is that one's.
