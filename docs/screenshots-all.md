@@ -60,33 +60,23 @@ Every screenshot in both themes, light on the left and dark on the right, whatev
 
 ## Mobile
 
-### Games
+Light on the top row, dark on the bottom one.
 
 <table>
   <tr>
-    <td width="25%"><img src="screenshots/mobile/games-grid-light.png" alt="Games on a phone, light theme"></td>
-    <td width="25%"><img src="screenshots/mobile/games-grid-dark.png" alt="Games on a phone, dark theme"></td>
-    <td width="50%"></td>
+    <th width="33%">Games</th>
+    <th width="33%">Editing a game</th>
+    <th width="33%">Account</th>
   </tr>
-</table>
-
-### Editing a game
-
-<table>
   <tr>
-    <td width="25%"><img src="screenshots/mobile/edit-game-light.png" alt="Editing a game on a phone, light theme"></td>
-    <td width="25%"><img src="screenshots/mobile/edit-game-dark.png" alt="Editing a game on a phone, dark theme"></td>
-    <td width="50%"></td>
+    <td><img src="screenshots/mobile/games-grid-light.png" alt="Games on a phone, light theme"></td>
+    <td><img src="screenshots/mobile/edit-game-light.png" alt="Editing a game on a phone, light theme"></td>
+    <td><img src="screenshots/mobile/account-light.png" alt="Account on a phone, light theme"></td>
   </tr>
-</table>
-
-### Account
-
-<table>
   <tr>
-    <td width="25%"><img src="screenshots/mobile/account-light.png" alt="Account on a phone, light theme"></td>
-    <td width="25%"><img src="screenshots/mobile/account-dark.png" alt="Account on a phone, dark theme"></td>
-    <td width="50%"></td>
+    <td><img src="screenshots/mobile/games-grid-dark.png" alt="Games on a phone, dark theme"></td>
+    <td><img src="screenshots/mobile/edit-game-dark.png" alt="Editing a game on a phone, dark theme"></td>
+    <td><img src="screenshots/mobile/account-dark.png" alt="Account on a phone, dark theme"></td>
   </tr>
 </table>
 
