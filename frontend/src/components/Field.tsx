@@ -42,7 +42,7 @@ export function Field({ label, hint, className = '', onChange, onInvalid, ...pro
         onInvalid?.(event)
       }}
       className={[
-        'h-9 w-full rounded-control bg-sunken px-2.5',
+        'h-9 w-full rounded-control bg-field shadow-field px-2.5',
         'text-sm text-ink placeholder:text-ink-faint',
         'outline-none transition-colors duration-75',
         error

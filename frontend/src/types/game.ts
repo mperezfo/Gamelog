@@ -21,7 +21,7 @@ export const STATUS_LABELS: Record<GameStatus, string> = {
 export const STATUS_DOT: Record<GameStatus, string> = {
   wishlist: 'bg-ink-faint',
   pending: 'bg-accent',
-  playing: 'bg-amber-500',
+  playing: 'bg-warn',
   played: 'bg-ok',
 }
 

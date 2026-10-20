@@ -114,7 +114,7 @@ export function Popover({
       }}
       className={[
         'z-[70] animate-[gl-appear_100ms_ease-out] rounded-control border border-line bg-surface outline-none',
-        'shadow-[0_8px_24px_rgba(0,0,0,0.16)] motion-reduce:animate-none',
+        'shadow-popover motion-reduce:animate-none',
         className,
       ].join(' ')}
     >

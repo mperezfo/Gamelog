@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 
 import { useDefaultCalendarView } from '../hooks/useSession'
 import { monthGrid, monthLabel, monthNames, weekdayLabels } from '../lib/calendar'
@@ -111,7 +111,7 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
             onClick={() => setField(value)}
             className={[
               'rounded-[3px] px-2.5 py-1 text-xs font-medium transition-colors duration-75',
-              field === value ? 'bg-surface text-ink shadow-[0_1px_2px_rgb(15_15_15/0.08)]' : 'text-ink-faint hover:text-ink-muted',
+              field === value ? 'bg-surface text-ink shadow-thumb' : 'text-ink-faint hover:text-ink-muted',
             ].join(' ')}
           >
             {FIELD_LABELS[value]}
@@ -137,7 +137,7 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
           </button>
 
           {pickerOpen && (
-            <div className="absolute top-full left-0 z-10 mt-1 flex items-center gap-1.5 rounded-control bg-surface p-2 shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+            <div className="absolute top-full left-0 z-10 mt-1 flex items-center gap-1.5 rounded-control bg-surface p-2 shadow-popover">
               <Dropdown
                 aria-label="Month"
                 value={String(month.getMonth())}
@@ -148,7 +148,7 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                   setYearInvalid(false)
                 }}
                 options={MONTH_OPTIONS}
-                className="h-8 rounded-control bg-sunken px-2 text-sm text-ink"
+                className="h-8 rounded-control bg-field shadow-field px-2 text-sm text-ink"
               />
               <div className="relative flex">
                 <input
@@ -174,7 +174,7 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                   }}
                   onBlur={commitYearDraft}
                   className={[
-                    'h-8 w-20 rounded-control bg-sunken py-0 pl-2 pr-6 text-sm text-ink outline-none',
+                    'h-8 w-20 rounded-control bg-field shadow-field py-0 pl-2 pr-6 text-sm text-ink outline-none',
                     yearInvalid ? 'ring-1 ring-danger' : '',
                   ].join(' ')}
                 />
@@ -262,12 +262,8 @@ export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
                     data-tooltip={game.title}
                     className={`flex w-full items-center truncate overflow-hidden rounded-[3px] text-left font-medium transition-colors duration-75 hover:brightness-95 ${
                       single ? 'flex-col text-center' : 'gap-1 py-0.5 pr-1 pl-0.5 text-[11px]'
-                    } ${game.platform?.color ? '' : 'bg-sunken text-ink hover:bg-hover'} ${unreleased ? UNRELEASED_RING : ''}`}
-                    style={
-                      game.platform?.color
-                        ? { backgroundColor: `${game.platform.color}22`, color: game.platform.color }
-                        : undefined
-                    }
+                    } ${game.platform?.color ? 'tint' : 'bg-sunken text-ink hover:bg-hover'} ${unreleased ? UNRELEASED_RING : ''}`}
+                    style={game.platform?.color ? ({ '--tint': game.platform.color } as CSSProperties) : undefined}
                   >
                     <CoverImage
                       url={game.cover_image_url}

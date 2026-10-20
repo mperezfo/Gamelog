@@ -17,7 +17,7 @@ export function Textarea({ label, hint, className = '', ...props }: TextareaProp
       <textarea
         id={id}
         className={[
-          'w-full rounded-control bg-sunken px-2.5 py-2',
+          'w-full rounded-control bg-field shadow-field px-2.5 py-2',
           'text-sm text-ink placeholder:text-ink-faint',
           'outline-none transition-colors duration-75',
           'focus-visible:ring-2 focus-visible:ring-accent/40',

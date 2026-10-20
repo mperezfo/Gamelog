@@ -171,7 +171,7 @@ export function Dropdown<T extends string>({
           onKeyDown={handleListKeyDown}
           className={[
             'absolute top-full z-20 mt-1 max-h-[40vh] w-max min-w-full max-w-[min(20rem,80vw)] overflow-y-auto p-1',
-            'rounded-control border border-line bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.16)]',
+            'rounded-control border border-line bg-surface shadow-popover',
             align === 'right' ? 'right-0' : 'left-0',
           ].join(' ')}
         >

@@ -210,7 +210,7 @@ export function Tooltips() {
       className={[
         'pointer-events-none fixed top-0 left-0 z-[80] w-max max-w-[min(18rem,calc(100vw-16px))]',
         'rounded-control bg-tooltip px-2 py-1 text-xs leading-snug font-medium break-words text-tooltip-ink',
-        'shadow-[0_4px_12px_rgba(0,0,0,0.16)]',
+        'shadow-tooltip',
         // Only a tooltip that appears from nothing fades in: moving to the
         // next element keeps the same one, which just follows.
         'animate-[gl-appear_100ms_ease-out] motion-reduce:animate-none',

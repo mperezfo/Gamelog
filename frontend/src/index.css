@@ -21,7 +21,11 @@
 @theme inline {
   --color-canvas: var(--gl-canvas);
   --color-surface: var(--gl-surface);
+  --color-chrome: var(--gl-chrome);
+  --color-raised: var(--gl-raised);
+  --color-well: var(--gl-well);
   --color-sunken: var(--gl-sunken);
+  --color-field: var(--gl-field);
   --color-hover: var(--gl-hover);
 
   --color-line: var(--gl-line);
@@ -33,6 +37,7 @@
 
   --color-accent: var(--gl-accent);
   --color-accent-strong: var(--gl-accent-strong);
+  --color-accent-soft: var(--gl-accent-soft);
   --color-accent-ink: var(--gl-accent-ink);
 
   --color-danger: var(--gl-danger);
@@ -40,8 +45,25 @@
 
   --color-ok: var(--gl-ok);
 
+  --color-warn: var(--gl-warn);
+  --color-warn-ink: var(--gl-warn-ink);
+  --color-warn-ink-muted: var(--gl-warn-ink-muted);
+  --color-warn-ink-faint: var(--gl-warn-ink-faint);
+
   --color-tooltip: var(--gl-tooltip);
   --color-tooltip-ink: var(--gl-tooltip-ink);
+
+  /* Depth is a role too: what lifts a card or sets a field into the page is
+     a hairline on a light page and nothing at all on a dark one, where the
+     surfaces themselves get lighter as they come forward. */
+  --shadow-card: var(--gl-shadow-card);
+  --shadow-field: var(--gl-shadow-field);
+  --shadow-thumb: var(--gl-shadow-thumb);
+  --shadow-popover: var(--gl-shadow-popover);
+  --shadow-dialog: var(--gl-shadow-dialog);
+  --shadow-panel: var(--gl-shadow-panel);
+  --shadow-drag: var(--gl-shadow-drag);
+  --shadow-tooltip: var(--gl-shadow-tooltip);
 
   /*
    * Figtree, served with the application (see main.tsx) rather than left to
@@ -73,41 +95,97 @@
 }
 
 /*
- * Light. The near-black is warm rather than pure #000: on white, a slightly
+ * A platform's own colour (see PlatformBadge), set as `--tint` on the element.
+ * That colour is whatever someone picked, so it cannot be painted as it is:
+ * a pale one vanishes on a light page, and a deep one on a dark page. Only
+ * its hue and its colourfulness are kept, and the lightness is the theme's.
+ * On a light page that is dark text on a pastel of the same hue, which reads
+ * at 4.5:1 or better for any colour, white and greys included (they come out
+ * as a neutral grey). On a dark page the colour is kept as picked, on a 13%
+ * tint of itself, and only lifted when it is too dark to read there.
+ */
+@utility tint {
+  color: oklch(from var(--tint) 0.47 min(c, 0.16) h);
+  background-color: oklch(from var(--tint) 0.95 min(c, 0.045) h);
+
+  @variant dark {
+    color: oklch(from var(--tint) max(l, 0.72) c h);
+    background-color: rgb(from var(--tint) r g b / 13.333%);
+  }
+}
+
+/*
+ * Light. A white page, as on paper, so depth cannot come from lighter
+ * surfaces the way it does in the dark theme: a card is lifted off the page
+ * by a hairline and a faint shadow, a field is set into it by an inset
+ * hairline over a softer fill, and the sidebar sits on a warm off-white of
+ * its own. The near-black is warm rather than pure #000: on white, a slightly
  * brown black reads as ink instead of as a hole in the page.
+ *
+ * Every colour that text is set in clears WCAG AA (4.5:1) on every surface
+ * it appears on, the darkest of which is `sunken`. That is what sets how far
+ * `ink-faint` and the accent can go towards the paler look they could have.
  */
 :root {
   --gl-canvas: #ffffff;
   --gl-surface: #ffffff;
-  --gl-sunken: #f7f6f3;
+  --gl-chrome: #f8f8f7;
+  --gl-raised: #ffffff;
+  --gl-well: #f1f1ef;
+  --gl-sunken: #f1f1ef;
+  --gl-field: #f7f7f5;
   --gl-hover: rgb(55 53 47 / 0.06);
 
   --gl-line: #e9e9e7;
-  --gl-line-strong: #dcdbd8;
+  --gl-line-strong: #d3d2ce;
 
   --gl-ink: #37352f;
-  --gl-ink-muted: #787774;
-  --gl-ink-faint: #9b9a97;
+  --gl-ink-muted: #5a5955;
+  --gl-ink-faint: #6c6b67;
 
-  --gl-accent: #2383e2;
-  --gl-accent-strong: #1a6dbf;
+  --gl-accent: #1b66b8;
+  --gl-accent-strong: #17569c;
+  --gl-accent-soft: rgb(27 102 184 / 0.12);
   --gl-accent-ink: #ffffff;
 
-  --gl-danger: #d44c47;
-  --gl-danger-soft: rgb(212 76 71 / 0.1);
+  --gl-danger: #b02c27;
+  --gl-danger-soft: rgb(176 44 39 / 0.08);
 
-  --gl-ok: #448361;
+  --gl-ok: #3b7a57;
+
+  --gl-warn: #d9730d;
+  --gl-warn-ink: #633103;
+  --gl-warn-ink-muted: #7a4108;
+  --gl-warn-ink-faint: #8a4a0c;
 
   /* Tooltips (see Tooltips.tsx) are the one dark thing on a light page, so
      that they read as a note laid over it rather than as part of it. */
   --gl-tooltip: #37352f;
   --gl-tooltip-ink: #ffffff;
+
+  --gl-shadow-card: 0 0 0 1px rgb(15 15 15 / 0.08), 0 1px 3px rgb(15 15 15 / 0.06);
+  --gl-shadow-field: inset 0 0 0 1px rgb(15 15 15 / 0.1);
+  --gl-shadow-thumb: 0 0 0 1px rgb(15 15 15 / 0.06), 0 1px 2px rgb(15 15 15 / 0.1);
+  --gl-shadow-popover:
+    0 0 0 1px rgb(15 15 15 / 0.05), 0 3px 6px rgb(15 15 15 / 0.1), 0 9px 24px rgb(15 15 15 / 0.2);
+  --gl-shadow-dialog: 0 0 0 1px rgb(15 15 15 / 0.05), 0 16px 48px rgb(15 15 15 / 0.2);
+  --gl-shadow-panel: -1px 0 0 rgb(15 15 15 / 0.06), -12px 0 32px rgb(15 15 15 / 0.1);
+  --gl-shadow-drag: 0 0 0 1px rgb(15 15 15 / 0.08), 0 16px 32px rgb(15 15 15 / 0.2);
+  --gl-shadow-tooltip: 0 4px 12px rgb(15 15 15 / 0.16);
 }
 
+/*
+ * Dark. Here depth is lightness: the sidebar, a card and a field are each a
+ * step lighter than the page, so none of them needs a line or a shadow.
+ */
 .dark {
   --gl-canvas: #191919;
   --gl-surface: #202020;
+  --gl-chrome: #202020;
+  --gl-raised: #252525;
+  --gl-well: #191919;
   --gl-sunken: #252525;
+  --gl-field: #252525;
   --gl-hover: rgb(255 255 255 / 0.055);
 
   --gl-line: #2f2f2f;
@@ -119,6 +197,7 @@
 
   --gl-accent: #2383e2;
   --gl-accent-strong: #529cca;
+  --gl-accent-soft: color-mix(in oklab, var(--gl-accent) 15%, transparent);
   --gl-accent-ink: #ffffff;
 
   --gl-danger: #ff7369;
@@ -126,10 +205,24 @@
 
   --gl-ok: #4dab9a;
 
+  --gl-warn: oklch(76.9% 0.188 70.08);
+  --gl-warn-ink: oklch(92.4% 0.12 95.746);
+  --gl-warn-ink-muted: oklch(92.4% 0.12 95.746 / 0.8);
+  --gl-warn-ink-faint: oklch(92.4% 0.12 95.746 / 0.6);
+
   /* A step above every surface rather than inverted: a light box on a dark
      page would glare. */
   --gl-tooltip: #373737;
   --gl-tooltip-ink: #e6e6e6;
+
+  --gl-shadow-card: 0 0 #0000;
+  --gl-shadow-field: 0 0 #0000;
+  --gl-shadow-thumb: 0 1px 2px rgb(15 15 15 / 0.08);
+  --gl-shadow-popover: 0 8px 24px rgb(0 0 0 / 0.16);
+  --gl-shadow-dialog: 0 16px 48px rgb(0 0 0 / 0.24);
+  --gl-shadow-panel: -12px 0 32px rgb(0 0 0 / 0.12);
+  --gl-shadow-drag: 0 16px 32px rgb(0 0 0 / 0.28);
+  --gl-shadow-tooltip: 0 4px 12px rgb(0 0 0 / 0.16);
 }
 
 /*
@@ -293,17 +386,20 @@
    * rather than turning the browser's own pale blue or yellow, which on the
    * dark theme was a glaring box. The browser marks that background
    * !important, so it is painted over instead, with an inset shadow the size
-   * of the field. That shadow is also what a focus ring is drawn with, so a
-   * focused one gets both. */
+   * of the field, under the field's own hairline. That shadow is also what a
+   * focus ring is drawn with, so a focused one gets both. */
   input:-webkit-autofill {
     -webkit-text-fill-color: var(--gl-ink);
     caret-color: var(--gl-ink);
-    box-shadow: inset 0 0 0 100vmax var(--gl-sunken) !important;
+    box-shadow:
+      var(--gl-shadow-field),
+      inset 0 0 0 100vmax var(--gl-field) !important;
   }
 
   input:-webkit-autofill:focus-visible {
     box-shadow:
-      inset 0 0 0 100vmax var(--gl-sunken),
+      var(--gl-shadow-field),
+      inset 0 0 0 100vmax var(--gl-field),
       0 0 0 2px rgb(35 131 226 / 0.4) !important;
   }
 

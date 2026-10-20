@@ -61,12 +61,12 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
         type="button"
         onClick={() => onSelectGame(next)}
         onPointerEnter={() => preloadImage(next.cover_image_url)}
-        className="flex min-w-0 flex-1 items-center gap-4 rounded-control bg-sunken p-3 text-left transition-colors duration-75 hover:bg-hover sm:p-4"
+        className="flex min-w-0 flex-1 items-center gap-4 rounded-control bg-raised p-3 text-left shadow-card transition-colors duration-75 hover:bg-hover sm:p-4"
       >
         <CoverImage
           url={next.cover_image_url}
           size="md"
-          className="aspect-[3/4] w-20 rounded-control bg-canvas sm:w-28"
+          className="aspect-[3/4] w-20 rounded-control bg-well sm:w-28"
           style={coverFocalStyle(next)}
           iconClassName="size-6"
           lazy={false}
@@ -86,7 +86,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
 
       {rest.length > 0 && (
         <div
-          className="flex max-h-48 w-full min-h-0 flex-col rounded-control bg-sunken p-1.5 sm:h-[--next-h] sm:w-64"
+          className="flex max-h-48 w-full min-h-0 flex-col rounded-control bg-raised p-1.5 shadow-card sm:h-[--next-h] sm:w-64"
           style={nextHeight != null ? ({ '--next-h': `${nextHeight}px` } as CSSProperties) : undefined}
         >
           <div ref={fadeRef} className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
@@ -101,7 +101,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
                 <CoverImage
                   url={game.cover_image_url}
                   size="sm"
-                  className="size-8 rounded-[3px] bg-canvas"
+                  className="size-8 rounded-[3px] bg-well"
                   style={coverFocalStyle(game)}
                   iconClassName="size-3.5"
                 />

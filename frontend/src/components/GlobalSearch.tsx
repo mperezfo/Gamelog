@@ -111,7 +111,7 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
         }}
         onKeyDown={handleKeyDown}
         className={[
-          'peer h-8 w-full rounded-control bg-sunken pl-7 text-sm text-ink',
+          'peer h-8 w-full rounded-control bg-field shadow-field pl-7 text-sm text-ink',
           query ? 'pr-7' : 'pr-2.5 sm:pr-8',
           'placeholder:text-ink-faint outline-none transition-colors duration-75',
           'focus-visible:ring-2 focus-visible:ring-accent/40',
@@ -147,7 +147,7 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
       )}
 
       {open && query.trim() && (
-        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-control border border-line bg-surface py-1 shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-control border border-line bg-surface py-1 shadow-popover">
           {results.length === 0 ? (
             <p className="px-3 py-2 text-[13px] text-ink-faint">No games match &ldquo;{query}&rdquo;.</p>
           ) : (

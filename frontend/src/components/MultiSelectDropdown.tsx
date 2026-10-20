@@ -92,7 +92,7 @@ export function MultiSelectDropdown({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-control bg-sunken px-2 py-1.5 text-left disabled:opacity-50"
+        className="flex min-h-9 w-full flex-wrap items-center gap-1 rounded-control bg-field shadow-field px-2 py-1.5 text-left disabled:opacity-50"
       >
         {selected.length === 0 && pending.length === 0 && (
           <span className="px-0.5 text-sm text-ink-faint">{placeholder}</span>
@@ -145,7 +145,7 @@ export function MultiSelectDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-control bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.18)]">
+        <div className="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-control bg-surface shadow-popover">
           <input
             autoComplete="off"
             spellCheck={false}
