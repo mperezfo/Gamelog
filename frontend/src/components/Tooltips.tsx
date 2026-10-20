@@ -150,7 +150,6 @@ export function Tooltips() {
     // a disabled button is often the one with the most to explain (Identify
     // without IGDB credentials, say).
     function handlePointerMove(event: PointerEvent) {
-      if (event.pointerType === 'touch') handleTouchMove(event)
       if (event.pointerType !== 'mouse') return
       const anchor = anchorFor(document.elementFromPoint(event.clientX, event.clientY))
       if (anchor === current) return
@@ -170,19 +169,30 @@ export function Tooltips() {
     }
 
     // Pressing something hides its tooltip without warming up the next one:
-    // the pointer is busy, not reading. A finger, though, may be starting a
-    // long press.
-    function handlePointerDown(event: PointerEvent) {
+    // the pointer is busy, not reading. Not while a finger is holding
+    // something, though: a browser simulating touch (Firefox's responsive
+    // mode) sends the mouse's own pointer events along with the touch.
+    function handlePointerDown() {
+      if (press) return
+      hide()
+      hiddenAt = -Infinity
+    }
+
+    // A long press is read from touch events rather than pointer events:
+    // every touch screen sends them, and so does a desktop browser
+    // simulating one, whose pointer events can still say "mouse".
+    function handleTouchStart(event: TouchEvent) {
       endPress()
       hide()
       hiddenAt = -Infinity
-      if (event.pointerType !== 'touch' || !event.isPrimary) return
-      const anchor = anchorFor(document.elementFromPoint(event.clientX, event.clientY))
+      if (event.touches.length !== 1) return
+      const { clientX, clientY } = event.touches[0]
+      const anchor = anchorFor(document.elementFromPoint(clientX, clientY))
       if (!anchor) return
       const started: Press = {
         anchor,
-        x: event.clientX,
-        y: event.clientY,
+        x: clientX,
+        y: clientY,
         long: false,
         timer: setTimeout(() => {
           started.long = true
@@ -195,23 +205,29 @@ export function Tooltips() {
 
     // A finger that drifts before the press is long enough is scrolling;
     // one that moves off what it is holding after that is done reading.
-    function handleTouchMove(event: PointerEvent) {
-      if (!press || !event.isPrimary) return
+    function handleTouchMove(event: TouchEvent) {
+      if (!press || event.touches.length !== 1) return
+      const { clientX, clientY } = event.touches[0]
       if (!press.long) {
-        if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > PRESS_SLOP) endPress()
+        if (Math.hypot(clientX - press.x, clientY - press.y) > PRESS_SLOP) endPress()
         return
       }
-      if (!press.anchor.contains(document.elementFromPoint(event.clientX, event.clientY))) {
+      if (!press.anchor.contains(document.elementFromPoint(clientX, clientY))) {
         current = null
         hide()
       }
     }
 
-    function handlePointerUp(event: PointerEvent) {
-      if (!press || !event.isPrimary) return
+    function handleTouchEnd(event: TouchEvent) {
+      if (!press) return
       // A long press only ever showed a tooltip: the click the browser sends
-      // as the finger lifts would press the button as well.
-      if (press.long && event.type === 'pointerup') swallowClick()
+      // as the finger lifts would press the button as well. Cancelling the
+      // touch's end is what keeps it from sending one; swallowing it is for
+      // a browser that sends it anyway.
+      if (press.long && event.type === 'touchend') {
+        if (event.cancelable) event.preventDefault()
+        swallowClick()
+      }
       endPress()
       current = null
       hide()
@@ -267,8 +283,11 @@ export function Tooltips() {
     document.addEventListener('pointermove', handlePointerMove)
     document.addEventListener('pointerout', handlePointerOut)
     document.addEventListener('pointerdown', handlePointerDown, true)
-    document.addEventListener('pointerup', handlePointerUp, true)
-    document.addEventListener('pointercancel', handlePointerUp, true)
+    document.addEventListener('touchstart', handleTouchStart, { capture: true, passive: true })
+    document.addEventListener('touchmove', handleTouchMove, { capture: true, passive: true })
+    // Not passive, to be able to cancel the end of a long press.
+    document.addEventListener('touchend', handleTouchEnd, { capture: true, passive: false })
+    document.addEventListener('touchcancel', handleTouchEnd, true)
     document.addEventListener('contextmenu', handleContextMenu, true)
     document.addEventListener('keydown', hide, true)
     document.addEventListener('focusin', handleFocusIn)
@@ -280,8 +299,10 @@ export function Tooltips() {
       document.removeEventListener('pointermove', handlePointerMove)
       document.removeEventListener('pointerout', handlePointerOut)
       document.removeEventListener('pointerdown', handlePointerDown, true)
-      document.removeEventListener('pointerup', handlePointerUp, true)
-      document.removeEventListener('pointercancel', handlePointerUp, true)
+      document.removeEventListener('touchstart', handleTouchStart, { capture: true })
+      document.removeEventListener('touchmove', handleTouchMove, { capture: true })
+      document.removeEventListener('touchend', handleTouchEnd, { capture: true })
+      document.removeEventListener('touchcancel', handleTouchEnd, true)
       document.removeEventListener('contextmenu', handleContextMenu, true)
       document.removeEventListener('keydown', hide, true)
       document.removeEventListener('focusin', handleFocusIn)
