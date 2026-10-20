@@ -1,6 +1,6 @@
 # Screenshots
 
-A tour of the main screens, on desktop and on a phone. They follow your GitHub theme, light or dark.
+A tour of the main screens, on desktop and on a phone, in the theme your browser prefers, light or dark. Every one of them is also shown in both themes side by side on [All screenshots](screenshots-all.md).
 
 ## Desktop
 
