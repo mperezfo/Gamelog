@@ -22,6 +22,7 @@ import { Reveal } from './Reveal'
 import { Notice } from './Notice'
 import { Select } from './Select'
 import { Textarea } from './Textarea'
+import { Emoji } from './Emoji'
 
 /** The Platform field's value while it holds a platform to create on save,
  * which has no id yet. Ids are numbers, so this is never one of them. */
@@ -477,7 +478,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
 
         {igdbTwin && (
           <Notice tone="ok">
-            “{igdbTwin.title}” is linked to this IGDB game too.{' '}
+            “<Emoji value={igdbTwin.title} />” is linked to this IGDB game too.{' '}
             <button
               type="button"
               className="font-medium underline underline-offset-2"

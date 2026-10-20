@@ -28,6 +28,7 @@ import { preloadImage } from '../lib/cover'
 import { foldCase, fuzzyMatch } from '../lib/fuzzy'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import { useFilterParams } from '../hooks/useFilterParams'
+import { Emoji } from '../components/Emoji'
 
 const DEFAULT_SORT_FIELD = 'title'
 
@@ -260,7 +261,7 @@ export function GamesPage() {
                 imageClassName={unreleased ? UNRELEASED_IMAGE : ''}
                 iconClassName="size-3.5"
               />
-              <span className="truncate font-medium">{game.title}</span>
+              <span className="truncate font-medium"><Emoji value={game.title} /></span>
             </span>
           )
         },

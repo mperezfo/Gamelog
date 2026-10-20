@@ -8,6 +8,7 @@ import { formatDate } from '../lib/format'
 import { daysUntilRelease, upcomingGames } from '../lib/upcoming'
 import type { Game } from '../types/game'
 import { CoverImage } from './CoverImage'
+import { Emoji } from './Emoji'
 
 interface UpcomingReleaseProps {
   games: Game[]
@@ -77,7 +78,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
             <CalendarIcon className="size-3.5" />
             Next up
           </span>
-          <span className="truncate text-sm font-semibold text-ink sm:text-base">{next.title}</span>
+          <span className="truncate text-sm font-semibold text-ink sm:text-base"><Emoji value={next.title} /></span>
           <span className="truncate text-xs text-ink-faint">{formatDate(next.release_date, dateFormat)}</span>
           <span className="mt-1 text-3xl leading-none font-bold text-accent sm:text-4xl">{days}</span>
           <span className="text-xs font-medium text-ink-muted">{days === 1 ? 'day to go' : 'days to go'}</span>
@@ -106,7 +107,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
                   iconClassName="size-3.5"
                 />
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="truncate text-[13px] font-medium text-ink">{game.title}</span>
+                  <span className="truncate text-[13px] font-medium text-ink"><Emoji value={game.title} /></span>
                   <span className="truncate text-[11px] text-ink-faint">{formatDate(game.release_date, dateFormat)}</span>
                 </span>
                 <span className="shrink-0 text-[11px] font-medium text-ink-faint">

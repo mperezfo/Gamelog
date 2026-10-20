@@ -11,6 +11,7 @@ import type { CompanyMatch, GameCandidate, MatchTarget, PlatformMatch } from '..
 import { Button } from './Button'
 import { Dots } from './Dots'
 import { Dropdown } from './Dropdown'
+import { Emoji } from './Emoji'
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { Notice } from './Notice'
 import { Popover } from './Popover'
@@ -125,7 +126,9 @@ export function IdentifyPanel({
             </span>
           </button>
         ) : (
-          <span className="min-w-0 truncate text-[13px] font-medium text-ink-muted">IGDB results for “{title}”</span>
+          <span className="min-w-0 truncate text-[13px] font-medium text-ink-muted">
+            IGDB results for “<Emoji value={title} />”
+          </span>
         )}
         <button
           type="button"
@@ -223,7 +226,7 @@ function CandidateRow({ candidate, mark, onPick }: CandidateRowProps) {
       )}
       <span className="flex min-w-0 flex-col">
         <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="truncate text-sm font-medium text-ink">{candidate.name}</span>
+          <span className="truncate text-sm font-medium text-ink"><Emoji value={candidate.name} /></span>
           {mark === 'linked' && <LinkMark title="The IGDB game this game is linked to">linked</LinkMark>}
           {mark === 'library' && (
             <span data-tooltip="Another game of your library is linked to it" className="shrink-0 text-xs text-ink-faint">
@@ -823,7 +826,9 @@ function RecordChoice({
     const linking = !isLinked(choice.id)
     label = (
       <span className="flex min-w-0 items-baseline gap-1.5">
-        <span className="truncate">{records.find((r) => r.id === choice.id)?.name ?? match?.name}</span>
+        <span className="truncate">
+          <Emoji value={records.find((r) => r.id === choice.id)?.name ?? match?.name ?? ''} />
+        </span>
         {linking && <LinkMark title={linkTitle}>link</LinkMark>}
       </span>
     )
@@ -889,7 +894,7 @@ function RecordChoice({
               selected={isSelected({ kind: 'existing', id: record.id })}
               onClick={() => pick({ kind: 'existing', id: record.id })}
             >
-              <span className="truncate">{record.name}</span>
+              <span className="truncate"><Emoji value={record.name} /></span>
             </ChoiceRow>
           ))}
         </div>

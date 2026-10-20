@@ -6,6 +6,7 @@ import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGame } from '../hooks/useGames'
+import { Emoji } from '../components/Emoji'
 
 /**
  * A game's own page: what a search result, a bookmark or a shared link lands
@@ -43,7 +44,7 @@ export function GameDetail() {
 
   return (
     <PageContainer>
-      <h1 className="mb-6 text-lg font-semibold tracking-tight text-ink">{game.data.title}</h1>
+      <h1 className="mb-6 text-lg font-semibold tracking-tight text-ink"><Emoji value={game.data.title} /></h1>
       <GameForm
         game={game.data}
         onSaved={() => navigate('/games')}

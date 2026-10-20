@@ -47,7 +47,7 @@ export function ChipMultiSelect({
                 ].join(' ')}
               >
                 {option.icon && <span aria-hidden="true"><Emoji value={option.icon} /></span>}
-                {option.name}
+                <Emoji value={option.name} />
               </button>
             )
           })}

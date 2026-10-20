@@ -4,6 +4,7 @@ import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming
 import type { Game } from '../types/game'
 import { CoverImage } from './CoverImage'
 import { StarIcon } from './icons'
+import { Emoji } from './Emoji'
 
 interface GameCoverCardProps {
   game: Game
@@ -39,7 +40,7 @@ export function GameCoverCard({ game, onClick, caption, className = 'w-32 shrink
       />
 
       <div className="flex flex-col gap-0.5">
-        <span className="truncate text-[13px] font-medium text-ink">{game.title}</span>
+        <span className="truncate text-[13px] font-medium text-ink"><Emoji value={game.title} /></span>
         <span className="flex items-center gap-1 truncate text-xs text-ink-faint">
           {game.score != null && (
             <span className="flex shrink-0 items-center gap-0.5">
@@ -47,7 +48,7 @@ export function GameCoverCard({ game, onClick, caption, className = 'w-32 shrink
               {formatScore(game.score)}
             </span>
           )}
-          {caption && <span className="truncate">{caption}</span>}
+          {caption && <span className="truncate"><Emoji value={caption} /></span>}
         </span>
       </div>
     </button>
