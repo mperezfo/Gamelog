@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -119,6 +120,21 @@ export function Popover({
     whileElementsMounted: autoUpdate,
   })
 
+  // Stable, rather than an inline callback: React detaches a ref that
+  // changes and attaches the new one after the panel's children, so an
+  // inline one leaves the panel unset on every render for a moment. A child
+  // that takes focus as it mounts (the "+ Filter" value list, say) would do
+  // so right then, and the focus would read as having left the panel.
+  const setPanel = useCallback(
+    (node: HTMLDivElement | null) => {
+      panelRef.current = node
+      refs.setFloating(node)
+      if (typeof ref === 'function') ref(node)
+      else if (ref) ref.current = node
+    },
+    [refs, ref],
+  )
+
   useLayoutEffect(() => {
     refs.setReference(anchorRef.current)
   }, [refs, anchorRef, open])
@@ -175,12 +191,7 @@ export function Popover({
   return createPortal(
     <NestedPanels.Provider value={nested}>
       <div
-        ref={(node) => {
-          panelRef.current = node
-          refs.setFloating(node)
-          if (typeof ref === 'function') ref(node)
-          else if (ref) ref.current = node
-        }}
+        ref={setPanel}
         id={id}
         role={role}
         data-popover=""
