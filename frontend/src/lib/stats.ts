@@ -7,6 +7,8 @@ import type { Dispatch, FocusEvent, PointerEvent, SetStateAction } from 'react'
 import type { Game } from '../types/game'
 import type { Lookup } from '../types/lookup'
 import { MONTH_ABBREVIATIONS, yearOf } from './format'
+import { formatRange } from './range'
+import { AGE_BANDS, YEAR_DAYS, daysAfterRelease, inAgeRange } from './releaseAge'
 
 /** A game whose share of the charts can be picked out: a row of a breakdown,
  * a band of release age, a range of scores. */
@@ -197,52 +199,26 @@ export function scoreBins(played: Game[]): ScoreBin[] {
   return bins
 }
 
-const YEAR_DAYS = 365.25
+/** How old games were when they were played, in bands, each with the Games
+ * page filtered to it, and the middle of it all as a single number of
+ * years. */
+export function releaseAge(played: Game[], year: string): { bands: Share[]; median: number | null } {
+  const ages = played.map(daysAfterRelease).filter((days): days is number => days != null)
 
-/** How long after it came out a game was played, in years. Logged before
- * its release (early access, a review copy) counts as no time at all. */
-function ageWhenPlayed(game: Game): number | null {
-  if (!game.release_date || !game.logged_date) return null
-  const days = (Date.parse(game.logged_date.slice(0, 10)) - Date.parse(game.release_date.slice(0, 10))) / 86_400_000
-  return Math.max(days, 0) / YEAR_DAYS
-}
-
-/** Finer near release, where habits differ most (launch week and a few
- * months later are not the same thing), and coarser further out, where a
- * year more or less says little. Each band runs up to, not including,
- * `below`, in years. */
-const AGE_BANDS: { label: string; below: number }[] = [
-  { label: 'Launch week', below: 7 / YEAR_DAYS },
-  { label: 'First month', below: 1 / 12 },
-  { label: '1–6 months', below: 0.5 },
-  { label: '6–12 months', below: 1 },
-  { label: '1–2 years', below: 2 },
-  { label: '2–3 years', below: 3 },
-  { label: '3–5 years', below: 5 },
-  { label: '5–10 years', below: 10 },
-  { label: '10–20 years', below: 20 },
-  { label: 'Over 20 years', below: Infinity },
-]
-
-/** How old games were when they were played, in bands, and the middle of
- * it all as a single number of years. */
-export function releaseAge(played: Game[]): { bands: Share[]; median: number | null } {
-  const ages = played.map(ageWhenPlayed).filter((age): age is number => age != null)
-
-  const bandOf = (age: number) => AGE_BANDS.findIndex((band) => age < band.below)
-  const bands: Share[] = AGE_BANDS.map((band, index) => ({
-    key: `age:${index}`,
-    label: band.label,
-    count: ages.filter((age) => bandOf(age) === index).length,
-    lookup: null,
-    color: null,
-    href: null,
-    test: (game) => {
-      const age = ageWhenPlayed(game)
-      return age != null && bandOf(age) === index
-    },
-  }))
-  return { bands, median: median(ages) }
+  const bands: Share[] = AGE_BANDS.map((band, index) => {
+    const test = (game: Game) => inAgeRange(game, band.range)
+    return {
+      key: `age:${index}`,
+      label: band.label,
+      count: played.filter(test).length,
+      lookup: null,
+      color: null,
+      href: gamesHref(year, { playedAfter: formatRange(band.range) }),
+      test,
+    }
+  })
+  const middle = median(ages)
+  return { bands, median: middle == null ? null : middle / YEAR_DAYS }
 }
 
 export function median(values: number[]): number | null {
