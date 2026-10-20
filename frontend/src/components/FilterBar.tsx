@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 
+import { formatRange, parseRange, type Bound } from '../lib/range'
+import { Dropdown } from './Dropdown'
 import { ChevronLeftIcon, PlusIcon, XIcon } from './icons'
 import { OptionRow } from './OptionRow'
 import { Popover } from './Popover'
@@ -14,9 +16,16 @@ export interface FilterField {
   label: string
   /** `single` replaces the current value and closes the popover; `multi`
    * toggles membership in a comma-joined list and stays open, so several
-   * values can be picked in one go. */
-  kind: 'single' | 'multi'
+   * values can be picked in one go. `range` takes a lower bound, an upper
+   * one or both, each an amount in one of `options` as units (see
+   * lib/range for how it is written). */
+  kind: 'single' | 'multi' | 'range'
   options: FilterOption[]
+  /** How the value reads on the pill, in place of its option labels. */
+  summary?: (value: string) => string
+  /** For a range, which of two bounds is the larger (negative when `a` is
+   * smaller), since only the field knows how its units relate. */
+  compare?: (a: Bound, b: Bound) => number
 }
 
 interface FilterBarProps {
@@ -44,6 +53,7 @@ function focusOnMount(element: HTMLElement | null) {
 /** How a field's current value(s) read on its pill — up to two option
  * labels, then a "+N" for the rest, rather than every one spelled out. */
 function valueSummary(field: FilterField, raw: string): string {
+  if (field.summary) return field.summary(raw)
   const values = raw ? raw.split(',') : []
   const labels = values.map((v) => field.options.find((o) => o.value === v)?.label ?? v)
   if (labels.length <= 2) return labels.join(', ')
@@ -106,6 +116,81 @@ function FilterOptionList({
   )
 }
 
+/** A range field's two bounds, each an amount and a unit, either of them
+ * left empty for an open end. Every change that makes a range is applied as
+ * it is typed, like a pick from a list; clearing both drops the filter, the
+ * way unpicking every value of a list does. Enter closes it. */
+function FilterRangeEditor({
+  field,
+  value,
+  onChange,
+  onDone,
+}: {
+  field: FilterField
+  value: string
+  onChange: (value: string) => void
+  onDone: () => void
+}) {
+  const current = parseRange(value)
+  const fallbackUnit = field.options[field.options.length - 1]?.value ?? ''
+  const [draft, setDraft] = useState(() => ({
+    from: { amount: current?.from ? String(current.from.amount) : '', unit: current?.from?.unit ?? fallbackUnit },
+    to: { amount: current?.to ? String(current.to.amount) : '', unit: current?.to?.unit ?? fallbackUnit },
+  }))
+
+  const bound = (side: { amount: string; unit: string }): Bound | null =>
+    side.amount === '' ? null : { amount: Number(side.amount), unit: side.unit }
+  const from = bound(draft.from)
+  const to = bound(draft.to)
+  // Left unapplied until it is put right.
+  const backwards = Boolean(from && to && field.compare && field.compare(from, to) >= 0)
+
+  function update(side: 'from' | 'to', patch: Partial<{ amount: string; unit: string }>) {
+    const next = { ...draft, [side]: { ...draft[side], ...patch } }
+    setDraft(next)
+    const nextFrom = bound(next.from)
+    const nextTo = bound(next.to)
+    if (!nextFrom && !nextTo) {
+      onChange('')
+      return
+    }
+    if (nextFrom && nextTo && field.compare && field.compare(nextFrom, nextTo) >= 0) return
+    onChange(formatRange({ from: nextFrom, to: nextTo }))
+  }
+
+  return (
+    <div className="flex flex-col gap-2 p-2.5">
+      {(['from', 'to'] as const).map((side) => (
+        <div key={side} className="flex items-center gap-1.5">
+          <span className="w-12 shrink-0 text-xs text-ink-faint">{side === 'from' ? 'From' : 'Under'}</span>
+          <input
+            ref={side === 'from' ? focusOnMount : undefined}
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            aria-label={`${field.label}, ${side === 'from' ? 'from' : 'under'}`}
+            value={draft[side].amount}
+            onChange={(event) => update(side, { amount: event.target.value.replace(/\D/g, '').slice(0, 4) })}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') onDone()
+            }}
+            placeholder="Any"
+            className="h-8 w-14 min-w-0 rounded-control bg-field px-2 text-sm text-ink tabular-nums shadow-field outline-none placeholder:text-ink-faint"
+          />
+          <Dropdown
+            aria-label={`${field.label}, ${side === 'from' ? 'from' : 'under'}, unit`}
+            value={draft[side].unit}
+            onChange={(unit) => update(side, { unit })}
+            options={field.options}
+            className="h-8 min-w-0 flex-1 rounded-control px-2 text-sm text-ink transition-colors duration-75 enabled:hover:bg-hover"
+          />
+        </div>
+      ))}
+      {backwards && <p className="text-xs text-danger">"Under" has to be more than "From".</p>}
+    </div>
+  )
+}
+
 /** The "+ Filter" trigger: picks a not-yet-active field, then immediately
  * shows that field's value list in the same popover (a small back arrow
  * returns to the field list) — Notion's own add-filter flow. */
@@ -150,14 +235,23 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
               <ChevronLeftIcon className="size-4 shrink-0" />
               {selectedField.label}
             </button>
-            <FilterOptionList
-              field={selectedField}
-              value={values[selectedField.key] ?? ''}
-              onChange={(value) => {
-                onChange(selectedField.key, value)
-                if (selectedField.kind === 'single') close()
-              }}
-            />
+            {selectedField.kind === 'range' ? (
+              <FilterRangeEditor
+                field={selectedField}
+                value={values[selectedField.key] ?? ''}
+                onChange={(value) => onChange(selectedField.key, value)}
+                onDone={close}
+              />
+            ) : (
+              <FilterOptionList
+                field={selectedField}
+                value={values[selectedField.key] ?? ''}
+                onChange={(value) => {
+                  onChange(selectedField.key, value)
+                  if (selectedField.kind === 'single') close()
+                }}
+              />
+            )}
           </>
         ) : (
           <div ref={focusOnMount} tabIndex={-1} className="max-h-[40vh] overflow-y-auto p-1 outline-none">
@@ -217,14 +311,18 @@ function FilterPill({
         aria-label={`${field.label} filter`}
         className={POPOVER_CLASS}
       >
-        <FilterOptionList
-          field={field}
-          value={value}
-          onChange={(next) => {
-            onChange(next)
-            if (field.kind === 'single') setOpen(false)
-          }}
-        />
+        {field.kind === 'range' ? (
+          <FilterRangeEditor field={field} value={value} onChange={onChange} onDone={() => setOpen(false)} />
+        ) : (
+          <FilterOptionList
+            field={field}
+            value={value}
+            onChange={(next) => {
+              onChange(next)
+              if (field.kind === 'single') setOpen(false)
+            }}
+          />
+        )}
       </Popover>
     </span>
   )

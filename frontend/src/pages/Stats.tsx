@@ -9,15 +9,20 @@ import { PlayedChart } from '../components/PlayedChart'
 import { ScoreHistogram } from '../components/ScoreHistogram'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFilterParams } from '../hooks/useFilterParams'
+import { useGameModal } from '../hooks/useGameModal'
 import { useGames } from '../hooks/useGames'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useOffline } from '../hooks/useOffline'
 import { formatScore } from '../lib/format'
+import { daysAfterRelease } from '../lib/releaseAge'
 import {
   averageScore,
   breakdown,
+  byTimeAfterRelease,
+  formatAfterRelease,
   formatYears,
   inYear,
+  monthLabel,
   monthBuckets,
   playedGames,
   playedYears,
@@ -27,11 +32,24 @@ import {
   type BreakdownKind,
   type Highlight,
 } from '../lib/stats'
+import type { Game } from '../types/game'
 
 /** Rows of the breakdown before it scrolls, below `lg`, where it sits on its
  * own above Scores rather than beside it. From `lg` up the column beside it
  * decides instead (see useAlignedRows). */
 const STACKED_ROWS = 8
+
+/** What a game's line says in the preview of a breakdown row: the month it
+ * was played in, and the year too unless the page is about one. */
+function loggedMonth(year: string) {
+  return (game: Game) => (game.logged_date ? monthLabel(game.logged_date, !year) : null)
+}
+
+/** And in the preview of an age band: how long after its release. */
+function timeAfterRelease(game: Game) {
+  const days = daysAfterRelease(game)
+  return days == null ? null : formatAfterRelease(days)
+}
 
 const BREAKDOWN_LABELS: Record<BreakdownKind, string> = {
   platforms: 'Platforms',
@@ -55,6 +73,7 @@ export function Stats() {
   useDocumentTitle('Stats')
   const games = useGames()
   const offline = useOffline()
+  const modal = useGameModal()
   const [filters, setFilter] = useFilterParams({ year: '' })
   const [kind, setKind] = useState<BreakdownKind>('platforms')
   const [preview, setPreview] = useState<Highlight | null>(null)
@@ -72,7 +91,7 @@ export function Stats() {
   const buckets = useMemo(() => (year ? monthBuckets(scoped) : yearBuckets(played)), [year, scoped, played])
   const rows = useMemo(() => breakdown(scoped, kind, year), [scoped, kind, year])
   const bins = useMemo(() => scoreBins(scoped), [scoped])
-  const age = useMemo(() => releaseAge(scoped), [scoped])
+  const age = useMemo(() => releaseAge(scoped, year), [scoped, year])
   const average = averageScore(scoped)
 
   const backlog = useMemo(() => {
@@ -173,6 +192,8 @@ export function Stats() {
               >
                 <PlayedChart
                   buckets={buckets}
+                  year={year}
+                  onOpenGame={modal.openGame}
                   highlight={active}
                   onSelect={year ? undefined : (key) => setFilter('year', key)}
                 />
@@ -207,6 +228,9 @@ export function Stats() {
                         key={kind}
                         rows={rows}
                         visibleRows={alignment?.rows ?? STACKED_ROWS}
+                        games={scoped}
+                        onOpenGame={modal.openGame}
+                        previewDetail={loggedMonth(year)}
                         {...selection}
                       />
                     </div>
@@ -225,7 +249,14 @@ export function Stats() {
                           order, rather than the top few. */}
                       <div>
                         <div ref={ageStartRef} style={{ height: alignment?.ageOffset }} aria-hidden="true" />
-                        <BarList rows={age.bands} {...selection} />
+                        <BarList
+                          rows={age.bands}
+                          games={scoped}
+                          onOpenGame={modal.openGame}
+                          previewDetail={timeAfterRelease}
+                          previewOrder={byTimeAfterRelease}
+                          {...selection}
+                        />
                       </div>
                     </Section>
                   )}

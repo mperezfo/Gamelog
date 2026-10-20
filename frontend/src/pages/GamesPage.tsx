@@ -26,6 +26,8 @@ import { useLookups } from '../hooks/useLookups'
 import { STATUS_LABELS, type Game } from '../types/game'
 import { dateRange, dateRangeSpan, formatDate, formatScore, yearOf } from '../lib/format'
 import { preloadImage } from '../lib/cover'
+import { parseRange } from '../lib/range'
+import { AGE_UNITS, boundDays, describeAgeRange, inAgeRange } from '../lib/releaseAge'
 import { foldCase, fuzzyMatch } from '../lib/fuzzy'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import { useFilterParams } from '../hooks/useFilterParams'
@@ -95,6 +97,7 @@ export function GamesPage() {
     missing: '',
     releaseYear: '',
     playedYear: '',
+    playedAfter: '',
     view: '',
     sort: '',
     sortDir: '',
@@ -108,6 +111,7 @@ export function GamesPage() {
     missing,
     releaseYear,
     playedYear,
+    playedAfter,
   } = filters
   const exactMatch = filters.exact === '1'
   const view = filters.view === 'grid' || filters.view === 'table' ? filters.view : defaultView
@@ -175,6 +179,14 @@ export function GamesPage() {
       { key: 'releaseYear', label: 'Release year', kind: 'single', options: releaseYears.map((year) => ({ value: year, label: year })) },
       { key: 'playedYear', label: 'Played year', kind: 'single', options: playedYears.map((year) => ({ value: year, label: year })) },
       {
+        key: 'playedAfter',
+        label: 'Played after release',
+        kind: 'range',
+        options: AGE_UNITS,
+        summary: describeAgeRange,
+        compare: (a, b) => boundDays(a) - boundDays(b),
+      },
+      {
         key: 'missing',
         label: 'Missing',
         kind: 'single',
@@ -192,6 +204,7 @@ export function GamesPage() {
   const developerSlugs = useMemo(() => (developerSlug ? developerSlug.split(',') : []), [developerSlug])
   const publisherSlugs = useMemo(() => (publisherSlug ? publisherSlug.split(',') : []), [publisherSlug])
   const platformSlugs = useMemo(() => (platformSlug ? platformSlug.split(',') : []), [platformSlug])
+  const playedAfterRange = useMemo(() => parseRange(playedAfter), [playedAfter])
 
   const rows = useMemo(() => {
     const needle = foldCase(debouncedSearch.trim())
@@ -208,6 +221,7 @@ export function GamesPage() {
       if (missing && !MISSING_FIELDS[missing]?.test(game)) return false
       if (releaseYear && yearOf(game.release_date) !== releaseYear) return false
       if (playedYear && yearOf(game.logged_date) !== playedYear) return false
+      if (playedAfterRange && !inAgeRange(game, playedAfterRange)) return false
       return true
     })
   }, [
@@ -222,6 +236,7 @@ export function GamesPage() {
     missing,
     releaseYear,
     playedYear,
+    playedAfterRange,
   ])
 
   const stats = useMemo(() => {

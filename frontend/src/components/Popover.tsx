@@ -1,11 +1,13 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent,
+  type PointerEvent,
   type ReactNode,
   type Ref,
   type RefObject,
@@ -43,9 +45,28 @@ interface PopoverProps {
    * arrow keys of a list. */
   onKeyDown?: (event: KeyboardEvent<HTMLDivElement>) => void
   className?: string
+  /** For a preview opened by pointing at the anchor rather than clicking
+   * it: focus stays where it is, Escape works from anywhere, and the panel
+   * touches its anchor, so that the pointer can cross from one to the other
+   * without passing over anything else. The visible box keeps its usual
+   * distance through a transparent margin, which is part of the panel. */
+  hover?: boolean
+  /** For a hover popover whose content is not a child of what opened it in
+   * React's tree, to tell when the pointer is over it. */
+  onPointerEnter?: (event: PointerEvent<HTMLDivElement>) => void
+  onPointerLeave?: (event: PointerEvent<HTMLDivElement>) => void
   ref?: Ref<HTMLDivElement>
   children: ReactNode
 }
+
+/** How the panel looks. */
+const BOX = [
+  'z-[70] animate-[gl-appear_100ms_ease-out] rounded-control border border-line bg-surface outline-none',
+  'shadow-popover motion-reduce:animate-none',
+].join(' ')
+
+/** Between the panel and its anchor. */
+const GAP = 4
 
 /** What Tab can land on. */
 const TABBABLE = 'a[href], button, input, select, textarea, [tabindex]'
@@ -77,6 +98,9 @@ export function Popover({
   'aria-label': ariaLabel,
   onKeyDown,
   className = '',
+  hover = false,
+  onPointerEnter,
+  onPointerLeave,
   ref,
   children,
 }: PopoverProps) {
@@ -105,7 +129,7 @@ export function Popover({
     placement,
     strategy: 'fixed',
     middleware: [
-      offset(4),
+      offset(hover ? 0 : GAP),
       flip({ padding: 8 }),
       shift({ padding: 8 }),
       size({
@@ -119,9 +143,34 @@ export function Popover({
     whileElementsMounted: autoUpdate,
   })
 
+  // Stable, rather than an inline callback: React detaches a ref that
+  // changes and attaches the new one after the panel's children, so an
+  // inline one leaves the panel unset on every render for a moment. A child
+  // that takes focus as it mounts (the "+ Filter" value list, say) would do
+  // so right then, and the focus would read as having left the panel.
+  const setPanel = useCallback(
+    (node: HTMLDivElement | null) => {
+      panelRef.current = node
+      refs.setFloating(node)
+      if (typeof ref === 'function') ref(node)
+      else if (ref) ref.current = node
+    },
+    [refs, ref],
+  )
+
   useLayoutEffect(() => {
     refs.setReference(anchorRef.current)
   }, [refs, anchorRef, open])
+
+  useEffect(() => {
+    if (!open || !hover) return
+    // Focus never moves into a preview, so its Escape has to be heard here.
+    function handleKey(event: globalThis.KeyboardEvent) {
+      if (event.key === 'Escape') onCloseRef.current()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [open, hover])
 
   useEffect(() => {
     if (!open) return
@@ -129,6 +178,7 @@ export function Popover({
     // once it has been placed, so that focusing it does not scroll to
     // wherever it was drawn first.
     const frame = requestAnimationFrame(() => {
+      if (hover) return
       const panel = panelRef.current
       // Something in it may have taken focus by itself already.
       if (panel?.contains(document.activeElement)) return
@@ -150,7 +200,7 @@ export function Popover({
       document.removeEventListener('pointerdown', handleOutside)
       document.removeEventListener('focusin', handleOutside)
     }
-  }, [open, triggerRef, contains])
+  }, [open, hover, triggerRef, contains])
 
   /** Tab past either end of the panel. The panel sits at the end of the
    * page, so the browser would carry on from there: focus goes back to the
@@ -175,18 +225,14 @@ export function Popover({
   return createPortal(
     <NestedPanels.Provider value={nested}>
       <div
-        ref={(node) => {
-          panelRef.current = node
-          refs.setFloating(node)
-          if (typeof ref === 'function') ref(node)
-          else if (ref) ref.current = node
-        }}
+        ref={setPanel}
         id={id}
         role={role}
         data-popover=""
         aria-label={ariaLabel}
         tabIndex={-1}
-        style={floatingStyles}
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
         onKeyDown={(event) => {
           onKeyDown?.(event)
           // A key from a popover opened inside this one is that one's.
@@ -197,13 +243,10 @@ export function Popover({
           onClose()
           triggerRef.current?.focus()
         }}
-        className={[
-          'z-[70] animate-[gl-appear_100ms_ease-out] rounded-control border border-line bg-surface outline-none',
-          'shadow-popover motion-reduce:animate-none',
-          className,
-        ].join(' ')}
+        className={hover ? 'z-[70] outline-none' : [BOX, className].join(' ')}
+        style={hover ? { ...floatingStyles, padding: GAP } : floatingStyles}
       >
-        {children}
+        {hover ? <div className={[BOX, className].join(' ')}>{children}</div> : children}
       </div>
     </NestedPanels.Provider>,
     document.body,
