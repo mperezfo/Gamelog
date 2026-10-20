@@ -7,10 +7,13 @@ Gamelog is a personal project. I built it to track my own games, and it is tailo
 I open sourced it in case it is useful to someone else too.
 
 <p align="center">
-  <img src="docs/screenshots/hero-dark.png" alt="The Gamelog dashboard on a desktop browser, with the games grid open on a phone next to it">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/hero-dark.png">
+    <img src="docs/screenshots/hero-light.png" alt="The Gamelog dashboard on a desktop browser, with the games grid open on a phone next to it">
+  </picture>
 </p>
 
-Here are [more screenshots](docs/screenshots.md), in desktop and phone formats.
+Here are [more screenshots](docs/screenshots.md), in desktop and phone formats, light and dark.
 
 ## Features
 
