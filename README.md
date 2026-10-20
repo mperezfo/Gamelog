@@ -18,15 +18,15 @@ Here are [more screenshots](docs/screenshots.md), in desktop and phone formats.
 
 - **Upcoming releases and calendar**: The dashboard lists the next games due out, and a monthly calendar shows either release dates or the dates each game was logged.
 
-- **Stats**: What you have played, year by year or month by month, with the average score of each. Pointing at a platform, genre, developer, publisher, score or how long after release you got to a game picks out its share of every bar, and the whole page can be narrowed to a single year.
+- **Stats**: What you have played, year by year or month by month, with the average score of each. Pointing at a platform, genre, developer, publisher, score or how long after release you got to a game picks out its share of every bar, and the whole page can be narrowed to a single year. Hovering a row or a bar previews the games behind it without leaving the page.
 
 - **Image covers**: Each game can have an uploaded cover, with a portrait crop and zoom so it is framed well in portrait views across the app. Lists load small thumbnails as they scroll into view, so a large library stays quick on a phone.
 
 - **Search for a cover**: With IGDB or SteamGridDB configured, the cover's **Search image** button shows the game's covers and artwork from either one, and the picked image is stored as the game's cover like an upload. See [Cover image search](docs/self-hosting.md#cover-image-search).
 
-- **Identify from IGDB**: With IGDB credentials configured, a game's title, release date, platform, developers and publishers can be filled in from [IGDB](https://www.igdb.com), confirming how each company and platform maps onto your own records. Those choices are remembered, so the next game from the same company or on the same platform is matched outright, and the game links to its page on IGDB. See [Game metadata](docs/self-hosting.md#game-metadata-igdb).
+- **Identify from IGDB**: With IGDB credentials configured, a game's title, release date, platform, developers and publishers can be filled in from [IGDB](https://www.igdb.com), confirming how each company and platform maps onto your own records. Those choices are remembered, so the next game from the same company or on the same platform is matched outright, and the game links to its page on IGDB. Developers and publishers also take the country IGDB has for them, shown as a flag. See [Game metadata](docs/self-hosting.md#game-metadata-igdb).
 
-- **Search and filters**: A search box is available from every page, and the games list (as a table or a cover grid) can be filtered by status, platform, genre, developer, publisher, year, or by a field that is still empty, such as the score or the cover.
+- **Search and filters**: A search box is available from every page, and the games list (as a table or a cover grid) can be filtered by status, platform, genre, developer, publisher, year, how long after its release a game was played, or by a field that is still empty, such as the score or the cover.
 
 - **Installable and offline**: It can be added to a phone's home screen as a PWA. When the server can't be reached it still opens in read-only mode, with the library and covers from the last visit.
 
@@ -100,7 +100,7 @@ Configuration, reverse proxy setups, import and export, the API and how to work 
 
 ## Contributing
 
-Since Gamelog is built around my own way of tracking games, I don't promise to accept pull requests for features I'm not personally interested in. Bug reports and fixes are welcome, though.
+Since Gamelog is built around my own way of tracking games, I don't promise to accept pull requests for features I'm not personally interested in. Bug reports and fixes are welcome, though. The project's conventions, for people and coding agents alike, are in [`AGENTS.md`](AGENTS.md).
 
 If you want it to work differently, please fork it! You are free to modify your fork and share it however you like.
 
