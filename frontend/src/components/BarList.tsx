@@ -155,9 +155,9 @@ function linkClass(pinned: boolean): string {
   ].join(' ')
 }
 
-/** A platform's colour as a dot, a genre's emoji, a company's flag, or just
- * the name. The row
- * for games with none ("No platform") reads quieter. */
+/** A platform's colour as a dot, a genre's emoji, a company's or a
+ * country's flag, or just the name. The row for games with none ("No
+ * platform") reads quieter. */
 function RowLabel({ row }: { row: Share }) {
   const lookup = row.lookup
   return (
@@ -169,6 +169,8 @@ function RowLabel({ row }: { row: Share }) {
         </span>
       )}
       {lookup?.country && <CountryFlag code={lookup.country} />}
+      {/* Beside the country's own name, which already says what it is. */}
+      {row.country && <CountryFlag code={row.country} decorative />}
       <span className="truncate">
         <Emoji value={row.label} />
       </span>

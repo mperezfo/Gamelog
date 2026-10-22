@@ -41,3 +41,13 @@ export function countryName(code: string): string {
   }
   return names?.of(code) ?? code
 }
+
+/** What stands for "no country" where countries are counted or filtered on:
+ * a developer or publisher whose country has not been set. Never a code,
+ * which is always two capitals. */
+export const UNKNOWN_COUNTRY = 'unknown'
+
+/** Where a developer or publisher is from, or UNKNOWN_COUNTRY. */
+export function countryOrUnknown(company: { country?: string | null }): string {
+  return company.country || UNKNOWN_COUNTRY
+}

@@ -7,7 +7,7 @@ import { Button } from '../components/Button'
 import { CoverImage } from '../components/CoverImage'
 import { DataTable } from '../components/DataTable'
 import { Field } from '../components/Field'
-import { FilterBar, type FilterField } from '../components/FilterBar'
+import { FilterBar, type FilterField, type FilterOption } from '../components/FilterBar'
 import { GameCoverCard } from '../components/GameCoverCard'
 import { GamesStats } from '../components/GamesStats'
 import { GenreTag } from '../components/GenreTag'
@@ -24,10 +24,12 @@ import { useGames } from '../hooks/useGames'
 import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
 import { STATUS_LABELS, type Game } from '../types/game'
+import type { Lookup } from '../types/lookup'
 import { dateRange, dateRangeSpan, formatDate, formatScore, yearOf } from '../lib/format'
 import { preloadImage } from '../lib/cover'
 import { parseRange } from '../lib/range'
 import { AGE_UNITS, boundDays, describeAgeRange, inAgeRange } from '../lib/releaseAge'
+import { UNKNOWN_COUNTRY, countryName, countryOrUnknown } from '../lib/countries'
 import { foldCase, fuzzyMatch } from '../lib/fuzzy'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
 import { useFilterParams } from '../hooks/useFilterParams'
@@ -57,6 +59,17 @@ const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => bool
   publishers: { label: 'No publisher', test: (g) => !g.publishers || g.publishers.length === 0 },
   // Games never identified through the game form's Identify button.
   igdb: { label: 'No IGDB link', test: (g) => g.igdb_id == null },
+}
+
+/** Every country the companies of a kind are from, by name, for a country
+ * filter's options; and "Unknown" last, when some of them have none set. */
+function countryOptions(companies: Lookup[]): FilterOption[] {
+  const countries = new Set(companies.map(countryOrUnknown))
+  const unknown = countries.delete(UNKNOWN_COUNTRY)
+  const options = Array.from(countries, (code) => ({ value: code, label: countryName(code) })).sort((a, b) =>
+    a.label.localeCompare(b.label),
+  )
+  return unknown ? [...options, { value: UNKNOWN_COUNTRY, label: 'Unknown' }] : options
 }
 
 /** Every year present in `dates`, newest first, for a year filter's options. */
@@ -93,6 +106,8 @@ export function GamesPage() {
     genre: '',
     developer: '',
     publisher: '',
+    developerCountry: '',
+    publisherCountry: '',
     platform: '',
     missing: '',
     releaseYear: '',
@@ -107,6 +122,8 @@ export function GamesPage() {
     genre: genreSlug,
     developer: developerSlug,
     publisher: publisherSlug,
+    developerCountry,
+    publisherCountry,
     platform: platformSlug,
     missing,
     releaseYear,
@@ -175,6 +192,8 @@ export function GamesPage() {
       { key: 'genre', label: 'Genre', kind: 'multi', options: (genres.data ?? []).map((g) => ({ value: g.slug, label: g.name })) },
       { key: 'developer', label: 'Developer', kind: 'multi', options: (developers.data ?? []).map((d) => ({ value: d.slug, label: d.name })) },
       { key: 'publisher', label: 'Publisher', kind: 'multi', options: (publishers.data ?? []).map((p) => ({ value: p.slug, label: p.name })) },
+      { key: 'developerCountry', label: 'Developer country', kind: 'multi', options: countryOptions(developers.data ?? []) },
+      { key: 'publisherCountry', label: 'Publisher country', kind: 'multi', options: countryOptions(publishers.data ?? []) },
       { key: 'platform', label: 'Platform', kind: 'multi', options: (platforms.data ?? []).map((p) => ({ value: p.slug, label: p.name })) },
       { key: 'releaseYear', label: 'Release year', kind: 'single', options: releaseYears.map((year) => ({ value: year, label: year })) },
       { key: 'playedYear', label: 'Played year', kind: 'single', options: playedYears.map((year) => ({ value: year, label: year })) },
@@ -204,6 +223,8 @@ export function GamesPage() {
   const developerSlugs = useMemo(() => (developerSlug ? developerSlug.split(',') : []), [developerSlug])
   const publisherSlugs = useMemo(() => (publisherSlug ? publisherSlug.split(',') : []), [publisherSlug])
   const platformSlugs = useMemo(() => (platformSlug ? platformSlug.split(',') : []), [platformSlug])
+  const developerCountries = useMemo(() => (developerCountry ? developerCountry.split(',') : []), [developerCountry])
+  const publisherCountries = useMemo(() => (publisherCountry ? publisherCountry.split(',') : []), [publisherCountry])
   const playedAfterRange = useMemo(() => parseRange(playedAfter), [playedAfter])
 
   const rows = useMemo(() => {
@@ -217,6 +238,8 @@ export function GamesPage() {
       if (genreSlugs.length && !game.genres?.some((g) => genreSlugs.includes(g.slug))) return false
       if (developerSlugs.length && !game.developers?.some((d) => developerSlugs.includes(d.slug))) return false
       if (publisherSlugs.length && !game.publishers?.some((p) => publisherSlugs.includes(p.slug))) return false
+      if (developerCountries.length && !game.developers?.some((d) => developerCountries.includes(countryOrUnknown(d)))) return false
+      if (publisherCountries.length && !game.publishers?.some((p) => publisherCountries.includes(countryOrUnknown(p)))) return false
       if (platformSlugs.length && !(game.platform && platformSlugs.includes(game.platform.slug))) return false
       if (missing && !MISSING_FIELDS[missing]?.test(game)) return false
       if (releaseYear && yearOf(game.release_date) !== releaseYear) return false
@@ -232,6 +255,8 @@ export function GamesPage() {
     genreSlugs,
     developerSlugs,
     publisherSlugs,
+    developerCountries,
+    publisherCountries,
     platformSlugs,
     missing,
     releaseYear,

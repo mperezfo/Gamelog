@@ -19,9 +19,11 @@ import {
   averageScore,
   breakdown,
   byTimeAfterRelease,
+  countryBreakdown,
   formatAfterRelease,
   formatYears,
   inYear,
+  isCompanyKind,
   monthLabel,
   monthBuckets,
   playedGames,
@@ -76,6 +78,10 @@ export function Stats() {
   const modal = useGameModal()
   const [filters, setFilter] = useFilterParams({ year: '' })
   const [kind, setKind] = useState<BreakdownKind>('platforms')
+  // Developers and publishers can also be grouped by where they are from.
+  // Kept while moving between the two tabs, so as to compare them.
+  const [byCountry, setByCountry] = useState(false)
+  const countries = byCountry && isCompanyKind(kind)
   const [preview, setPreview] = useState<Highlight | null>(null)
   const [pinned, setPinned] = useState<Highlight | null>(null)
   const active = preview ?? pinned
@@ -89,7 +95,10 @@ export function Stats() {
   const scoped = useMemo(() => inYear(played, year), [played, year])
 
   const buckets = useMemo(() => (year ? monthBuckets(scoped) : yearBuckets(played)), [year, scoped, played])
-  const rows = useMemo(() => breakdown(scoped, kind, year), [scoped, kind, year])
+  const rows = useMemo(
+    () => (countries && isCompanyKind(kind) ? countryBreakdown(scoped, kind, year) : breakdown(scoped, kind, year)),
+    [scoped, kind, year, countries],
+  )
   const bins = useMemo(() => scoreBins(scoped), [scoped])
   const age = useMemo(() => releaseAge(scoped, year), [scoped, year])
   const average = averageScore(scoped)
@@ -201,7 +210,44 @@ export function Stats() {
 
               <div className="grid grid-cols-1 gap-8 lg:grid-cols-5 lg:gap-10">
                 <div ref={leftColumnRef} className="lg:col-span-3">
-                  <Section title="Breakdown">
+                  <Section
+                    title="Breakdown"
+                    aside={
+                      // Always there, and only faded in and out with the
+                      // tabs it applies to, rather than popping in.
+                      <div
+                        inert={!isCompanyKind(kind)}
+                        className={[
+                          'flex items-center gap-0.5 rounded-control bg-sunken p-0.5',
+                          'transition-opacity duration-200 ease-out motion-reduce:transition-none',
+                          isCompanyKind(kind) ? 'opacity-100' : 'opacity-0',
+                        ].join(' ')}
+                      >
+                        {[
+                          { value: false, label: 'Companies' },
+                          { value: true, label: 'Countries' },
+                        ].map((option) => (
+                          <button
+                            key={option.label}
+                            type="button"
+                            aria-pressed={byCountry === option.value}
+                            onClick={() => {
+                              setByCountry(option.value)
+                              setPreview(null)
+                            }}
+                            className={[
+                              'rounded-[3px] px-2.5 py-1 text-xs font-medium transition-colors duration-75',
+                              byCountry === option.value
+                                ? 'bg-surface text-ink shadow-thumb'
+                                : 'text-ink-faint hover:text-ink-muted',
+                            ].join(' ')}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    }
+                  >
                     <div className="flex items-center gap-0.5 self-start overflow-x-auto rounded-control bg-sunken p-0.5">
                       {(Object.keys(BREAKDOWN_LABELS) as BreakdownKind[]).map((value) => (
                         <button
@@ -223,9 +269,11 @@ export function Stats() {
                     </div>
                     <div>
                       <div ref={breakdownStartRef} style={{ height: alignment?.breakdownOffset }} aria-hidden="true" />
-                      {/* Keyed by kind so a new tab starts scrolled to the top. */}
+                      {/* Keyed by what it lists, so that a new tab, or the
+                          countries in place of the companies, starts
+                          scrolled to the top. */}
                       <BarList
-                        key={kind}
+                        key={`${kind}:${countries}`}
                         rows={rows}
                         visibleRows={alignment?.rows ?? STACKED_ROWS}
                         games={scoped}

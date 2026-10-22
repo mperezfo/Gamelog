@@ -21,13 +21,13 @@ Here are [more screenshots](docs/screenshots.md), in desktop and phone formats, 
 
 - **Upcoming releases and calendar**: The next games due out, and a monthly calendar of release or play dates.
 
-- **Stats**: What you have played over the years, with average scores and a breakdown by platform, genre, developer and publisher.
+- **Stats**: What you have played over the years, with average scores and a breakdown by platform, genre, developer and publisher, and by where those companies are from.
 
 - **Covers**: Upload a cover, or pick one from IGDB or SteamGridDB, and frame it for portrait views. See [Cover image search](docs/self-hosting.md#cover-image-search).
 
 - **Identify from IGDB**: Fill in a game's release date, platform, developers and publishers from [IGDB](https://www.igdb.com), and link it to its page there. See [Game metadata](docs/self-hosting.md#game-metadata-igdb).
 
-- **Search and filters**: Search from any page, and filter the games list by status, platform, genre, developer, publisher, year or a field still left empty.
+- **Search and filters**: Search from any page, and filter the games list by status, platform, genre, developer, publisher, their country, year or a field still left empty.
 
 - **Installable and offline**: Add it to a phone's home screen as a PWA. Without a connection it still opens, read-only.
 
