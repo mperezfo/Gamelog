@@ -1,8 +1,9 @@
 import { useState, type FocusEvent, type MouseEvent, type ReactElement } from 'react'
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
 import { useHealth } from '../hooks/useHealth'
+import { useUnsavedChangesContext } from '../hooks/unsavedChanges'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useOffline } from '../hooks/useOffline'
 import { requestScrollToTop } from '../hooks/useScrollToTop'
@@ -126,7 +127,20 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
     event.currentTarget.blur()
   }
 
+  const unsaved = useUnsavedChangesContext()
+  const navigate = useNavigate()
   const { pathname } = useLocation()
+
+  /** Leaving a section with unsaved changes in it asks first (see
+   * unsavedChanges), the link's own navigation held back until the answer.
+   * A link opened in another tab leaves this one, changes included, where
+   * it is, and one back to the same page leaves nothing behind. */
+  function guardLeave(event: MouseEvent<HTMLAnchorElement>, to: string) {
+    const newTab = event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+    if (newTab || !unsaved.dirty || to === pathname) return
+    event.preventDefault()
+    unsaved.requestLeave(() => navigate(to))
+  }
 
   /** A link to the page already open takes it back to its top, besides
    * whatever else the click does (a link to Games still clears its
@@ -243,6 +257,7 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
             onNavigate={onClose}
             showFull={showFull}
             onNavClick={blurAfterClick}
+            onLeave={guardLeave}
             onReselect={scrollIfCurrent}
           />
           <NavGroup
@@ -251,6 +266,7 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
             onNavigate={onClose}
             showFull={showFull}
             onNavClick={blurAfterClick}
+            onLeave={guardLeave}
             onReselect={scrollIfCurrent}
           />
         </nav>
@@ -262,6 +278,7 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
           pinned={pinned}
           onTogglePinned={handleTogglePinned}
           onNavClick={blurAfterClick}
+          onLeave={guardLeave}
           onReselect={scrollIfCurrent}
         />
       </aside>
@@ -304,6 +321,7 @@ function NavGroup({
   onNavigate,
   showFull,
   onNavClick,
+  onLeave,
   onReselect,
 }: {
   label?: string
@@ -311,6 +329,7 @@ function NavGroup({
   onNavigate: () => void
   showFull: boolean
   onNavClick: (event: MouseEvent<HTMLElement>) => void
+  onLeave: (event: MouseEvent<HTMLAnchorElement>, to: string) => void
   onReselect: (to: string) => void
 }) {
   return (
@@ -336,6 +355,7 @@ function NavGroup({
           to={item.to}
           end={item.end}
           onClick={(event) => {
+            onLeave(event, item.to)
             onReselect(item.to)
             onNavigate()
             onNavClick(event)
@@ -365,6 +385,7 @@ function SidebarFooter({
   pinned,
   onTogglePinned,
   onNavClick,
+  onLeave,
   onReselect,
 }: {
   user: User
@@ -373,6 +394,7 @@ function SidebarFooter({
   pinned: boolean
   onTogglePinned: (event: MouseEvent<HTMLElement>) => void
   onNavClick: (event: MouseEvent<HTMLElement>) => void
+  onLeave: (event: MouseEvent<HTMLAnchorElement>, to: string) => void
   onReselect: (to: string) => void
 }) {
   const signOut = useLogout()
@@ -386,6 +408,7 @@ function SidebarFooter({
         <NavLink
           to="/account"
           onClick={(event) => {
+            onLeave(event, '/account')
             onReselect('/account')
             onNavClick(event)
           }}

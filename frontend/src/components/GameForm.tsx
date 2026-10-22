@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEven
 import { errorMessage } from '../api/client'
 import { igdbPage } from '../api/metadata'
 import { useGameModal } from '../hooks/useGameModal'
+import { useUnsavedChanges } from '../hooks/unsavedChanges'
 import { useCreateGame, useDeleteGame, useGames, useUpdateGame } from '../hooks/useGames'
 import { useLookups } from '../hooks/useLookups'
 import { useMetadataCapabilities } from '../hooks/useMetadata'
@@ -271,17 +272,9 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     onDirtyChange?.(isDirty)
   }, [isDirty, onDirtyChange])
 
-  // Warns on a tab close/reload while there are unsaved changes. The
-  // in-app "discard changes?" confirmation (see GamePanel/GameDetail) is a
-  // separate concern — this is only about leaving the browser altogether.
-  useEffect(() => {
-    if (!isDirty) return
-    function handleBeforeUnload(event: BeforeUnloadEvent) {
-      event.preventDefault()
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [isDirty])
+  // Warns on a tab close or reload, and asks before the sidebar leaves the
+  // section. Closing the game panel asks on its own (see GamePanel).
+  useUnsavedChanges(isDirty)
 
   const create = useCreateGame()
   const update = useUpdateGame()

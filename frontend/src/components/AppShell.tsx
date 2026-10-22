@@ -1,18 +1,22 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 
 import { useGameModal } from '../hooks/useGameModal'
 import { useScrollToTop } from '../hooks/useScrollToTop'
+import { useUnsavedChangesContext } from '../hooks/unsavedChanges'
 import { useOffline } from '../hooks/useOffline'
 import { useSidebarPinned } from '../hooks/useSidebarPinned'
 import { useLogout } from '../hooks/useSession'
 import { useThemeChoice } from '../theme/themeContext'
 import type { User } from '../types/auth'
 import { Button } from './Button'
+import { DiscardPrompt } from './DiscardPrompt'
 import { GamePanel } from './GamePanel'
 import { MenuIcon } from './icons'
 import { OfflineBanner } from './OfflineBanner'
 import { Sidebar } from './Sidebar'
 import { ThemeSwitch } from './ThemeSwitch'
+import { UnsavedChangesProvider } from './UnsavedChangesProvider'
 
 interface AppShellProps {
   user: User
@@ -32,7 +36,11 @@ export function AppShell({ user, children }: AppShellProps) {
     return <AdminShell user={user}>{children}</AdminShell>
   }
 
-  return <LibraryShell user={user}>{children}</LibraryShell>
+  return (
+    <UnsavedChangesProvider>
+      <LibraryShell user={user}>{children}</LibraryShell>
+    </UnsavedChangesProvider>
+  )
 }
 
 /**
@@ -47,11 +55,19 @@ function LibraryShell({ user, children }: AppShellProps) {
   // and the sidebar search open it through the same `?modal=` state (see
   // useGameModal), so there is never more than one on screen at once.
   const modal = useGameModal()
+  const unsaved = useUnsavedChangesContext()
 
-  // Back to the top when the sidebar's link to this very page is clicked
-  // (see Sidebar). A page that scrolls a region of its own instead, like
-  // Games, does the same for it.
+  // `main` is the same element whatever the route, and would otherwise keep
+  // the last section's scroll: a section is entered at its top.
   const mainRef = useRef<HTMLElement>(null)
+  const { pathname } = useLocation()
+  useLayoutEffect(() => {
+    if (mainRef.current) mainRef.current.scrollTop = 0
+  }, [pathname])
+
+  // And back to the top when the sidebar's link to this very page is
+  // clicked (see Sidebar). A page that scrolls a region of its own instead,
+  // like Games, does the same for it.
   useScrollToTop(() => mainRef.current)
 
   return (
@@ -82,6 +98,14 @@ function LibraryShell({ user, children }: AppShellProps) {
         </div>
 
         <OfflineBanner />
+
+        {/* Asked from the sidebar on its way out of a section (see
+            unsavedChanges). */}
+        {unsaved.leaving && (
+          <div className="shrink-0 px-4 pt-3 sm:px-6">
+            <DiscardPrompt onDiscard={unsaved.discard} onKeep={unsaved.keep} />
+          </div>
+        )}
 
         {/* min-h-0 is what lets a flex item actually shrink to this bounded
             height instead of growing to fit its content — without it, a tall

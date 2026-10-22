@@ -5,6 +5,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useOffline } from '../hooks/useOffline'
 import type { Game } from '../types/game'
 import { Button } from './Button'
+import { DiscardPrompt } from './DiscardPrompt'
 import { GameForm } from './GameForm'
 import { XIcon } from './icons'
 
@@ -148,15 +149,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
         </div>
 
         {pendingDiscard && (
-          <div className="mb-4 flex items-center justify-between gap-2 rounded-control bg-danger-soft px-3 py-2 text-sm text-ink">
-            <span>Discard unsaved changes?</span>
-            <div className="flex gap-2">
-              <Button variant="danger" onClick={discard}>
-                Discard
-              </Button>
-              <Button onClick={() => setPendingDiscard(null)}>Keep editing</Button>
-            </div>
-          </div>
+          <DiscardPrompt onDiscard={discard} onKeep={() => setPendingDiscard(null)} className="mb-4" />
         )}
 
         <GameForm
