@@ -213,32 +213,39 @@ export function Stats() {
                   <Section
                     title="Breakdown"
                     aside={
-                      isCompanyKind(kind) && (
-                        <div className="flex items-center gap-0.5 rounded-control bg-sunken p-0.5">
-                          {[
-                            { value: false, label: 'Companies' },
-                            { value: true, label: 'Countries' },
-                          ].map((option) => (
-                            <button
-                              key={option.label}
-                              type="button"
-                              aria-pressed={byCountry === option.value}
-                              onClick={() => {
-                                setByCountry(option.value)
-                                setPreview(null)
-                              }}
-                              className={[
-                                'rounded-[3px] px-2.5 py-1 text-xs font-medium transition-colors duration-75',
-                                byCountry === option.value
-                                  ? 'bg-surface text-ink shadow-thumb'
-                                  : 'text-ink-faint hover:text-ink-muted',
-                              ].join(' ')}
-                            >
-                              {option.label}
-                            </button>
-                          ))}
-                        </div>
-                      )
+                      // Always there, and only faded in and out with the
+                      // tabs it applies to, rather than popping in.
+                      <div
+                        inert={!isCompanyKind(kind)}
+                        className={[
+                          'flex items-center gap-0.5 rounded-control bg-sunken p-0.5',
+                          'transition-opacity duration-200 ease-out motion-reduce:transition-none',
+                          isCompanyKind(kind) ? 'opacity-100' : 'opacity-0',
+                        ].join(' ')}
+                      >
+                        {[
+                          { value: false, label: 'Companies' },
+                          { value: true, label: 'Countries' },
+                        ].map((option) => (
+                          <button
+                            key={option.label}
+                            type="button"
+                            aria-pressed={byCountry === option.value}
+                            onClick={() => {
+                              setByCountry(option.value)
+                              setPreview(null)
+                            }}
+                            className={[
+                              'rounded-[3px] px-2.5 py-1 text-xs font-medium transition-colors duration-75',
+                              byCountry === option.value
+                                ? 'bg-surface text-ink shadow-thumb'
+                                : 'text-ink-faint hover:text-ink-muted',
+                            ].join(' ')}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                     }
                   >
                     <div className="flex items-center gap-0.5 self-start overflow-x-auto rounded-control bg-sunken p-0.5">
