@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
@@ -10,12 +10,14 @@ import { CountryFlag } from '../components/CountryFlag'
 import { Emoji } from '../components/Emoji'
 import { EmojiField } from '../components/EmojiField'
 import { Field } from '../components/Field'
+import { HighlightMatch } from '../components/HighlightMatch'
 import { IgdbLink } from '../components/IgdbLink'
-import { ExternalLinkIcon, PencilIcon, PlusIcon, TrashIcon, XIcon } from '../components/icons'
+import { ExternalLinkIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { PlatformBadge } from '../components/PlatformBadge'
 import { Popover } from '../components/Popover'
+import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useFilterParams } from '../hooks/useFilterParams'
 import { useGames } from '../hooks/useGames'
@@ -24,6 +26,7 @@ import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '.
 import { useUnsavedChanges } from '../hooks/unsavedChanges'
 import { useOffline } from '../hooks/useOffline'
 import { useReloadScroll } from '../hooks/useReloadScroll'
+import { fuzzyMatch } from '../lib/fuzzy'
 import type { Game } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
 
@@ -164,9 +167,19 @@ export function LookupPage({ kind, title }: LookupPageProps) {
   // way most filters here do. Only the truly unvisited state (no `sort` at
   // all) falls back to count; once a link carries `?sort=count`, it keeps
   // meaning count even if a future change picks a different default.
-  const [filters, setFilter] = useFilterParams({ sort: '' })
+  const [filters, setFilter] = useFilterParams({ sort: '', q: '' })
   const sortMode: SortMode = filters.sort === 'name' ? 'name' : 'count'
   const setSortMode = (mode: SortMode) => setFilter('sort', mode)
+
+  // Local and written back debounced, for the reason GamesPage gives for
+  // its own search box; `q` only seeds it, so a reload keeps the search.
+  const [search, setSearch] = useState(filters.q)
+  const debouncedSearch = useDebouncedValue(search, 150)
+
+  useEffect(() => {
+    setFilter('q', debouncedSearch)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch])
 
   // How many of the signed-in account's own games carry each entry. Both the
   // list and the games it is tallied against are already this account's own
@@ -191,6 +204,21 @@ export function LookupPage({ kind, title }: LookupPageProps) {
     return items
   }, [list.data, sortMode, counts])
 
+  // What the search matched in each name, to draw it bold. The list keeps
+  // its order rather than ranking by match, the way the Games page does:
+  // the search narrows it, the sort still decides how it reads. The row
+  // being edited stays whatever is typed, so a search never takes a form
+  // out from under its changes.
+  const shown = useMemo(() => {
+    const out: { item: Lookup; indices: number[] }[] = []
+    for (const item of sorted) {
+      const match = fuzzyMatch(debouncedSearch, item.name)
+      if (match) out.push({ item, indices: match.indices })
+      else if (editing !== 'new' && editing?.id === item.id) out.push({ item, indices: [] })
+    }
+    return out
+  }, [sorted, debouncedSearch, editing])
+
   // The page scrolls the shell's own `main` (see AppShell), found from
   // inside it. The order of the list depends on the games as well, when it
   // is by count.
@@ -199,7 +227,7 @@ export function LookupPage({ kind, title }: LookupPageProps) {
 
   return (
     <PageContainer>
-      <div className="mb-5 flex items-center justify-between gap-2">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <h1 ref={pageRef} className="text-lg font-semibold tracking-tight text-ink">{title}</h1>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5">
@@ -238,6 +266,33 @@ export function LookupPage({ kind, title }: LookupPageProps) {
         </div>
       </div>
 
+      {/* Kept in reach at the top of a long list as it scrolls. */}
+      <div className="sticky top-0 z-10 -mx-4 mb-3 bg-canvas px-4 py-2">
+        <div className="relative sm:w-64">
+          <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-faint" />
+          <Field
+            label=""
+            aria-label={`Search ${title.toLowerCase()}`}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={`Search ${title.toLowerCase()}…`}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className={`pl-7 ${search ? 'pr-9' : ''}`}
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="Clear search"
+              className="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded-full text-ink-faint transition-colors duration-75 hover:bg-hover hover:text-ink"
+            >
+              <XIcon className="size-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {list.isError && !offline && <Notice tone="error">{errorMessage(list.error)}</Notice>}
       {list.isPending && <p className="text-[13px] text-ink-faint">Loading…</p>}
 
@@ -252,13 +307,25 @@ export function LookupPage({ kind, title }: LookupPageProps) {
           {list.data.length === 0 && !list.isPending && (
             <p className="py-6 text-[13px] text-ink-faint">Nothing here yet.</p>
           )}
-          {sorted.map((item) =>
+          {list.data.length > 0 && shown.length === 0 && (
+            <p className="py-6 text-[13px] text-ink-faint">
+              No {title.toLowerCase()} match “{debouncedSearch.trim()}”.
+            </p>
+          )}
+          {shown.map(({ item, indices }) =>
             editing !== 'new' && editing?.id === item.id ? (
               <li key={item.id} className="border-b border-line py-3 last:border-0">
                 <LookupForm kind={kind} item={item} onDone={() => setEditing(null)} />
               </li>
             ) : (
-              <LookupRow key={item.id} kind={kind} item={item} count={counts.get(item.id) ?? 0} onEdit={() => setEditing(item)} />
+              <LookupRow
+                key={item.id}
+                kind={kind}
+                item={item}
+                highlight={indices}
+                count={counts.get(item.id) ?? 0}
+                onEdit={() => setEditing(item)}
+              />
             ),
           )}
         </ul>
@@ -270,11 +337,14 @@ export function LookupPage({ kind, title }: LookupPageProps) {
 function LookupRow({
   kind,
   item,
+  highlight,
   count,
   onEdit,
 }: {
   kind: LookupKind
   item: Lookup
+  /** Characters of the name the search matched. */
+  highlight: number[]
   count: number
   onEdit: () => void
 }) {
@@ -292,7 +362,7 @@ function LookupRow({
         <span className={['flex min-w-0 gap-2', kind === 'platforms' ? 'items-center' : 'items-baseline'].join(' ')}>
           {kind === 'platforms' ? (
             <span className="flex min-w-0 items-center gap-1">
-              <PlatformBadge platform={item} />
+              <PlatformBadge platform={item} highlight={highlight} />
               {links.ids.length > 0 && <IgdbLinks kind={links.kind} ids={links.ids} />}
             </span>
           ) : (
@@ -303,7 +373,9 @@ function LookupRow({
                   external link is usually marked, rather than trailing the
                   count. */}
               <span className="flex min-w-0 items-center gap-1">
-                <span className="truncate"><Emoji value={item.name} /></span>
+                <span className="truncate">
+                  <HighlightMatch text={item.name} indices={highlight} />
+                </span>
                 {links.ids.length > 0 && <IgdbLinks kind={links.kind} ids={links.ids} />}
               </span>
             </span>
