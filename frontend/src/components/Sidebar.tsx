@@ -1,10 +1,11 @@
 import { useState, type FocusEvent, type MouseEvent, type ReactElement } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
 import { useHealth } from '../hooks/useHealth'
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { useOffline } from '../hooks/useOffline'
+import { requestScrollToTop } from '../hooks/useScrollToTop'
 import { useLogout } from '../hooks/useSession'
 import type { User } from '../types/auth'
 import type { Game } from '../types/game'
@@ -125,6 +126,15 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
     event.currentTarget.blur()
   }
 
+  const { pathname } = useLocation()
+
+  /** A link to the page already open takes it back to its top, besides
+   * whatever else the click does (a link to Games still clears its
+   * filters). */
+  function scrollIfCurrent(to: string) {
+    if (to === pathname) requestScrollToTop()
+  }
+
   /** Collapsing has to clear the hover and focus the click itself just
    * created, or the rail stays open on its own account: the button keeps
    * focus, and the pointer is still inside the sidebar it was clicked in.
@@ -228,13 +238,20 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
         </div>
 
         <nav className="scrollbar-persistent flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-2">
-          <NavGroup items={MAIN_ITEMS} onNavigate={onClose} showFull={showFull} onNavClick={blurAfterClick} />
+          <NavGroup
+            items={MAIN_ITEMS}
+            onNavigate={onClose}
+            showFull={showFull}
+            onNavClick={blurAfterClick}
+            onReselect={scrollIfCurrent}
+          />
           <NavGroup
             label="Library"
             items={LIBRARY_ITEMS}
             onNavigate={onClose}
             showFull={showFull}
             onNavClick={blurAfterClick}
+            onReselect={scrollIfCurrent}
           />
         </nav>
 
@@ -245,6 +262,7 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
           pinned={pinned}
           onTogglePinned={handleTogglePinned}
           onNavClick={blurAfterClick}
+          onReselect={scrollIfCurrent}
         />
       </aside>
     </>
@@ -286,12 +304,14 @@ function NavGroup({
   onNavigate,
   showFull,
   onNavClick,
+  onReselect,
 }: {
   label?: string
   items: NavItem[]
   onNavigate: () => void
   showFull: boolean
   onNavClick: (event: MouseEvent<HTMLElement>) => void
+  onReselect: (to: string) => void
 }) {
   return (
     <div className="flex flex-col gap-0.5">
@@ -316,6 +336,7 @@ function NavGroup({
           to={item.to}
           end={item.end}
           onClick={(event) => {
+            onReselect(item.to)
             onNavigate()
             onNavClick(event)
           }}
@@ -344,6 +365,7 @@ function SidebarFooter({
   pinned,
   onTogglePinned,
   onNavClick,
+  onReselect,
 }: {
   user: User
   showFull: boolean
@@ -351,6 +373,7 @@ function SidebarFooter({
   pinned: boolean
   onTogglePinned: (event: MouseEvent<HTMLElement>) => void
   onNavClick: (event: MouseEvent<HTMLElement>) => void
+  onReselect: (to: string) => void
 }) {
   const signOut = useLogout()
   // Signing out needs the server to end the session, so it waits for it
@@ -362,7 +385,10 @@ function SidebarFooter({
       <div className="flex items-center gap-1">
         <NavLink
           to="/account"
-          onClick={onNavClick}
+          onClick={(event) => {
+            onReselect('/account')
+            onNavClick(event)
+          }}
           data-tooltip={showFull ? undefined : user.name}
           aria-label={showFull ? undefined : user.name}
           className="flex min-w-0 flex-1 items-center gap-2 rounded-control px-0.5 py-1.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"

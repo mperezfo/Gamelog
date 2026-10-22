@@ -24,6 +24,7 @@ import { useGames } from '../hooks/useGames'
 import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
 import { useReloadScroll } from '../hooks/useReloadScroll'
+import { useScrollToTop } from '../hooks/useScrollToTop'
 import { STATUS_LABELS, type Game } from '../types/game'
 import { dateRange, dateRangeSpan, formatDate, formatScore, yearOf } from '../lib/format'
 import { preloadImage } from '../lib/cover'
@@ -397,6 +398,7 @@ export function GamesPage() {
   // The list scrolls in a region of its own, under the filters.
   const listRef = useRef<HTMLDivElement>(null)
   useReloadScroll(() => listRef.current, games.data != null)
+  useScrollToTop(() => listRef.current)
 
   return (
     <div className="flex h-full flex-col overflow-hidden">

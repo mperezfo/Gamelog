@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 
 import { useGameModal } from '../hooks/useGameModal'
+import { useScrollToTop } from '../hooks/useScrollToTop'
 import { useOffline } from '../hooks/useOffline'
 import { useSidebarPinned } from '../hooks/useSidebarPinned'
 import { useLogout } from '../hooks/useSession'
@@ -47,6 +48,12 @@ function LibraryShell({ user, children }: AppShellProps) {
   // useGameModal), so there is never more than one on screen at once.
   const modal = useGameModal()
 
+  // Back to the top when the sidebar's link to this very page is clicked
+  // (see Sidebar). A page that scrolls a region of its own instead, like
+  // Games, does the same for it.
+  const mainRef = useRef<HTMLElement>(null)
+  useScrollToTop(() => mainRef.current)
+
   return (
     <div className="h-dvh overflow-hidden">
       <Sidebar
@@ -81,7 +88,9 @@ function LibraryShell({ user, children }: AppShellProps) {
             page silently pushes main past the viewport instead of scrolling
             inside it. A page like GamesPage that manages its own internal
             scroll region sets h-full and never triggers this one at all. */}
-        <main className="pad-bottom-safe min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-persistent">{children}</main>
+        <main ref={mainRef} className="pad-bottom-safe min-h-0 min-w-0 flex-1 overflow-y-auto scrollbar-persistent">
+          {children}
+        </main>
       </div>
 
       {(modal.game || modal.creating) && <GamePanel game={modal.game} onClose={modal.close} />}
