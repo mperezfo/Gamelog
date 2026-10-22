@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table'
 
@@ -23,6 +23,7 @@ import { useDateFormat, useDefaultGamesView } from '../hooks/useSession'
 import { useGames } from '../hooks/useGames'
 import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
+import { useReloadScroll } from '../hooks/useReloadScroll'
 import { STATUS_LABELS, type Game } from '../types/game'
 import { dateRange, dateRangeSpan, formatDate, formatScore, yearOf } from '../lib/format'
 import { preloadImage } from '../lib/cover'
@@ -393,6 +394,10 @@ export function GamesPage() {
   })
   const sortedRows = table.getRowModel().rows.map((row) => row.original)
 
+  // The list scrolls in a region of its own, under the filters.
+  const listRef = useRef<HTMLDivElement>(null)
+  useReloadScroll(() => listRef.current, games.data != null)
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center gap-2 px-4 py-3 sm:px-6">
@@ -470,7 +475,7 @@ export function GamesPage() {
         </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-persistent px-4 py-3 sm:px-6">
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto scrollbar-persistent px-4 py-3 sm:px-6">
         {games.isError && !offline && <Notice tone="error">{errorMessage(games.error)}</Notice>}
         {games.isPending && <p className="text-[13px] text-ink-faint">Loading…</p>}
         {games.data && view === 'table' && (

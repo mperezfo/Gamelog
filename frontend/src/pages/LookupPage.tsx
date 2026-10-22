@@ -22,6 +22,7 @@ import { useGames } from '../hooks/useGames'
 import { useIgdbNames, useMetadataCapabilities } from '../hooks/useMetadata'
 import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '../hooks/useLookups'
 import { useOffline } from '../hooks/useOffline'
+import { useReloadScroll } from '../hooks/useReloadScroll'
 import type { Game } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
 
@@ -189,10 +190,16 @@ export function LookupPage({ kind, title }: LookupPageProps) {
     return items
   }, [list.data, sortMode, counts])
 
+  // The page scrolls the shell's own `main` (see AppShell), found from
+  // inside it. The order of the list depends on the games as well, when it
+  // is by count.
+  const pageRef = useRef<HTMLHeadingElement>(null)
+  useReloadScroll(() => pageRef.current?.closest('main'), list.data != null && games.data != null)
+
   return (
     <PageContainer>
       <div className="mb-5 flex items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold tracking-tight text-ink">{title}</h1>
+        <h1 ref={pageRef} className="text-lg font-semibold tracking-tight text-ink">{title}</h1>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1.5">
             <span className="text-xs font-medium text-ink-faint select-none">Sort by</span>
