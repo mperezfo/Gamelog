@@ -7,10 +7,13 @@ interface HighlightMatchProps {
   text: string
   /** Character indices of `text` to render bold, as returned by fuzzyMatch. */
   indices: number[]
+  /** How a matched run is drawn. Bold in the page's ink unless the text
+   * sits on a colour of its own, such as a platform's badge. */
+  matchClassName?: string
 }
 
 /** Renders `text` with the characters at `indices` in bold, for showing what a fuzzy match matched. */
-export function HighlightMatch({ text, indices }: HighlightMatchProps) {
+export function HighlightMatch({ text, indices, matchClassName = 'font-semibold text-ink' }: HighlightMatchProps) {
   if (indices.length === 0) return <Emoji value={text} />
 
   const matched = new Set(indices)
@@ -22,7 +25,7 @@ export function HighlightMatch({ text, indices }: HighlightMatchProps) {
     if (!buffer) return
     nodes.push(
       bufferMatched ? (
-        <strong key={key} className="font-semibold text-ink">
+        <strong key={key} className={matchClassName}>
           <Emoji value={buffer} />
         </strong>
       ) : (
