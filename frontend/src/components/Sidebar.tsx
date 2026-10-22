@@ -1,4 +1,4 @@
-import { useState, type FocusEvent, type MouseEvent, type ReactElement } from 'react'
+import { useEffect, useState, type FocusEvent, type MouseEvent, type ReactElement } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
@@ -114,6 +114,18 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
   // shows full content regardless of the desktop pin/collapse preference.
   const showFull = !isDesktop || expanded
 
+  // A tab sent to the background takes no mouseleave with it: a middle
+  // click that opens a section in a new tab, say, would come back to a rail
+  // still expanded with the pointer long gone. Moving over the rail again
+  // brings the hover back (see onMouseMove below).
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.hidden) setHovering(false)
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [])
+
   function handleBlur(event: FocusEvent<HTMLElement>) {
     if (!event.currentTarget.contains(event.relatedTarget)) setFocusWithin(false)
   }
@@ -123,6 +135,8 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
   // something else happened to be clicked. Blurring right after navigating
   // lets the rail retract on its own the moment the pointer also leaves,
   // same as it would have if the click had never focused anything.
+  // A middle click, which opens the link in a new tab, fires `auxclick`
+  // rather than `click`, and needs the same.
   function blurAfterClick(event: MouseEvent<HTMLElement>) {
     event.currentTarget.blur()
   }
@@ -188,6 +202,10 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
       <aside
         onMouseEnter={() => setHovering(true)}
         onMouseLeave={() => setHovering(false)}
+        // Only ever a change after the tab was hidden with the pointer over
+        // the rail: otherwise it is already true, and setting it again does
+        // nothing.
+        onMouseMove={() => setHovering(true)}
         onFocus={() => setFocusWithin(true)}
         onBlur={handleBlur}
         className={[
@@ -360,6 +378,7 @@ function NavGroup({
             onNavigate()
             onNavClick(event)
           }}
+          onAuxClick={onNavClick}
           data-tooltip={showFull ? undefined : item.label}
           aria-label={showFull ? undefined : item.label}
           className={({ isActive }) =>
@@ -412,6 +431,7 @@ function SidebarFooter({
             onReselect('/account')
             onNavClick(event)
           }}
+          onAuxClick={onNavClick}
           data-tooltip={showFull ? undefined : user.name}
           aria-label={showFull ? undefined : user.name}
           className="flex min-w-0 flex-1 items-center gap-2 rounded-control px-0.5 py-1.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
