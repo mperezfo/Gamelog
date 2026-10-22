@@ -6,6 +6,7 @@ import type { Dispatch, FocusEvent, PointerEvent, SetStateAction } from 'react'
 
 import type { Game } from '../types/game'
 import type { Lookup } from '../types/lookup'
+import { UNKNOWN_COUNTRY, countryName, countryOrUnknown } from './countries'
 import { MONTH_ABBREVIATIONS, yearOf } from './format'
 import { formatRange } from './range'
 import { AGE_BANDS, YEAR_DAYS, daysAfterRelease, inAgeRange } from './releaseAge'
@@ -36,6 +37,8 @@ export interface Share extends Highlight {
   /** The platform or genre itself, to draw its badge or emoji. Null for
    * rows that are not a lookup, such as "No platform". */
   lookup: Lookup | null
+  /** The country a row stands for, to draw its flag. */
+  country?: string
   /** The Games page showing the same games, when it can filter for them. */
   href: string | null
   /** The row for games with none of them ("No platform"), drawn quieter. */
@@ -43,6 +46,13 @@ export interface Share extends Highlight {
 }
 
 export type BreakdownKind = 'platforms' | 'genres' | 'developers' | 'publishers'
+
+/** The kinds that are companies, with a country each. */
+export type CompanyKind = 'developers' | 'publishers'
+
+export function isCompanyKind(kind: BreakdownKind): kind is CompanyKind {
+  return kind === 'developers' || kind === 'publishers'
+}
 
 /** The month (0 for January) out of a date-only ISO string. Read from the
  * string rather than a Date, for the reason calendarDate gives. */
@@ -165,6 +175,62 @@ export function breakdown(played: Game[], kind: BreakdownKind, year: string): Sh
       color: null,
       test: (game) => lookupsOf(game).length === 0,
       href: gamesHref(year, { missing: kind === 'platforms' ? 'platform' : kind }),
+    })
+  }
+  return rows
+}
+
+/** The Games page's filter for the country of each kind of company. */
+const COUNTRY_FILTER_KEY: Record<CompanyKind, string> = {
+  developers: 'developerCountry',
+  publishers: 'publisherCountry',
+}
+
+/** How many of `played` the developers or publishers of each country
+ * account for, most first. A game whose companies come from two countries
+ * counts once for each, the way breakdown counts a game with two of them.
+ * Companies with no country set count as "Unknown", after the rest, so that
+ * what is missing shows; games with no company at all come last, as in
+ * breakdown. */
+export function countryBreakdown(played: Game[], kind: CompanyKind, year: string): Share[] {
+  const countriesOf = (game: Game): string[] => Array.from(new Set((game[kind] ?? []).map(countryOrUnknown)))
+
+  const counts = new Map<string, number>()
+  let none = 0
+  for (const game of played) {
+    const countries = countriesOf(game)
+    if (countries.length === 0) none++
+    for (const country of countries) counts.set(country, (counts.get(country) ?? 0) + 1)
+  }
+
+  const unknown = counts.get(UNKNOWN_COUNTRY) ?? 0
+  counts.delete(UNKNOWN_COUNTRY)
+  const share = (country: string, count: number): Share => ({
+    key: `${kind}:country:${country}`,
+    label: country === UNKNOWN_COUNTRY ? 'Unknown' : countryName(country),
+    count,
+    lookup: null,
+    country: country === UNKNOWN_COUNTRY ? undefined : country,
+    none: country === UNKNOWN_COUNTRY,
+    color: null,
+    test: (game) => countriesOf(game).includes(country),
+    href: gamesHref(year, { [COUNTRY_FILTER_KEY[kind]]: country }),
+  })
+
+  const rows = Array.from(counts, ([country, count]) => share(country, count)).sort(
+    (a, b) => b.count - a.count || a.label.localeCompare(b.label),
+  )
+  if (unknown > 0) rows.push(share(UNKNOWN_COUNTRY, unknown))
+  if (none > 0) {
+    rows.push({
+      key: `${kind}:none`,
+      label: NONE_LABEL[kind],
+      count: none,
+      lookup: null,
+      none: true,
+      color: null,
+      test: (game) => (game[kind] ?? []).length === 0,
+      href: gamesHref(year, { missing: kind }),
     })
   }
   return rows
