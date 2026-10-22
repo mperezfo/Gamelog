@@ -556,6 +556,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             placeholder="Select developers…"
             pending={pendingDevelopers}
             onPendingChange={setPendingDevelopers}
+            links={developerLinks}
           />
           <MultiSelectDropdown
             label="Publishers"
@@ -565,6 +566,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             placeholder="Select publishers…"
             pending={pendingPublishers}
             onPendingChange={setPendingPublishers}
+            links={publisherLinks}
           />
         </div>
 

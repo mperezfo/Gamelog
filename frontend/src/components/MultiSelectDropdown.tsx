@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 
 import { foldCase } from '../lib/fuzzy'
-import type { NewLookup } from '../types/game'
+import type { CompanyLink, NewLookup } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import { CheckIcon, PlusIcon, XIcon } from './icons'
 import { CountryFlag } from './CountryFlag'
@@ -22,6 +22,10 @@ interface MultiSelectDropdownProps {
    * Nothing is created until the form is saved, so a form abandoned midway
    * leaves no unused record behind. */
   onPendingChange?: (pending: NewLookup[]) => void
+  /** Links to IGDB companies to write when the form is saved, from
+   * Identify. A selected record with no country yet shows the one its link
+   * brings, as it will once saved. */
+  links?: CompanyLink[]
 }
 
 /**
@@ -39,6 +43,7 @@ export function MultiSelectDropdown({
   placeholder = 'Select…',
   pending = [],
   onPendingChange,
+  links = [],
 }: MultiSelectDropdownProps) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -92,32 +97,37 @@ export function MultiSelectDropdown({
         {selected.length === 0 && pending.length === 0 && (
           <span className="px-0.5 text-sm text-ink-faint">{placeholder}</span>
         )}
-        {selected.map((option) => (
-          <span
-            key={option.id}
-            className="inline-flex items-center gap-1 rounded-[4px] bg-hover px-1.5 py-0.5 text-xs font-medium text-ink"
-          >
-            {option.country && <CountryFlag code={option.country} />}
-            <Emoji value={option.name} />
+        {selected.map((option) => {
+          // The record's own country always wins: saving never replaces it.
+          const country = option.country || links.find((link) => link.id === option.id)?.country
+          return (
             <span
-              role="button"
-              tabIndex={-1}
-              onClick={(event) => {
-                event.stopPropagation()
-                remove(option.id)
-              }}
-              className="text-ink-faint hover:text-ink"
+              key={option.id}
+              className="inline-flex items-center gap-1 rounded-[4px] bg-hover px-1.5 py-0.5 text-xs font-medium text-ink"
             >
-              <XIcon className="size-3" />
+              {country && <CountryFlag code={country} />}
+              <Emoji value={option.name} />
+              <span
+                role="button"
+                tabIndex={-1}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  remove(option.id)
+                }}
+                className="text-ink-faint hover:text-ink"
+              >
+                <XIcon className="size-3" />
+              </span>
             </span>
-          </span>
-        ))}
+          )
+        })}
         {pending.map((item) => (
           <span
             key={`new-${item.name}`}
             data-tooltip="Created when the game is saved"
             className="inline-flex items-center gap-1 rounded-[4px] bg-hover px-1.5 py-0.5 text-xs font-medium text-ink"
           >
+            {item.country && <CountryFlag code={item.country} />}
             {/* Baseline rather than centre: small capitals centred on a line
                 of lower-case text sit visibly high, while on its baseline
                 they line up with the name's x-height. */}
