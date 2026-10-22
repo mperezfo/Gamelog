@@ -153,10 +153,13 @@ function UserRoutes() {
       <Route path="/stats" element={<Stats />} />
       <Route path="/games" element={<GamesPage />} />
       <Route path="/games/:id" element={<GameDetail />} />
-      <Route path="/genres" element={<LookupPage kind="genres" title="Genres" />} />
-      <Route path="/developers" element={<LookupPage kind="developers" title="Developers" />} />
-      <Route path="/publishers" element={<LookupPage kind="publishers" title="Publishers" />} />
-      <Route path="/platforms" element={<LookupPage kind="platforms" title="Platforms" />} />
+      {/* Keyed by kind: the same component on another route would
+          otherwise keep its state, such as an open form, from one list to
+          the next. */}
+      <Route path="/genres" element={<LookupPage key="genres" kind="genres" title="Genres" />} />
+      <Route path="/developers" element={<LookupPage key="developers" kind="developers" title="Developers" />} />
+      <Route path="/publishers" element={<LookupPage key="publishers" kind="publishers" title="Publishers" />} />
+      <Route path="/platforms" element={<LookupPage key="platforms" kind="platforms" title="Platforms" />} />
       <Route path="/account" element={<Account />} />
       {/* A mistyped or outdated address lands on the dashboard rather than
           on an empty page. */}

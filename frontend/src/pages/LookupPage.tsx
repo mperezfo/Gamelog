@@ -21,6 +21,7 @@ import { useFilterParams } from '../hooks/useFilterParams'
 import { useGames } from '../hooks/useGames'
 import { useIgdbNames, useMetadataCapabilities } from '../hooks/useMetadata'
 import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '../hooks/useLookups'
+import { useUnsavedChanges } from '../hooks/unsavedChanges'
 import { useOffline } from '../hooks/useOffline'
 import { useReloadScroll } from '../hooks/useReloadScroll'
 import type { Game } from '../types/game'
@@ -376,6 +377,15 @@ function LookupForm({
   const links = item ? igdbLinksOf(kind, item) : { kind: 'companies' as const, ids: [] }
   // IGDB links to forget on Save, struck through until then.
   const [unlinking, setUnlinking] = useState<number[]>([])
+
+  // A form opened and left as it was is as disposable as no form at all.
+  useUnsavedChanges(
+    name !== (item?.name ?? '') ||
+      icon !== (item?.icon ?? '') ||
+      country !== (item?.country ?? '') ||
+      color !== (item?.color ?? DEFAULT_COLOR) ||
+      unlinking.length > 0,
+  )
 
   const create = useCreateLookup(kind)
   const update = useUpdateLookup(kind)
