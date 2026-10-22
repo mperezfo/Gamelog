@@ -58,10 +58,17 @@ function LibraryShell({ user, children }: AppShellProps) {
   const unsaved = useUnsavedChangesContext()
 
   // `main` is the same element whatever the route, and would otherwise keep
-  // the last section's scroll: a section is entered at its top.
+  // the last section's scroll: a section is entered at its top. Only on a
+  // change of page, not on the first one, which starts there anyway and may
+  // be putting back where a reload left it (see useReloadScroll); an effect
+  // run twice on mounting, as React's strict mode does, would otherwise
+  // undo that.
   const mainRef = useRef<HTMLElement>(null)
   const { pathname } = useLocation()
+  const enteredPath = useRef(pathname)
   useLayoutEffect(() => {
+    if (enteredPath.current === pathname) return
+    enteredPath.current = pathname
     if (mainRef.current) mainRef.current.scrollTop = 0
   }, [pathname])
 
