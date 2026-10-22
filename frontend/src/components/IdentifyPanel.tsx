@@ -502,7 +502,11 @@ function ConfirmSection({ label, toggle, kept, children }: ConfirmSectionProps) 
           ].join(' ')}
           aria-hidden={open}
         >
-          {kept}
+          {/* Never empty: an empty span has no baseline of its own, and the
+              header would line the label up on its bottom edge instead,
+              lifting it above where it sits beside a value. A zero-width
+              space keeps a line of text there either way. */}
+          {kept || '​'}
         </span>
         {toggle && (
           <span className="self-center">
