@@ -46,17 +46,25 @@ function daysBetween(fromIso: string, toIso: string): number {
   return Math.round((to - from) / 86_400_000)
 }
 
+/** Whether a game comes out today: already out everywhere else (see
+ * isUnreleased), but still in Coming up for the day, as "Out now". */
+export function isOutToday(game: Pick<Game, 'release_date'>): boolean {
+  return game.release_date != null && dateOnly(game.release_date) === todayIso()
+}
+
 /** How many days remain until a game's release. Only meaningful for a game
- * `isUnreleased` is true for, so the result is always >= 1. */
+ * upcomingGames returns, so the result is always >= 0: 0 is a game out
+ * today. */
 export function daysUntilRelease(releaseDate: string): number {
   return daysBetween(todayIso(), dateOnly(releaseDate))
 }
 
-/** Every unreleased game, soonest first (a tie broken by title so the order
- * is stable). */
+/** Every unreleased game, and those out today, soonest first (a tie broken
+ * by title so the order is stable). Release day is the one day a game
+ * matters most in Coming up, so it leaves only the day after. */
 export function upcomingGames(games: Game[]): Game[] {
   return games
-    .filter(isUnreleased)
+    .filter((game) => isUnreleased(game) || isOutToday(game))
     .sort((a, b) => {
       const [aDate, bDate] = [dateOnly(a.release_date!), dateOnly(b.release_date!)]
       return aDate < bDate ? -1 : aDate > bDate ? 1 : a.title.localeCompare(b.title)
