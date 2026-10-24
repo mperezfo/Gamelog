@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useOffline } from '../hooks/useOffline'
+import { useUnsavedChangesContext } from '../hooks/unsavedChanges'
 import type { Game } from '../types/game'
 import { Button } from './Button'
 import { DiscardPrompt } from './DiscardPrompt'
@@ -40,6 +41,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   const closeTimer = useRef<number | undefined>(undefined)
   const navigate = useNavigate()
   const offline = useOffline()
+  const unsaved = useUnsavedChangesContext()
   useDocumentTitle(game ? game.title : 'New game')
 
   // Starts off-screen and slides in on the next frame — starting `visible`
@@ -166,7 +168,13 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
           // edge to edge.
           stickyActionsClassName="-mx-6 px-6 pt-1 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
           actionsNotice={
-            pendingDiscard && <DiscardPrompt onDiscard={discard} onKeep={() => setPendingDiscard(null)} />
+            pendingDiscard ? (
+              <DiscardPrompt onDiscard={discard} onKeep={() => setPendingDiscard(null)} />
+            ) : (
+              // The browser's Back, held back by the shell, asks here while
+              // the panel covers the page (see AppShell).
+              unsaved.leaving && <DiscardPrompt onDiscard={unsaved.discard} onKeep={unsaved.keep} />
+            )
           }
         />
       </div>
