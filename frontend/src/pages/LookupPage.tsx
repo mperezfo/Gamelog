@@ -26,6 +26,7 @@ import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '.
 import { useUnsavedChanges } from '../hooks/unsavedChanges'
 import { useOffline } from '../hooks/useOffline'
 import { useReloadScroll } from '../hooks/useReloadScroll'
+import { useShortcut } from '../hooks/useShortcut'
 import { fuzzyMatch } from '../lib/fuzzy'
 import type { Game } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
@@ -44,6 +45,14 @@ type IgdbLinkKind = 'companies' | 'platforms'
 const IGDB_NOUN: Record<IgdbLinkKind, { one: string; many: string }> = {
   companies: { one: 'company', many: 'companies' },
   platforms: { one: 'platform', many: 'platforms' },
+}
+
+/** One record of a kind, for the copy around it. */
+const KIND_NOUN: Record<LookupKind, string> = {
+  genres: 'genre',
+  developers: 'developer',
+  publishers: 'publisher',
+  platforms: 'platform',
 }
 
 /** Developers and publishers have a country, where the other two have an
@@ -157,6 +166,8 @@ export function LookupPage({ kind, title }: LookupPageProps) {
   const games = useGames()
   const offline = useOffline()
   const [editing, setEditing] = useState<Lookup | 'new' | null>(null)
+  // N opens the create form, unless a form is open already.
+  useShortcut('n', () => setEditing('new'), !offline && editing === null)
   // Kept in the URL, same as GamesPage's own sort — a link built or bookmarked
   // with one of these open reproduces the same order, and each of the four
   // routes this page serves (genres, developers, publishers, platforms) gets
@@ -259,7 +270,14 @@ export function LookupPage({ kind, title }: LookupPageProps) {
               </button>
             </div>
           </div>
-          <Button variant="primary" onClick={() => setEditing('new')} disabled={offline}>
+          <Button
+            variant="primary"
+            onClick={() => setEditing('new')}
+            disabled={offline}
+            data-tooltip={`Create a ${KIND_NOUN[kind]}`}
+            data-tooltip-kbd="N"
+            aria-keyshortcuts="n"
+          >
             <PlusIcon className="size-4" />
             New
           </Button>
