@@ -109,6 +109,25 @@ func (f *fakeSearcher) Images(_ context.Context, id uint64) ([]igdb.Image, error
 	return nil, igdb.ErrNotFound
 }
 
+// ReleaseDates knows Resident Evil 4 (26192), out on 2023-03-24, and a game
+// (1) whose date it only knows to the year.
+func (f *fakeSearcher) ReleaseDates(_ context.Context, ids []uint64) ([]igdb.ReleaseDate, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	dates := []igdb.ReleaseDate{}
+	for _, id := range ids {
+		switch id {
+		case 26192:
+			date := time.Date(2023, 3, 24, 0, 0, 0, 0, time.UTC)
+			dates = append(dates, igdb.ReleaseDate{GameID: id, Date: &date})
+		case 1:
+			dates = append(dates, igdb.ReleaseDate{GameID: id})
+		}
+	}
+	return dates, nil
+}
+
 // newMetadataRouter builds the API around games, which router.New would
 // otherwise build from real IGDB credentials. A nil games is a deployment
 // without them.
@@ -212,6 +231,38 @@ func TestMetadataWithoutIGDB(t *testing.T) {
 		http.StatusNotImplemented, "searching without IGDB credentials")
 	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/companies/37/page", nil),
 		http.StatusNotImplemented, "opening a company without IGDB credentials")
+	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/release-dates?ids=26192", nil),
+		http.StatusNotImplemented, "reading release dates without IGDB credentials")
+}
+
+func TestMetadataReleaseDates(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	handler := signedIn(t, newMetadataRouter(db, &fakeSearcher{}), db, "player", false)
+
+	rec := request(t, handler, http.MethodGet, "/api/metadata/release-dates?ids=1,404,26192", nil)
+	expectStatus(t, rec, http.StatusOK, "reading release dates")
+	var response struct {
+		Games []struct {
+			IGDBID      uint64     `json:"igdb_id"`
+			ReleaseDate *time.Time `json:"release_date"`
+		} `json:"games"`
+	}
+	decode(t, rec, &response)
+
+	// The unknown 404 is left out, and the date known only to the year is
+	// no date at all.
+	want := time.Date(2023, 3, 24, 0, 0, 0, 0, time.UTC)
+	if len(response.Games) != 2 || response.Games[0].IGDBID != 1 || response.Games[0].ReleaseDate != nil ||
+		response.Games[1].IGDBID != 26192 || response.Games[1].ReleaseDate == nil || !response.Games[1].ReleaseDate.Equal(want) {
+		t.Errorf("games = %+v, want 1 without a date, then 26192 on 2023-03-24", response.Games)
+	}
+
+	expectStatus(t, request(t, handler, http.MethodGet, "/api/metadata/release-dates", nil),
+		http.StatusUnprocessableEntity, "reading release dates without ids")
+
+	failing := signedIn(t, newMetadataRouter(db, &fakeSearcher{err: errors.New("down")}), db, "other", false)
+	expectStatus(t, request(t, failing, http.MethodGet, "/api/metadata/release-dates?ids=26192", nil),
+		http.StatusFailedDependency, "reading release dates while IGDB fails")
 }
 
 func TestMetadataSearchMatchesCompanies(t *testing.T) {

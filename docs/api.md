@@ -68,6 +68,7 @@ GET    /api/metadata/companies?ids=         names IGDB companies by id
 GET    /api/metadata/companies/{id}/page    redirects to a company's page on IGDB
 GET    /api/metadata/platforms?ids=         names IGDB platforms by id
 GET    /api/metadata/platforms/{id}/page    redirects to a platform's page on IGDB
+GET    /api/metadata/release-dates?ids=     reads the release dates IGDB has now for games
 GET    /api/metadata/games/{id}/page        redirects to a game's page on IGDB
 GET    /api/metadata/images?source=&title=&game_id=   a game's images on IGDB or SteamGridDB
 ```

@@ -244,9 +244,33 @@ func (c *Client) Platforms(ctx context.Context, ids []uint64) ([]Platform, error
 	return platforms, nil
 }
 
+// ReleaseDate is when a game comes out, as IGDB knows it now.
+type ReleaseDate struct {
+	GameID uint64
+	// Date is the game's first release date, at midnight UTC. Nil when IGDB
+	// does not know it to the day: a month, a quarter, a year or nothing at
+	// all, whose placeholder date (the last day of the period) is no date to
+	// put on a game.
+	Date *time.Time
+}
+
+// ReleaseDates returns the release dates of the games with the given ids, in
+// the order asked for. An id IGDB does not know is left out.
+func (c *Client) ReleaseDates(ctx context.Context, ids []uint64) ([]ReleaseDate, error) {
+	results, err := byID[apiGameDate](ctx, c, "games", "first_release_date,release_dates.date,release_dates.date_format", ids)
+	if err != nil {
+		return nil, err
+	}
+	dates := make([]ReleaseDate, 0, len(results))
+	for _, result := range results {
+		dates = append(dates, ReleaseDate{GameID: result.ID, Date: result.exactDate()})
+	}
+	return dates, nil
+}
+
 // identified is a record of the API, which byID reads by its id.
 type identified interface {
-	apiCompany | apiPlatform
+	apiCompany | apiPlatform | apiGameDate
 	id() uint64
 }
 
@@ -465,6 +489,38 @@ func (p apiPlatform) id() uint64 { return p.ID }
 
 func (p apiPlatform) platform() Platform {
 	return Platform{ID: p.ID, Name: p.Name, Abbreviation: strings.TrimSpace(p.Abbreviation)}
+}
+
+// dateFormatDay is IGDB's date_format for a release known to the day
+// (YYYYMMDD); the others are a month, a year, a quarter, or TBD.
+const dateFormatDay = 0
+
+// apiGameDate is a game's release dates as the API returns them.
+type apiGameDate struct {
+	ID               uint64 `json:"id"`
+	FirstReleaseDate *int64 `json:"first_release_date"`
+	ReleaseDates     []struct {
+		Date       *int64 `json:"date"`
+		DateFormat *int   `json:"date_format"`
+	} `json:"release_dates"`
+}
+
+func (g apiGameDate) id() uint64 { return g.ID }
+
+// exactDate is the first release date, if one of the game's releases on it
+// is known to the day.
+func (g apiGameDate) exactDate() *time.Time {
+	if g.FirstReleaseDate == nil {
+		return nil
+	}
+	for _, release := range g.ReleaseDates {
+		if release.Date != nil && *release.Date == *g.FirstReleaseDate &&
+			release.DateFormat != nil && *release.DateFormat == dateFormatDay {
+			date := time.Unix(*g.FirstReleaseDate, 0).UTC().Truncate(24 * time.Hour)
+			return &date
+		}
+	}
+	return nil
 }
 
 // apiImage is a cover or an artwork as the API returns it.
