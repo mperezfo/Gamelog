@@ -28,6 +28,7 @@ import { UpcomingRelease } from '../components/UpcomingRelease'
 import { useEdgeFade } from '../hooks/useEdgeFade'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGameModal } from '../hooks/useGameModal'
+import { useShortcut } from '../hooks/useShortcut'
 import { useGames, useUpdateGame } from '../hooks/useGames'
 import { useOffline } from '../hooks/useOffline'
 import { compareForBoard, sameDateGroup } from '../lib/gameSort'
@@ -46,6 +47,8 @@ export function Dashboard() {
 
   const modal = useGameModal()
   const offline = useOffline()
+  // N opens the "New game" panel, unless one is open already.
+  useShortcut('n', modal.openNew, !offline && !modal.game && !modal.creating)
   const [activeGame, setActiveGame] = useState<Game | undefined>(undefined)
   // Which column to highlight as the drop target. Tracked separately from
   // dnd-kit's own per-column isOver (which only lights up when the pointer
@@ -370,7 +373,14 @@ export function Dashboard() {
     <div className="mx-auto flex w-full max-w-[1880px] flex-col gap-8 px-4 py-5 sm:px-6 sm:py-6">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-semibold tracking-tight text-ink">Dashboard</h1>
-        <Button variant="primary" onClick={modal.openNew} disabled={offline}>
+        <Button
+          variant="primary"
+          onClick={modal.openNew}
+          disabled={offline}
+          data-tooltip="Create a game"
+          data-tooltip-kbd="N"
+          aria-keyshortcuts="n"
+        >
           <PlusIcon className="size-4" />
           New game
         </Button>
