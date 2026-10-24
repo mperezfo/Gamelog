@@ -11,6 +11,7 @@ import { Tooltips } from './components/Tooltips'
 import { useReconnect } from './hooks/useOffline'
 import { useInlineValidation } from './hooks/useInlineValidation'
 import { useInputModality } from './hooks/useInputModality'
+import { RELEASE_DATES_KEY } from './hooks/useMetadata'
 import { useOfflineSync } from './hooks/useOfflineSync'
 import { useScrollbarFade } from './hooks/useScrollbarFade'
 import { useSession } from './hooks/useSession'
@@ -56,8 +57,9 @@ export default function App() {
       persistOptions={persistOptions}
       // The copy restored from the device only stands in until the server
       // answers. Even the session and setup queries, which never go stale on
-      // their own, are asked again.
-      onSuccess={() => queryClient.invalidateQueries()}
+      // their own, are asked again. All but IGDB's release dates, which are
+      // kept for a day on purpose (see useIgdbReleaseDates).
+      onSuccess={() => queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== RELEASE_DATES_KEY })}
     >
       <ThemeProvider>
         <BrowserRouter>
