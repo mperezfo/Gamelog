@@ -88,8 +88,8 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   // back to that page.
   useEffect(() => () => clearTimeout(closeTimer.current), [])
 
-  // Closes for good, skipping the confirmation — for the paths where there
-  // is nothing left to lose: a successful save or delete.
+  // Closes for good, skipping the confirmation, for the path where there
+  // is nothing left to lose: a successful save.
   function closeNow() {
     setVisible(false)
     closeTimer.current = window.setTimeout(onClose, TRANSITION_MS)
@@ -184,7 +184,10 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
               key={game?.slug ?? 'new'}
               game={game}
               onSaved={closeNow}
-              onDeleted={closeNow}
+              // At once rather than sliding out: the game leaves the list this
+              // panel is drawn from straight away (see useDeleteGame), which
+              // takes the panel with it.
+              onDeleted={onClose}
               onCancel={requestClose}
               onDirtyChange={setDirty}
               actionsTarget={actionsEl}
