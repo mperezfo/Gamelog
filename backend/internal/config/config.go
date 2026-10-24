@@ -84,6 +84,23 @@ type Config struct {
 	// account's preferences), which the cover image search looks games up
 	// with alongside IGDB. Left out, SteamGridDB is simply not offered.
 	SteamGridDBAPIKey string
+
+	// BackupDaily, BackupWeekly and BackupMonthly are how many scheduled
+	// backups to keep of each kind: the newest of each of the last that many
+	// days, ISO weeks and months that have one. All zero, the default, takes
+	// none at all.
+	BackupDaily   int
+	BackupWeekly  int
+	BackupMonthly int
+	// BackupDir is where scheduled backups are stored, in a directory per
+	// account.
+	BackupDir string
+}
+
+// BackupsEnabled reports whether backups are taken on a schedule: whenever
+// any of them is to be kept.
+func (c Config) BackupsEnabled() bool {
+	return c.BackupDaily > 0 || c.BackupWeekly > 0 || c.BackupMonthly > 0
 }
 
 // maxIGDBSearchLimit is the most games IGDB returns for one query.
@@ -170,6 +187,17 @@ func Load(dotEnvPath string) (Config, error) {
 		return Config{}, fmt.Errorf("GAMELOG_IGDB_SEARCH_LIMIT: %d must be between 1 and %d", igdbSearchLimit, maxIGDBSearchLimit)
 	}
 
+	var retention [3]int
+	for i, key := range []string{"GAMELOG_BACKUP_DAILY", "GAMELOG_BACKUP_WEEKLY", "GAMELOG_BACKUP_MONTHLY"} {
+		retention[i], err = src.integer(key, 0)
+		if err != nil {
+			return Config{}, err
+		}
+		if retention[i] < 0 {
+			return Config{}, fmt.Errorf("%s: %d must be 0 or more", key, retention[i])
+		}
+	}
+
 	return Config{
 		Port:            port,
 		DBHost:          src.text("GAMELOG_DB_HOST", "127.0.0.1"),
@@ -190,6 +218,11 @@ func Load(dotEnvPath string) (Config, error) {
 		IGDBSearchLimit:  igdbSearchLimit,
 
 		SteamGridDBAPIKey: src.text("GAMELOG_STEAMGRIDDB_API_KEY", ""),
+
+		BackupDaily:   retention[0],
+		BackupWeekly:  retention[1],
+		BackupMonthly: retention[2],
+		BackupDir:     src.text("GAMELOG_BACKUP_DIR", "./data/backups"),
 	}, nil
 }
 
