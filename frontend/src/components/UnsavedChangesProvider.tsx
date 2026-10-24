@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useBlocker } from 'react-router-dom'
 
 import { UnsavedChangesContext } from '../hooks/unsavedChanges'
 
@@ -37,12 +38,29 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
     [holds],
   )
 
+  // The browser's Back (or Forward, or a phone's back gesture), which no link
+  // of ours can ask before: held back, and asked about the same way. Only
+  // those: every other navigation is one of the app's own, which asks first
+  // where it has to (the sidebar), or follows a save.
+  const blocker = useBlocker(({ historyAction }) => holds > 0 && historyAction === 'POP')
+  const blocked = blocker.state === 'blocked'
+
+  // A form saved or closed while the question was up leaves nothing to ask
+  // about: stay where the Back was held back.
+  useEffect(() => {
+    if (blocker.state === 'blocked' && holds === 0) blocker.reset()
+  }, [blocker, holds])
+
   const discard = useCallback(() => {
+    if (blocker.state === 'blocked') blocker.proceed()
     pending?.()
     setPending(null)
-  }, [pending])
+  }, [pending, blocker])
 
-  const keep = useCallback(() => setPending(null), [])
+  const keep = useCallback(() => {
+    if (blocker.state === 'blocked') blocker.reset()
+    setPending(null)
+  }, [blocker])
 
   const dirty = holds > 0
   const value = useMemo(
@@ -52,11 +70,11 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
       requestLeave,
       // A form saved or closed while the question was up leaves nothing to
       // ask about any more.
-      leaving: pending !== null && dirty,
+      leaving: (pending !== null || blocked) && dirty,
       discard,
       keep,
     }),
-    [dirty, hold, requestLeave, pending, discard, keep],
+    [dirty, hold, requestLeave, pending, blocked, discard, keep],
   )
 
   return <UnsavedChangesContext value={value}>{children}</UnsavedChangesContext>
