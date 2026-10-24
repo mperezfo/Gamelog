@@ -508,7 +508,7 @@ export function GamesPage() {
         {games.data && view === 'table' && (
           <DataTable
             table={table}
-            onRowClick={modal.openGame}
+            onRowClick={(game) => modal.openGame(game, sortedRows)}
             onRowPointerEnter={(game) => preloadImage(game.cover_image_url)}
             emptyMessage="No games match these filters."
           />
@@ -523,7 +523,7 @@ export function GamesPage() {
                   <GameCoverCard
                     key={game.id}
                     game={game}
-                    onClick={() => modal.openGame(game)}
+                    onClick={() => modal.openGame(game, sortedRows)}
                     caption={game.platform?.name}
                     className="w-full"
                   />

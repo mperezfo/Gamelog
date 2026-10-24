@@ -2,13 +2,15 @@ import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
+import { useGameModal } from '../hooks/useGameModal'
 import { useOffline } from '../hooks/useOffline'
 import { useUnsavedChangesContext } from '../hooks/unsavedChanges'
 import type { Game } from '../types/game'
 import { Button } from './Button'
 import { DiscardPrompt } from './DiscardPrompt'
 import { GameForm } from './GameForm'
-import { XIcon } from './icons'
+import { ChevronLeftIcon, ChevronRightIcon, XIcon } from './icons'
+import { isTypingTarget } from '../lib/keyboard'
 
 interface GamePanelProps {
   /** Undefined means creating a new game. */
@@ -21,8 +23,13 @@ interface GamePanelProps {
 const TRANSITION_MS = 200
 
 /** What the "discard unsaved changes?" prompt is standing in the way of:
- * closing the panel, or leaving it for the game's full page. */
-type PendingDiscard = 'close' | 'fullPage'
+ * closing the panel, leaving it for the game's full page, or moving on to
+ * another game of the list it was opened from. */
+type PendingDiscard = 'close' | 'fullPage' | { step: Game }
+
+/** Where the arrow keys belong to what has focus, not to the panel: a list
+ * of options, a menu, a calendar. */
+const OWNS_ARROWS = '[data-popover], [role="listbox"], [role="menu"], [role="dialog"], [role="grid"]'
 
 /**
  * The slide-over used to create or edit a game without leaving the dashboard
@@ -42,6 +49,13 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   const navigate = useNavigate()
   const offline = useOffline()
   const unsaved = useUnsavedChangesContext()
+  const modal = useGameModal()
+  // Previous and next, while the game was opened from a list and is in it.
+  const neighbours = game ? modal.neighbours : null
+  // The game as the last save left it, and how many saves there have been:
+  // with a list to step through, a save keeps the panel open on the game
+  // (see saved), its form started over from what the server stored.
+  const [saved, setSaved] = useState<{ game: Game; count: number }>()
   useDocumentTitle(game ? game.title : 'New game')
 
   // Starts off-screen and slides in on the next frame — starting `visible`
@@ -98,17 +112,50 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
     setPendingDiscard('fullPage')
   }
 
+  function stepTo(target: Game | undefined) {
+    if (!target || pendingDiscard) return
+    if (needsConfirm) {
+      setPendingDiscard({ step: target })
+      return
+    }
+    modal.show(target)
+  }
+
   function discard() {
     if (pendingDiscard === 'fullPage' && game) {
       navigate(`/games/${game.slug}`)
       return
     }
+    if (typeof pendingDiscard === 'object' && pendingDiscard) {
+      setPendingDiscard(null)
+      modal.show(pendingDiscard.step)
+      return
+    }
     closeNow()
+  }
+
+  // Saving closes the panel, unless there is a list to carry on through:
+  // then it stays on the game, for the arrows to move on when ready. A
+  // rename changes the game's slug, which the address follows.
+  function handleSaved(result: Game) {
+    if (!neighbours) {
+      closeNow()
+      return
+    }
+    setSaved((current) => ({ game: result, count: (current?.count ?? 0) + 1 }))
+    if (game && result.slug !== game.slug) modal.show(result)
   }
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') requestClose()
+      if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && neighbours) {
+        if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+        const focused = document.activeElement
+        if (isTypingTarget(focused) || focused?.closest(OWNS_ARROWS)) return
+        event.preventDefault()
+        stepTo(event.key === 'ArrowLeft' ? neighbours.previous : neighbours.next)
+      }
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
@@ -147,9 +194,39 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
               </Link>
             )}
           </div>
-          <Button variant="ghost" className="px-2" onClick={requestClose} aria-label="Close">
-            <XIcon />
-          </Button>
+          <div className="flex items-center gap-1">
+            {neighbours && (
+              <>
+                <Button
+                  variant="ghost"
+                  className="px-2"
+                  onClick={() => stepTo(neighbours.previous)}
+                  disabled={!neighbours.previous}
+                  aria-label="Previous game"
+                  data-tooltip="Previous game"
+                  data-tooltip-kbd="←"
+                  aria-keyshortcuts="ArrowLeft"
+                >
+                  <ChevronLeftIcon />
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="px-2"
+                  onClick={() => stepTo(neighbours.next)}
+                  disabled={!neighbours.next}
+                  aria-label="Next game"
+                  data-tooltip="Next game"
+                  data-tooltip-kbd="→"
+                  aria-keyshortcuts="ArrowRight"
+                >
+                  <ChevronRightIcon />
+                </Button>
+              </>
+            )}
+            <Button variant="ghost" className="px-2" onClick={requestClose} aria-label="Close">
+              <XIcon />
+            </Button>
+          </div>
         </div>
 
         <GameForm
@@ -158,9 +235,11 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
           // (or from the blank "new game" form to an existing one, as the
           // duplicate-title notice's "Open it" link does) has to remount it
           // rather than leave it showing the previous game's stale fields.
-          key={game?.slug ?? 'new'}
-          game={game}
-          onSaved={closeNow}
+          // And by save, for a save that leaves the panel open (see
+          // handleSaved), which starts it over from what was stored.
+          key={`${game?.slug ?? 'new'}:${saved?.count ?? 0}`}
+          game={saved && saved.game.id === game?.id ? saved.game : game}
+          onSaved={handleSaved}
           onDeleted={closeNow}
           onCancel={requestClose}
           onDirtyChange={setDirty}
