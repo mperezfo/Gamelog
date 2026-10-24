@@ -125,7 +125,6 @@ export function GameForm({
   // there. It outlives identifyOpen by the length of the closing animation.
   const [identifyTitle, setIdentifyTitle] = useState<string | null>(null)
   const [identifyOpen, setIdentifyOpen] = useState(false)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const [initial] = useState(() => ({
     title: game?.title ?? '',
@@ -293,7 +292,7 @@ export function GameForm({
 
   const create = useCreateGame()
   const update = useUpdateGame()
-  const remove = useDeleteGame()
+  const deleteLater = useDeleteGame()
 
   const saving = create.isPending || update.isPending
   // A cover still uploading or importing: saving now would keep the old one.
@@ -588,7 +587,6 @@ export function GameForm({
 
       <ActionsBar className={stickyActionsClassName}>
         {saveError && <Notice tone="error">{errorMessage(saveError)}</Notice>}
-        {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}
         {actionsNotice}
 
         <div className="flex items-center justify-between gap-2 pt-2">
@@ -599,34 +597,22 @@ export function GameForm({
             {onCancel && <Button onClick={onCancel}>Cancel</Button>}
           </div>
 
+          {/* Deleted at once: the toast it leaves can still take it
+              back (see useDeleteGame). */}
           {game && onDeleted && (
-            <>
-              {confirmingDelete ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-ink-muted">Delete for good?</span>
-                  <Button
-                    variant="danger"
-                    className="border border-danger/30"
-                    disabled={remove.isPending || offline}
-                    onClick={() => remove.mutate(game.id, { onSuccess: onDeleted })}
-                  >
-                    {remove.isPending ? 'Deleting…' : 'Delete'}
-                  </Button>
-                  <Button onClick={() => setConfirmingDelete(false)}>Cancel</Button>
-                </div>
-              ) : (
-                <Button
-                  variant="danger"
-                  className="px-2"
-                  data-tooltip="Delete this game"
-                  aria-label="Delete this game"
-                  onClick={() => setConfirmingDelete(true)}
-                  disabled={offline}
-                >
-                  <TrashIcon />
-                </Button>
-              )}
-            </>
+            <Button
+              variant="danger"
+              className="px-2"
+              data-tooltip="Delete this game"
+              aria-label="Delete this game"
+              onClick={() => {
+                deleteLater(game)
+                onDeleted()
+              }}
+              disabled={offline}
+            >
+              <TrashIcon />
+            </Button>
           )}
         </div>
       </ActionsBar>

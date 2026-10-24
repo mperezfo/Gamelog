@@ -7,6 +7,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { errorMessage, UnreachableError } from './api/client'
 import { AppShell } from './components/AppShell'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { ToastProvider } from './components/ToastProvider'
 import { Tooltips } from './components/Tooltips'
 import { useReconnect } from './hooks/useOffline'
 import { useInlineValidation } from './hooks/useInlineValidation'
@@ -60,10 +61,12 @@ export default function App() {
       onSuccess={() => queryClient.invalidateQueries()}
     >
       <ThemeProvider>
-        <BrowserRouter>
-          <Gate />
-        </BrowserRouter>
-        <Tooltips />
+        <ToastProvider>
+          <BrowserRouter>
+            <Gate />
+          </BrowserRouter>
+          <Tooltips />
+        </ToastProvider>
       </ThemeProvider>
     </PersistQueryClientProvider>
   )
