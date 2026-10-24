@@ -1,16 +1,42 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import { useGames } from '../hooks/useGames'
+import { useLookups } from '../hooks/useLookups'
 import { coverFocalStyle, preloadImage } from '../lib/cover'
-import { fuzzySearch } from '../lib/fuzzy'
+import { fuzzySearch, type FuzzyMatch } from '../lib/fuzzy'
 import { STATUS_DOT, STATUS_LABELS, type Game } from '../types/game'
+import type { Lookup, LookupKind } from '../types/lookup'
+import { CountryFlag } from './CountryFlag'
+import { Emoji } from './Emoji'
 import { HighlightMatch } from './HighlightMatch'
 import { SearchIcon, XIcon } from './icons'
 import { CoverImage } from './CoverImage'
+import { PlatformBadge } from './PlatformBadge'
 
 interface GlobalSearchProps {
   onSelect: (game: Game) => void
+  /** A developer, publisher, platform or genre picked: the Games page
+   * filtered to it. */
+  onSelectLookup: (kind: LookupKind, item: Lookup) => void
 }
+
+/** How many games, and how many of the rest, the results list at most:
+ * games come first, and the rest is a short group after them. */
+const GAME_LIMIT = 8
+const LOOKUP_LIMIT = 4
+
+/** What a lookup row says it is. */
+const KIND_LABEL: Record<LookupKind, string> = {
+  developers: 'Developer',
+  publishers: 'Publisher',
+  platforms: 'Platform',
+  genres: 'Genre',
+}
+
+/** One row of the results, a game or one of the four lists' records. */
+type Result =
+  | { type: 'game'; game: Game; match: FuzzyMatch }
+  | { type: 'lookup'; kind: LookupKind; item: Lookup; match: FuzzyMatch }
 
 /** Whether `element` is a place typing "f" should type an "f", not trigger the shortcut. */
 function isTypingTarget(element: Element | null): boolean {
@@ -25,18 +51,36 @@ function isTypingTarget(element: Element | null): boolean {
  * other view that lists the full library, so it costs nothing extra once
  * anything else has loaded it.
  */
-export function GlobalSearch({ onSelect }: GlobalSearchProps) {
+export function GlobalSearch({ onSelect, onSelectLookup }: GlobalSearchProps) {
   const games = useGames()
+  const developers = useLookups('developers')
+  const publishers = useLookups('publishers')
+  const platforms = useLookups('platforms')
+  const genres = useLookups('genres')
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([])
 
-  const results = useMemo(
-    () => fuzzySearch(query, games.data ?? [], (game) => game.title),
-    [query, games.data],
-  )
+  // One list for the keyboard to move through: the games, then the rest.
+  const results = useMemo((): Result[] => {
+    const lookups = [
+      ...(developers.data ?? []).map((item) => ({ kind: 'developers' as const, item })),
+      ...(publishers.data ?? []).map((item) => ({ kind: 'publishers' as const, item })),
+      ...(platforms.data ?? []).map((item) => ({ kind: 'platforms' as const, item })),
+      ...(genres.data ?? []).map((item) => ({ kind: 'genres' as const, item })),
+    ]
+    return [
+      ...fuzzySearch(query, games.data ?? [], (game) => game.title, GAME_LIMIT).map(
+        ({ item, match }): Result => ({ type: 'game', game: item, match }),
+      ),
+      ...fuzzySearch(query, lookups, ({ item }) => item.name, LOOKUP_LIMIT).map(
+        ({ item, match }): Result => ({ type: 'lookup', ...item, match }),
+      ),
+    ]
+  }, [query, games.data, developers.data, publishers.data, platforms.data, genres.data])
+  const firstLookup = results.findIndex((result) => result.type === 'lookup')
   const safeIndex = Math.min(activeIndex, Math.max(results.length - 1, 0))
 
   // Pressing "f" anywhere on the page focuses the search box, as long as the
@@ -58,8 +102,9 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
     optionRefs.current[index]?.scrollIntoView({ block: 'nearest' })
   }
 
-  function select(game: Game) {
-    onSelect(game)
+  function select(result: Result) {
+    if (result.type === 'game') onSelect(result.game)
+    else onSelectLookup(result.kind, result.item)
     setQuery('')
     setOpen(false)
     // The option's onMouseDown preempts the default focus move (so a click
@@ -83,7 +128,7 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
       moveActiveIndex((safeIndex - 1 + results.length) % results.length)
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      select(results[safeIndex].item)
+      select(results[safeIndex])
     }
   }
 
@@ -96,8 +141,8 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
         ref={inputRef}
         type="text"
         value={query}
-        placeholder="Search games…"
-        aria-label="Search games"
+        placeholder="Search…"
+        aria-label="Search the library"
         aria-keyshortcuts="f"
         onChange={(event) => {
           setQuery(event.target.value)
@@ -147,47 +192,90 @@ export function GlobalSearch({ onSelect }: GlobalSearchProps) {
       )}
 
       {open && query.trim() && (
-        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-80 overflow-y-auto rounded-control border border-line bg-surface py-1 shadow-popover">
+        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-[min(30rem,calc(100dvh-6rem))] overflow-y-auto rounded-control border border-line bg-surface py-1 shadow-popover">
           {results.length === 0 ? (
-            <p className="px-3 py-2 text-[13px] text-ink-faint">No games match &ldquo;{query}&rdquo;.</p>
+            <p className="px-3 py-2 text-[13px] text-ink-faint">Nothing matches &ldquo;{query}&rdquo;.</p>
           ) : (
-            results.map(({ item: game, match }, index) => (
-              <button
-                key={game.id}
-                ref={(el) => {
-                  optionRefs.current[index] = el
-                }}
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => select(game)}
-                onMouseEnter={() => setActiveIndex(index)}
-                onPointerEnter={() => preloadImage(game.cover_image_url)}
-                className={[
-                  'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm transition-colors duration-75',
-                  index === safeIndex ? 'bg-hover text-ink' : 'text-ink-muted',
-                ].join(' ')}
-              >
-                <CoverImage
-                  url={game.cover_image_url}
-                  size="sm"
-                  className="h-8 w-6 rounded-[3px] bg-sunken"
-                  style={coverFocalStyle(game)}
-                  iconClassName="size-3.5"
-                />
-                <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="truncate">
-                    <HighlightMatch text={game.title} indices={match.indices} />
-                  </span>
-                  <span className="flex items-center gap-1.5 text-xs text-ink-faint">
-                    <span className={`size-1.5 shrink-0 rounded-full ${STATUS_DOT[game.status]}`} aria-hidden="true" />
-                    {STATUS_LABELS[game.status]}
-                  </span>
-                </span>
-              </button>
+            results.map((result, index) => (
+              <div key={result.type === 'game' ? `game-${result.game.id}` : `${result.kind}-${result.item.id}`}>
+                {/* The rest come as a group of their own after the games. */}
+                {index === firstLookup && index > 0 && <div className="mx-3 my-1 border-t border-line" />}
+                <button
+                  ref={(el) => {
+                    optionRefs.current[index] = el
+                  }}
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => select(result)}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onPointerEnter={() => result.type === 'game' && preloadImage(result.game.cover_image_url)}
+                  className={[
+                    'flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm transition-colors duration-75',
+                    index === safeIndex ? 'bg-hover text-ink' : 'text-ink-muted',
+                  ].join(' ')}
+                >
+                  {result.type === 'game' ? (
+                    <GameResult game={result.game} match={result.match} />
+                  ) : (
+                    <LookupResult kind={result.kind} item={result.item} match={result.match} />
+                  )}
+                </button>
+              </div>
             ))
           )}
         </div>
       )}
     </div>
+  )
+}
+
+function GameResult({ game, match }: { game: Game; match: FuzzyMatch }) {
+  return (
+    <>
+      <CoverImage
+        url={game.cover_image_url}
+        size="sm"
+        className="h-8 w-6 rounded-[3px] bg-sunken"
+        style={coverFocalStyle(game)}
+        iconClassName="size-3.5"
+      />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate">
+          <HighlightMatch text={game.title} indices={match.indices} />
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-ink-faint">
+          <span className={`size-1.5 shrink-0 rounded-full ${STATUS_DOT[game.status]}`} aria-hidden="true" />
+          {STATUS_LABELS[game.status]}
+        </span>
+      </span>
+    </>
+  )
+}
+
+/** A developer, publisher, platform or genre, drawn the way its own page
+ * lists it (a platform as its badge, a genre with its icon, a company with
+ * its flag), and what kind of record it is. */
+function LookupResult({ kind, item, match }: { kind: LookupKind; item: Lookup; match: FuzzyMatch }) {
+  return (
+    <>
+      <span className="flex min-w-0 flex-1 items-center gap-1.5">
+        {kind === 'platforms' ? (
+          <PlatformBadge platform={item} highlight={match.indices} />
+        ) : (
+          <>
+            {item.country && <CountryFlag code={item.country} />}
+            {item.icon && (
+              <span aria-hidden="true" className="shrink-0">
+                <Emoji value={item.icon} />
+              </span>
+            )}
+            <span className="truncate">
+              <HighlightMatch text={item.name} indices={match.indices} />
+            </span>
+          </>
+        )}
+      </span>
+      <span className="shrink-0 text-xs text-ink-faint">{KIND_LABEL[kind]}</span>
+    </>
   )
 }
