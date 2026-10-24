@@ -29,6 +29,7 @@ type IGDB interface {
 	Companies(ctx context.Context, ids []uint64) ([]igdb.Company, error)
 	Platforms(ctx context.Context, ids []uint64) ([]igdb.Platform, error)
 	Images(ctx context.Context, gameID uint64) ([]igdb.Image, error)
+	ReleaseDates(ctx context.Context, ids []uint64) ([]igdb.ReleaseDate, error)
 }
 
 type metadataCapabilitiesOutput struct {
@@ -119,6 +120,23 @@ type igdbPlatform struct {
 type listIGDBPlatformsOutput struct {
 	Body struct {
 		Platforms []igdbPlatform `json:"platforms" doc:"The platforms, in the order asked for. An id IGDB does not know is left out."`
+	}
+}
+
+type listIGDBReleaseDatesInput struct {
+	IDs []uint64 `query:"ids" required:"true" minItems:"1" maxItems:"50" doc:"IGDB's ids for the games, comma-separated." example:"[26192,119171]"`
+}
+
+type igdbReleaseDate struct {
+	IGDBID uint64 `json:"igdb_id" doc:"IGDB's id for the game." example:"26192"`
+	// RFC 3339 at midnight UTC, the same shape as a game's release_date, so
+	// that it can be written back as it is.
+	ReleaseDate *time.Time `json:"release_date" doc:"First release date across every platform, RFC 3339. Null when IGDB does not know it to the day: only a month, a quarter, a year, or nothing." example:"2027-03-12T00:00:00Z"`
+}
+
+type listIGDBReleaseDatesOutput struct {
+	Body struct {
+		Games []igdbReleaseDate `json:"games" doc:"The games, in the order asked for. An id IGDB does not know is left out."`
 	}
 }
 
@@ -298,6 +316,38 @@ func registerMetadata(api huma.API, db *gorm.DB, sources Sources) {
 		out.Body.Companies = make([]igdbCompany, 0, len(companies))
 		for _, company := range companies {
 			out.Body.Companies = append(out.Body.Companies, igdbCompany{ID: company.ID, Name: company.Name})
+		}
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "list-igdb-release-dates",
+		Method:      http.MethodGet,
+		Path:        "/api/metadata/release-dates",
+		Summary:     "Read release dates from IGDB",
+		Description: "Returns the release dates IGDB has now for games, by IGDB id, such as those of " +
+			"unreleased games of the library (see a game's igdb_id), whose dates move until they are out. " +
+			"Nothing is written: comparing them with the library's own dates, and applying one, is up to the " +
+			"client.",
+		Tags: []string{"Metadata"},
+		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusFailedDependency,
+			http.StatusNotImplemented},
+	}, func(ctx context.Context, input *listIGDBReleaseDatesInput) (*listIGDBReleaseDatesOutput, error) {
+		if source == nil {
+			return nil, errIGDBNotConfigured()
+		}
+		lookupCtx, cancel := context.WithTimeout(ctx, searchTimeout)
+		defer cancel()
+		dates, err := source.ReleaseDates(lookupCtx, input.IDs)
+		if err != nil {
+			slog.Warn("reading IGDB release dates failed", "error", err)
+			return nil, errIGDBFailed()
+		}
+
+		out := &listIGDBReleaseDatesOutput{}
+		out.Body.Games = make([]igdbReleaseDate, 0, len(dates))
+		for _, date := range dates {
+			out.Body.Games = append(out.Body.Games, igdbReleaseDate{IGDBID: date.GameID, ReleaseDate: date.Date})
 		}
 		return out, nil
 	})
