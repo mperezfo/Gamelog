@@ -520,6 +520,8 @@ export function CoverImageField({
       ) : (
         <div
           ref={coverBoxRef}
+          // What a card's cover grows into (see coverMorph).
+          data-cover-banner=""
           className="group relative h-96 w-full overflow-hidden rounded-control bg-sunken"
           onClick={() => value && !readOnly && setShowOverlay((shown) => !shown)}
           onMouseLeave={() => setShowOverlay(false)}

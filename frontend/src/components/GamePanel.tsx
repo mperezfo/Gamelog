@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useOffline } from '../hooks/useOffline'
+import { isMorphOpening, morphClose } from '../lib/coverMorph'
 import type { Game } from '../types/game'
 import { Button } from './Button'
 import { DiscardPrompt } from './DiscardPrompt'
@@ -34,7 +35,9 @@ type PendingDiscard = 'close' | 'fullPage'
  * has had time to finish, rather than unmounting immediately.
  */
 export function GamePanel({ game, onClose }: GamePanelProps) {
-  const [visible, setVisible] = useState(false)
+  // Opened by a cover morphing into it, the panel is already in place: the
+  // morph is the animation.
+  const [visible, setVisible] = useState(isMorphOpening)
   const [dirty, setDirty] = useState(false)
   const [pendingDiscard, setPendingDiscard] = useState<PendingDiscard | null>(null)
   const closeTimer = useRef<number | undefined>(undefined)
@@ -68,6 +71,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   // Closes for good, skipping the confirmation — for the paths where there
   // is nothing left to lose: a successful save or delete.
   function closeNow() {
+    if (game && morphClose(game.id, onClose)) return
     setVisible(false)
     closeTimer.current = window.setTimeout(onClose, TRANSITION_MS)
   }
