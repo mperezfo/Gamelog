@@ -576,3 +576,22 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
+
+/* The game panel growing out of a cover in the Games grid (see coverMorph):
+   the cover keeps filling its box as the box changes shape, cropped rather
+   than stretched, while the rest of the page crossfades. */
+::view-transition-group(game-cover) {
+  animation-duration: 280ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+
+::view-transition-old(game-cover),
+::view-transition-new(game-cover) {
+  height: 100%;
+  object-fit: cover;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+}

@@ -28,6 +28,8 @@ export function GameCoverCard({ game, onClick, caption, className = 'w-32 shrink
       // The panel this opens shows the full-size cover: start on it before
       // the click lands.
       onPointerEnter={() => preloadImage(game.cover_image_url)}
+      // What the game panel's cover grows out of (see coverMorph).
+      data-game-card={game.id}
       className={`flex flex-col gap-1.5 text-left ${className}`}
     >
       <CoverImage

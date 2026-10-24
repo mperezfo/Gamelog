@@ -29,6 +29,7 @@ import { STATUS_LABELS, type Game } from '../types/game'
 import type { Lookup } from '../types/lookup'
 import { dateRange, dateRangeSpan, formatDate, formatScore, yearOf } from '../lib/format'
 import { preloadImage } from '../lib/cover'
+import { morphOpen } from '../lib/coverMorph'
 import { parseRange } from '../lib/range'
 import { AGE_UNITS, boundDays, describeAgeRange, inAgeRange } from '../lib/releaseAge'
 import { UNKNOWN_COUNTRY, countryName, countryOrUnknown } from '../lib/countries'
@@ -523,7 +524,7 @@ export function GamesPage() {
                   <GameCoverCard
                     key={game.id}
                     game={game}
-                    onClick={() => modal.openGame(game)}
+                    onClick={() => morphOpen(game.id, () => modal.openGame(game))}
                     caption={game.platform?.name}
                     className="w-full"
                   />
