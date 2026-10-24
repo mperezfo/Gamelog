@@ -123,7 +123,9 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
       <div
         className={[
           'relative flex h-full w-full flex-col overflow-y-auto bg-surface p-6',
-          'pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
+          // No padding at the bottom: the form's action row, pinned there,
+          // brings its own, safe area included.
+          'pt-[calc(1.5rem+env(safe-area-inset-top))] pb-0',
           'shadow-panel transition-transform duration-200 ease-out sm:w-[760px]',
           visible ? 'translate-x-0' : 'translate-x-full',
         ].join(' ')}
@@ -148,10 +150,6 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
           </Button>
         </div>
 
-        {pendingDiscard && (
-          <DiscardPrompt onDiscard={discard} onKeep={() => setPendingDiscard(null)} className="mb-4" />
-        )}
-
         <GameForm
           // Keyed by which game this is: GameForm seeds its fields from
           // `game` only once, via useState, so swapping to a different game
@@ -164,6 +162,12 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
           onDeleted={closeNow}
           onCancel={requestClose}
           onDirtyChange={setDirty}
+          // Lined up with this panel's own padding, so its background runs
+          // edge to edge.
+          stickyActionsClassName="-mx-6 px-6 pt-1 pb-[calc(1.5rem+env(safe-area-inset-bottom))]"
+          actionsNotice={
+            pendingDiscard && <DiscardPrompt onDiscard={discard} onKeep={() => setPendingDiscard(null)} />
+          }
         />
       </div>
     </div>

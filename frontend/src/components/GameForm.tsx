@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 
 import { errorMessage } from '../api/client'
 import { igdbPage } from '../api/metadata'
@@ -51,6 +51,13 @@ interface GameFormProps {
   /** Reports whether the fields differ from what they started as, so a
    * container can warn before discarding them (see GamePanel). */
   onDirtyChange?: (dirty: boolean) => void
+  /** Pins the action row to the bottom of the container that scrolls the
+   * form, so Save is always in reach: the classes line its background up
+   * with that container's edges and padding (see GamePanel). */
+  stickyActionsClassName?: string
+  /** Shown just above the action row, such as GamePanel's question before
+   * discarding changes, so that it is in view next to the buttons. */
+  actionsNotice?: ReactNode
 }
 
 /** Same members, regardless of order — good enough for genre/developer/
@@ -67,7 +74,15 @@ function sameIds(a: number[], b: number[]): boolean {
  * on submit differs. Used both inside the slide-over panel and on the
  * dedicated `/games/:id` page.
  */
-export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: GameFormProps) {
+export function GameForm({
+  game,
+  onSaved,
+  onDeleted,
+  onCancel,
+  onDirtyChange,
+  stickyActionsClassName,
+  actionsNotice,
+}: GameFormProps) {
   const genres = useLookups('genres')
   const developers = useLookups('developers')
   const publishers = useLookups('publishers')
@@ -571,48 +586,89 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
         />
       </fieldset>
 
-      {saveError && <Notice tone="error">{errorMessage(saveError)}</Notice>}
-      {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}
+      <ActionsBar className={stickyActionsClassName}>
+        {saveError && <Notice tone="error">{errorMessage(saveError)}</Notice>}
+        {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}
+        {actionsNotice}
 
-      <div className="flex items-center justify-between gap-2 pt-2">
-        <div className="flex gap-2">
-          <Button type="submit" variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame) || !title.trim()}>
-            {saving ? 'Saving…' : coverBusy ? 'Storing cover…' : game ? 'Save' : 'Create game'}
-          </Button>
-          {onCancel && <Button onClick={onCancel}>Cancel</Button>}
-        </div>
+        <div className="flex items-center justify-between gap-2 pt-2">
+          <div className="flex gap-2">
+            <Button type="submit" variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame) || !title.trim()}>
+              {saving ? 'Saving…' : coverBusy ? 'Storing cover…' : game ? 'Save' : 'Create game'}
+            </Button>
+            {onCancel && <Button onClick={onCancel}>Cancel</Button>}
+          </div>
 
-        {game && onDeleted && (
-          <>
-            {confirmingDelete ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-ink-muted">Delete for good?</span>
+          {game && onDeleted && (
+            <>
+              {confirmingDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-ink-muted">Delete for good?</span>
+                  <Button
+                    variant="danger"
+                    className="border border-danger/30"
+                    disabled={remove.isPending || offline}
+                    onClick={() => remove.mutate(game.id, { onSuccess: onDeleted })}
+                  >
+                    {remove.isPending ? 'Deleting…' : 'Delete'}
+                  </Button>
+                  <Button onClick={() => setConfirmingDelete(false)}>Cancel</Button>
+                </div>
+              ) : (
                 <Button
                   variant="danger"
-                  className="border border-danger/30"
-                  disabled={remove.isPending || offline}
-                  onClick={() => remove.mutate(game.id, { onSuccess: onDeleted })}
+                  className="px-2"
+                  data-tooltip="Delete this game"
+                  aria-label="Delete this game"
+                  onClick={() => setConfirmingDelete(true)}
+                  disabled={offline}
                 >
-                  {remove.isPending ? 'Deleting…' : 'Delete'}
+                  <TrashIcon />
                 </Button>
-                <Button onClick={() => setConfirmingDelete(false)}>Cancel</Button>
-              </div>
-            ) : (
-              <Button
-                variant="danger"
-                className="px-2"
-                data-tooltip="Delete this game"
-                aria-label="Delete this game"
-                onClick={() => setConfirmingDelete(true)}
-                disabled={offline}
-              >
-                <TrashIcon />
-              </Button>
-            )}
-          </>
-        )}
-      </div>
+              )}
+            </>
+          )}
+        </div>
+      </ActionsBar>
     </form>
+  )
+}
+
+/**
+ * The end of the form: what a save or delete went wrong with, and the
+ * buttons. With a `className` it is pinned to the bottom of the container
+ * scrolling the form and keeps a background of its own, with a line along
+ * its top only while fields are scrolling under it.
+ *
+ * Whether they are is read off the bar itself: pinned one pixel past the
+ * bottom edge, it is never quite all in view while stuck there, and always
+ * is once the end of the form is reached and it sits in its own place.
+ */
+function ActionsBar({ className, children }: { className?: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [covering, setCovering] = useState(false)
+
+  useEffect(() => {
+    const bar = ref.current
+    if (!className || !bar) return
+    const observer = new IntersectionObserver(([entry]) => setCovering(entry.intersectionRatio < 1), { threshold: 1 })
+    observer.observe(bar)
+    return () => observer.disconnect()
+  }, [className])
+
+  if (!className) return <div className="flex flex-col gap-5">{children}</div>
+
+  return (
+    <div
+      ref={ref}
+      className={[
+        'sticky -bottom-px z-10 flex flex-col gap-3 bg-surface transition-shadow duration-150',
+        covering ? 'shadow-[0_-1px_0_0_var(--color-line)]' : '',
+        className,
+      ].join(' ')}
+    >
+      {children}
+    </div>
   )
 }
 
