@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
@@ -503,37 +503,43 @@ function LookupForm({
       {item && kind !== 'genres' && (
         // A link is made, or moved, from a game's Identify: here it can only
         // be dropped, on Save like the rest of the form.
-        <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
+        //
+        // Inline rather than a flex row, so that the ids read as part of the
+        // sentence, a word's space after it, instead of a gap's width away.
+        <p className="text-xs leading-relaxed text-ink-faint">
           {links.ids.length > 0 ? (
             <>
               Linked to IGDB as {links.ids.length === 1 ? IGDB_NOUN[links.kind].one : IGDB_NOUN[links.kind].many}
-              {links.ids.map((id) => {
+              {links.ids.map((id, index) => {
                 const dropped = unlinking.includes(id)
                 return (
-                  <span key={id} className="inline-flex items-center gap-1">
-                    {dropped ? (
-                      <s className="tabular-nums decoration-ink-faint">{id}</s>
-                    ) : (
-                      <IgdbLink
-                        kind={links.kind}
-                        id={id}
-                        className="tabular-nums underline decoration-line-strong underline-offset-2"
+                  <Fragment key={id}>
+                    {' '}
+                    <span className={`inline-flex items-center gap-1 ${index > 0 ? 'ml-1.5' : ''}`}>
+                      {dropped ? (
+                        <s className="tabular-nums decoration-ink-faint">{id}</s>
+                      ) : (
+                        <IgdbLink
+                          kind={links.kind}
+                          id={id}
+                          className="tabular-nums underline decoration-line-strong underline-offset-2"
+                        >
+                          {id}
+                        </IgdbLink>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setUnlinking((current) => (dropped ? current.filter((x) => x !== id) : [...current, id]))
+                        }
+                        data-tooltip={dropped ? 'Keep this link' : 'Unlink when saved'}
+                        aria-label={dropped ? `Keep the link to ${id}` : `Unlink from ${id}`}
+                        className="transition-colors duration-75 hover:text-ink"
                       >
-                        {id}
-                      </IgdbLink>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setUnlinking((current) => (dropped ? current.filter((x) => x !== id) : [...current, id]))
-                      }
-                      data-tooltip={dropped ? 'Keep this link' : 'Unlink when saved'}
-                      aria-label={dropped ? `Keep the link to ${id}` : `Unlink from ${id}`}
-                      className="transition-colors duration-75 hover:text-ink"
-                    >
-                      {dropped ? 'Undo' : <XIcon className="size-3" />}
-                    </button>
-                  </span>
+                        {dropped ? 'Undo' : <XIcon className="size-3" />}
+                      </button>
+                    </span>
+                  </Fragment>
                 )
               })}
             </>
