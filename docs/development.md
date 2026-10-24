@@ -196,6 +196,7 @@ backend/
   cmd/server/        entry point
   internal/
     auth/            passwords, session tokens, the auth middleware
+    backups/         scheduled backups and their retention
     config/          configuration from the environment
     database/        connection pool + migration runner
     models/          entities and the Status enum
