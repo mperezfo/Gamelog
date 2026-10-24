@@ -7,18 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/mperezfo/gamelog/internal/imagefile"
 	"github.com/mperezfo/gamelog/internal/service"
 )
-
-// backupFilename is the library and account document inside a backup .zip.
-// Everything else in the archive is an image, under images/.
-const backupFilename = "gamelog.json"
 
 // maxBackupEntry caps one file of a backup once decompressed, and
 // maxBackupContents all of them together, so that a small archive cannot
@@ -33,87 +27,6 @@ const (
 // errBackupTooLarge is a backup whose files decompress past those caps.
 var errBackupTooLarge = errors.New("the backup decompresses into more than a backup can hold")
 
-// buildBackupZip writes a Document and its account as gamelog.json, plus
-// every cover and avatar either of them names, into a .zip.
-//
-// An image the database still names but whose file is gone from disk is left
-// out rather than failing the whole export: a missing cover is something to
-// notice in the application, not a reason a backup of everything else cannot
-// be made.
-func buildBackupZip(document *service.Document, account service.AccountEntry, imagesDir string) ([]byte, error) {
-	body, err := json.Marshal(service.BackupDocument{Document: document, Account: account})
-	if err != nil {
-		return nil, fmt.Errorf("encoding the backup document: %w", err)
-	}
-
-	var buf bytes.Buffer
-	archive := zip.NewWriter(&buf)
-
-	entry, err := archive.Create(backupFilename)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := entry.Write(body); err != nil {
-		return nil, err
-	}
-
-	for _, name := range referencedImages(document, account.AvatarURL) {
-		if err := addImageToZip(archive, imagesDir, name); err != nil {
-			return nil, err
-		}
-	}
-
-	if err := archive.Close(); err != nil {
-		return nil, fmt.Errorf("closing the backup archive: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func addImageToZip(archive *zip.Writer, imagesDir, name string) error {
-	data, err := os.ReadFile(filepath.Join(imagesDir, name))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return fmt.Errorf("reading %s: %w", name, err)
-	}
-
-	entry, err := archive.Create(path.Join("images", name))
-	if err != nil {
-		return err
-	}
-	_, err = entry.Write(data)
-	return err
-}
-
-// referencedImages is the de-duplicated, content-addressed filenames a
-// document's covers and an account's avatar point at.
-func referencedImages(document *service.Document, avatarURL *string) []string {
-	seen := map[string]struct{}{}
-	var names []string
-
-	add := func(url *string) {
-		if url == nil {
-			return
-		}
-		name, ok := strings.CutPrefix(*url, "/api/images/")
-		if !ok || !imagefile.ValidName(name) {
-			return
-		}
-		if _, ok := seen[name]; ok {
-			return
-		}
-		seen[name] = struct{}{}
-		names = append(names, name)
-	}
-
-	add(avatarURL)
-	for _, game := range document.Games {
-		add(game.CoverImageURL)
-	}
-	return names
-}
-
 // readBackupZip splits a backup .zip into the library to import, its account
 // section, and the images it carries, keyed by the content-addressed name
 // they are restored under.
@@ -126,12 +39,12 @@ func readBackupZip(data []byte) (service.ImportDocument, service.AccountEntry, m
 		return empty, emptyAccount, nil, fmt.Errorf("not a valid .zip file: %w", err)
 	}
 
-	body, err := readZipFile(archive, backupFilename)
+	body, err := readZipFile(archive, service.BackupDocumentName)
 	if errors.Is(err, errBackupTooLarge) {
 		return empty, emptyAccount, nil, err
 	}
 	if err != nil {
-		return empty, emptyAccount, nil, fmt.Errorf("the archive has no %s: %w", backupFilename, err)
+		return empty, emptyAccount, nil, fmt.Errorf("the archive has no %s: %w", service.BackupDocumentName, err)
 	}
 	total := len(body)
 
