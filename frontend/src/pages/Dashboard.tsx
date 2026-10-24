@@ -29,7 +29,9 @@ import { useEdgeFade } from '../hooks/useEdgeFade'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGameModal } from '../hooks/useGameModal'
 import { useGames, useUpdateGame } from '../hooks/useGames'
+import { useToast } from '../hooks/toast'
 import { useOffline } from '../hooks/useOffline'
+import { gameInput } from '../lib/gameInput'
 import { compareForBoard, sameDateGroup } from '../lib/gameSort'
 import { GAME_STATUSES, STATUS_DOT, STATUS_LABELS, type Game, type GameStatus } from '../types/game'
 
@@ -43,6 +45,7 @@ export function Dashboard() {
   useDocumentTitle()
   const games = useGames()
   const updateGame = useUpdateGame()
+  const toast = useToast()
 
   const modal = useGameModal()
   const offline = useOffline()
@@ -181,29 +184,17 @@ export function Dashboard() {
     return GAME_STATUSES.find((status) => byStatus[status].some((g) => g.id === id))
   }
 
-  function saveGame(game: Game, changes: Partial<Pick<Game, 'status' | 'position'>>) {
-    updateGame.mutate({
-      id: game.id,
-      input: {
-        title: game.title,
-        status: changes.status ?? game.status,
-        position: changes.position ?? game.position,
-        score: game.score,
-        tagline: game.tagline,
-        notes: game.notes,
-        cover_image_url: game.cover_image_url,
-        cover_focal_x: game.cover_focal_x,
-        cover_focal_y: game.cover_focal_y,
-        cover_zoom: game.cover_zoom,
-        release_date: game.release_date,
-        logged_date: game.logged_date,
-        platform_id: game.platform_id,
-        igdb_id: game.igdb_id,
-        genre_ids: (game.genres ?? []).map((g) => g.id),
-        developer_ids: (game.developers ?? []).map((d) => d.id),
-        publisher_ids: (game.publishers ?? []).map((p) => p.id),
-      },
-    })
+  /** Saves where a game was dropped. `moved` is the game the drag was
+   * about, for a failure to name: a drag into a group of equal positions
+   * saves its neighbours too (see handleDragEnd). The cached board is
+   * already showing the move (see useUpdateGame); if the save fails it puts
+   * the card back, and a toast says why. */
+  function saveGame(game: Game, changes: Partial<Pick<Game, 'status' | 'position'>>, moved: Game = game) {
+    // The promise rather than mutate's own onError, which only runs for the
+    // latest of several saves in a row, as a renumbering makes.
+    updateGame
+      .mutateAsync({ id: game.id, input: gameInput(game, changes) })
+      .catch((error: unknown) => toast.show({ message: `Could not move “${moved.title}”: ${errorMessage(error)}` }))
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -348,7 +339,7 @@ export function Dashboard() {
     if (hasCollision) {
       ordered.forEach((g, index) => {
         if (g.id === dragged.id) saveGame(g, { status: destStatus, position: index })
-        else if (g.position !== index) saveGame(g, { position: index })
+        else if (g.position !== index) saveGame(g, { position: index }, dragged)
       })
       return
     }
