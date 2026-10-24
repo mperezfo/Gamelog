@@ -2,7 +2,10 @@
 package router
 
 import (
+	"net"
 	"net/http"
+	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -50,7 +53,7 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(clientAddress)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(requestTimeout(RequestTimeout))
@@ -151,4 +154,39 @@ func openAPIConfig() huma.Config {
 	// production without a per-environment base URL.
 
 	return cfg
+}
+
+// clientAddress sets a request's RemoteAddr to the client's own address,
+// which the logs show and failed logins are counted against.
+//
+// Behind the image's own Caddy every request comes from loopback, and Caddy
+// passes the client's address in X-Real-IP, which it sets itself whatever
+// the client sent: trusted from there, and from there only (see Caddyfile).
+// Anything else reaching the backend directly is taken at its word, never
+// at its headers, unlike chi's RealIP, which believes them from anyone.
+func clientAddress(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if real := realIP(r); real != "" {
+			r.RemoteAddr = real
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// realIP is the address in X-Real-IP, for a request from loopback that has
+// a valid one.
+func realIP(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	peer, err := netip.ParseAddr(host)
+	if err != nil || !peer.IsLoopback() {
+		return ""
+	}
+	real, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("X-Real-IP")))
+	if err != nil {
+		return ""
+	}
+	return real.String()
 }

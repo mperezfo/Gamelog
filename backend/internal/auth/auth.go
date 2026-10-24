@@ -56,6 +56,9 @@ type Options struct {
 	// always on: a deployment reached over http:// on a Tailscale address
 	// would otherwise never send the cookie back and nobody could log in.
 	SecureCookie bool
+	// Limiter holds logins back after too many failures (see LoginLimiter).
+	// Nil sets no limit.
+	Limiter *LoginLimiter
 }
 
 // Service is authentication: logging in, resolving a session, and the
@@ -74,6 +77,9 @@ func NewService(db *gorm.DB, options Options) *Service {
 		options:  options,
 	}
 }
+
+// Limiter is what holds logins back after too many failures, or nil.
+func (s *Service) Limiter() *LoginLimiter { return s.options.Limiter }
 
 // Users exposes the account repository, which the admin's management
 // endpoints write through.

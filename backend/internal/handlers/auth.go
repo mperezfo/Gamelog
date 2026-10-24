@@ -3,9 +3,14 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"math"
+	"net"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -28,6 +33,19 @@ type loginInput struct {
 		Username string `json:"username" minLength:"1" maxLength:"64" doc:"Account name. Compared ignoring case and accents." example:"martin"`
 		Password string `json:"password" minLength:"1" maxLength:"72" doc:"Account password."`
 	}
+	// address is the client's, which failed logins are counted against.
+	address string
+}
+
+// Resolve reads the client's address, which Huma only hands to a resolver.
+// It is the request's own, which the router has already set to the client
+// behind the bundled reverse proxy (see router.clientAddress).
+func (i *loginInput) Resolve(ctx huma.Context) []error {
+	i.address = ctx.RemoteAddr()
+	if host, _, err := net.SplitHostPort(i.address); err == nil {
+		i.address = host
+	}
+	return nil
 }
 
 // sessionOutput is the answer to anything that opens a session: the account,
@@ -95,6 +113,25 @@ type setupInput struct {
 	Body passwordBody
 }
 
+// tooManyAttempts refuses a login held back for wait, saying when to try
+// again in words and, for a client that reads it, in Retry-After.
+func tooManyAttempts(wait time.Duration) error {
+	seconds := int(math.Ceil(wait.Seconds()))
+	var when string
+	switch minutes := int(math.Ceil(wait.Minutes())); {
+	case seconds < 60:
+		when = fmt.Sprintf("%d seconds", seconds)
+	case minutes == 1:
+		when = "a minute"
+	default:
+		when = fmt.Sprintf("%d minutes", minutes)
+	}
+	return huma.ErrorWithHeaders(
+		huma.Error429TooManyRequests("Too many failed attempts. Try again in "+when+"."),
+		http.Header{"Retry-After": {strconv.Itoa(seconds)}},
+	)
+}
+
 // registerAuth registers logging in, logging out, and the first run.
 func registerAuth(api huma.API, service *auth.Service) {
 	huma.Register(api, huma.Operation{
@@ -107,17 +144,33 @@ func registerAuth(api huma.API, service *auth.Service) {
 			"with the answer but read the account it describes. Sessions are long-lived on " +
 			"purpose and renew themselves while they are used.\n\n" +
 			"An unknown username and a wrong password give the same answer, and take the " +
-			"same time.",
+			"same time.\n\n" +
+			"After a few failed attempts for the same username from the same address, further " +
+			"ones are refused with 429 for a while, longer with every further failure, and " +
+			"`Retry-After` says for how many seconds. A successful login clears the count.",
 		Tags:     []string{authTag},
 		Metadata: auth.Require(auth.AccessPublic),
-		Errors:   []int{http.StatusUnauthorized},
+		Errors:   []int{http.StatusUnauthorized, http.StatusTooManyRequests},
 	}, func(ctx context.Context, input *loginInput) (*sessionOutput, error) {
+		limiter := service.Limiter()
+		if limiter != nil {
+			if wait := limiter.Wait(input.Body.Username, input.address); wait > 0 {
+				return nil, tooManyAttempts(wait)
+			}
+		}
+
 		user, session, err := service.Login(ctx, input.Body.Username, input.Body.Password)
 		if err != nil {
 			if errors.Is(err, auth.ErrInvalidCredentials) {
+				if limiter != nil {
+					limiter.Failed(input.Body.Username, input.address)
+				}
 				return nil, huma.Error401Unauthorized("invalid username or password")
 			}
 			return nil, apiError(err, "no such account")
+		}
+		if limiter != nil {
+			limiter.Succeeded(input.Body.Username, input.address)
 		}
 
 		return &sessionOutput{SetCookie: service.Cookie(session), Body: user}, nil
