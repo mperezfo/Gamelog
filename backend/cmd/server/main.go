@@ -124,6 +124,7 @@ func run(tasks maintenance) error {
 	authentication := auth.NewService(db, auth.Options{
 		Lifetime:     cfg.SessionLifetime,
 		SecureCookie: cfg.SecureCookie,
+		Limiter:      auth.NewLoginLimiter(time.Now),
 	})
 
 	// A maintenance run: do the task and leave without listening.

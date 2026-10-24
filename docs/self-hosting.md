@@ -74,7 +74,7 @@ Pending database migrations are applied at startup, so there is no extra step.
 
 ## Behind a reverse proxy
 
-Sitting behind a reverse proxy (Traefik, nginx-proxy-manager, ...) on its own Docker network is the common case: drop the `ports:` mapping, put `gamelog` on that network instead, and point the proxy at port 9999.
+Sitting behind a reverse proxy (Traefik, nginx-proxy-manager, ...) on its own Docker network is the common case: drop the `ports:` mapping, put `gamelog` on that network instead, and point the proxy at port 9999. A proxy on a private address is trusted to pass the client's address along, for counting failed logins; `GAMELOG_TRUSTED_PROXIES` names it more precisely (see [Accounts](#accounts)).
 
 ### Traefik
 
@@ -192,6 +192,7 @@ Everything is configured through environment variables. Every variable has a def
 | `GAMELOG_IGDB_CLIENT_SECRET` | — | Its client secret. Set both or neither |
 | `GAMELOG_IGDB_SEARCH_LIMIT` | `10` | How many games the Identify button offers at most, from 1 to 500 |
 | `GAMELOG_STEAMGRIDDB_API_KEY` | — | A SteamGridDB API key, for searching cover images there as well. See [Cover image search](#cover-image-search) |
+| `GAMELOG_TRUSTED_PROXIES` | `private_ranges` | The reverse proxies in front of the image whose `X-Forwarded-For` says who the client is, for counting failed logins: addresses or CIDR ranges separated by spaces, or `private_ranges`. See [Accounts](#accounts) |
 | `GAMELOG_PORT` | `8080` | Backend port. Inside the image it is an internal detail between Caddy and the backend: the container's public port is always 9999 |
 
 The defaults are local development credentials. Change them before deploying anywhere, even behind Tailscale.
@@ -230,6 +231,10 @@ There are no roles. There is one account named `admin` that creates and removes 
 **The first run.** While the database has no accounts, the application shows a "choose the admin password" form instead of a login screen, and it stops showing it the moment any account exists. For an unattended install, set `GAMELOG_ADMIN_PASSWORD` and the admin is created at startup instead — at the cost of a password sitting in a file.
 
 **Sessions** are a random token in an `HttpOnly` cookie, stored hashed. They last a year by default (`GAMELOG_SESSION_LIFETIME`) and renew themselves while they are used, so in practice nobody is ever signed out. They are rows rather than self-contained tokens precisely so that they can be revoked: deleting an account ends its sessions immediately, and changing a password ends every session but the one that changed it.
+
+**Failed logins** are held back. After five failed attempts for the same username from the same address, the next ones are refused for 30 seconds, and the wait doubles with every further failure, up to 15 minutes. A successful login clears the count. Counts are kept in memory and forgotten half an hour after the last failure, or when the container restarts.
+
+The address is the one the client connected from, as the Caddy inside the image sees it. Behind another reverse proxy that is the proxy's own address, unless the image's Caddy trusts the proxy to say who the client is (its `X-Forwarded-For`): by default it trusts any private address, where such a proxy usually lives, on the same Docker network for one. `GAMELOG_TRUSTED_PROXIES` narrows that down to the proxy's own addresses or ranges. Without a trusted proxy, everybody behind it shares one address, and the limit applies per username.
 
 Set `GAMELOG_SECURE_COOKIE=true` on any deployment served over HTTPS. It is off by default because a `Secure` cookie is never sent back over plain `http://`, which is how a Tailscale address is usually reached, and then nobody could log in at all.
 

@@ -4,11 +4,14 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/mperezfo/gamelog/internal/auth"
+	"github.com/mperezfo/gamelog/internal/config"
 	"github.com/mperezfo/gamelog/internal/models"
+	"github.com/mperezfo/gamelog/internal/router"
 	"github.com/mperezfo/gamelog/internal/testsupport"
 )
 
@@ -523,4 +526,48 @@ func TestPreferencesDefaultAndCanBeChanged(t *testing.T) {
 		t.Errorf("preferences did not persist: theme = %q, date_format = %q, games_view = %q, calendar_view = %q",
 			reread.Theme, reread.DateFormat, reread.GamesView, reread.CalendarView)
 	}
+}
+
+func TestFailedLoginsAreHeldBack(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	now := time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC)
+	service := auth.NewService(db, auth.Options{
+		Lifetime: testSessionLifetime,
+		Limiter:  auth.NewLoginLimiter(func() time.Time { return now }),
+	})
+	cfg := config.Config{SessionLifetime: testSessionLifetime, ImagesDir: os.TempDir()}
+	handler := router.New(cfg, db, service, "test")
+	signedIn(t, handler, db, "player", false)
+
+	wrong := map[string]string{"username": "player", "password": "not the password"}
+	for range 5 {
+		expectStatus(t, request(t, handler, http.MethodPost, "/api/auth/login", wrong),
+			http.StatusUnauthorized, "logging in with a wrong password")
+	}
+
+	// Locked now, even with the right password, and saying for how long.
+	rec := request(t, handler, http.MethodPost, "/api/auth/login",
+		map[string]string{"username": "PLAYER", "password": testPassword})
+	expectStatus(t, rec, http.StatusTooManyRequests, "logging in while locked out")
+	if got := rec.Header().Get("Retry-After"); got != "30" {
+		t.Errorf("Retry-After = %q, want 30", got)
+	}
+	var problem struct {
+		Detail string `json:"detail"`
+	}
+	decode(t, rec, &problem)
+	if problem.Detail != "Too many failed attempts. Try again in 30 seconds." {
+		t.Errorf("detail = %q", problem.Detail)
+	}
+
+	// The lock is about this username from this address only.
+	expectStatus(t, request(t, handler, http.MethodPost, "/api/auth/login",
+		map[string]string{"username": "nobody", "password": testPassword}),
+		http.StatusUnauthorized, "another username while one is locked out")
+
+	// Once it is over, the right password gets in, and clears the count.
+	now = now.Add(30 * time.Second)
+	login(t, handler, "player", testPassword)
+	expectStatus(t, request(t, handler, http.MethodPost, "/api/auth/login", wrong),
+		http.StatusUnauthorized, "a wrong password after the count was cleared")
 }
