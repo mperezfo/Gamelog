@@ -532,7 +532,14 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
 
         <div className="grid grid-cols-2 gap-3">
           <DateField label="Release date" value={releaseDate} onChange={setReleaseDate} />
-          <DateField label="Logged date" value={loggedDate} onChange={setLoggedDate} />
+          <DateField
+            label="Logged date"
+            value={loggedDate}
+            onChange={setLoggedDate}
+            // The rule playedGames in lib/stats applies. Only a hint: a game
+            // can be played without its date being known.
+            hint={status === 'played' && !loggedDate ? 'Played games without a logged date are left out of Stats.' : undefined}
+          />
         </div>
 
         <div className="flex flex-col gap-3">

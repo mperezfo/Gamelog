@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 
 import { formatRange, parseRange, type Bound } from '../lib/range'
 import { Dropdown } from './Dropdown'
@@ -9,6 +9,8 @@ import { Popover } from './Popover'
 export interface FilterOption {
   value: string
   label: string
+  /** Shown after the label, in the list and on the pill (see OptionRow). */
+  marker?: ReactNode
 }
 
 export interface FilterField {
@@ -108,7 +110,13 @@ function FilterOptionList({
         {filtered.map((option) => {
           const active = selected.includes(option.value)
           return (
-            <OptionRow key={option.value} label={option.label} active={active} onClick={() => pick(option.value)} />
+            <OptionRow
+              key={option.value}
+              label={option.label}
+              marker={option.marker}
+              active={active}
+              onClick={() => pick(option.value)}
+            />
           )
         })}
       </div>
@@ -288,12 +296,15 @@ function FilterPill({
 }) {
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
+  // A single value's marker goes along with it onto the pill.
+  const marker = field.options.find((o) => o.value === value)?.marker
 
   return (
     <span className="order-4 inline-flex h-9 items-center gap-0.5 rounded-control bg-sunken pr-1 pl-2.5 text-[13px] sm:order-none">
       <button ref={anchorRef} type="button" onClick={() => setOpen((o) => !o)} className="max-w-[220px] truncate py-1.5 text-left">
         <span className="text-ink-faint">{field.label}: </span>
         <span className="font-medium text-ink">{valueSummary(field, value)}</span>
+        {marker && <span className="ml-1">{marker}</span>}
       </button>
       <button
         type="button"
