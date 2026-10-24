@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type Ref } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode, type Ref } from 'react'
 
 import { ChevronDownIcon } from './icons'
 import { OptionRow } from './OptionRow'
@@ -7,6 +7,9 @@ import { Popover } from './Popover'
 export interface DropdownOption<T extends string> {
   value: T
   label: string
+  /** Shown after the label, on the trigger and in the list, and never cut:
+   * the label truncates first (see OptionRow). */
+  marker?: ReactNode
 }
 
 interface DropdownProps<T extends string> {
@@ -143,7 +146,10 @@ export function Dropdown<T extends string>({
           className,
         ].join(' ')}
       >
-        <span className={`truncate ${selected ? '' : 'text-ink-faint'}`}>{selected?.label ?? placeholder}</span>
+        <span className={`flex min-w-0 items-baseline gap-1 ${selected ? '' : 'text-ink-faint'}`}>
+          <span className="truncate">{selected?.label ?? placeholder}</span>
+          {selected?.marker}
+        </span>
         {chevron && (
           <ChevronDownIcon className="size-3.5 shrink-0 text-ink-faint transition-colors duration-75 group-hover/trigger:text-ink group-disabled/trigger:text-ink-faint" />
         )}
@@ -174,6 +180,7 @@ export function Dropdown<T extends string>({
             tabIndex={-1}
             data-autofocus={option.value === initial ? '' : undefined}
             label={option.label}
+            marker={option.marker}
             active={option.value === value}
             onClick={(event) => {
               if (option.value !== value) onChange(option.value)

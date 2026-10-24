@@ -6,6 +6,7 @@ import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import { CheckIcon, PlusIcon, XIcon } from './icons'
 import { CountryFlag } from './CountryFlag'
 import { Emoji } from './Emoji'
+import { NewMark } from './NewMark'
 import { Popover } from './Popover'
 
 interface MultiSelectDropdownProps {
@@ -133,7 +134,7 @@ export function MultiSelectDropdown({
                 they line up with the name's x-height. */}
             <span className="inline-flex items-baseline gap-1">
               <Emoji value={item.name} />
-              <span className="text-[10px] leading-none font-semibold tracking-wide text-accent uppercase">new</span>
+              <NewMark />
             </span>
             <span
               role="button"

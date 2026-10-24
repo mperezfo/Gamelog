@@ -19,6 +19,7 @@ import { Field } from './Field'
 import { ExternalLinkIcon, SearchIcon, TrashIcon } from './icons'
 import { IdentifyPanel, type IdentifyCurrent, type IdentifyResult } from './IdentifyPanel'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
+import { NewMark } from './NewMark'
 import { Reveal } from './Reveal'
 import { Notice } from './Notice'
 import { Select } from './Select'
@@ -514,9 +515,9 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             options={[
               { value: '', label: '—' },
               ...(platforms.data ?? []).map((platform) => ({ value: String(platform.id), label: platform.name })),
-              // Marked with Identify's "+" for a record to create: a "(new)"
-              // after the name would be the first thing cut on a phone.
-              ...(pendingPlatform ? [{ value: PENDING_PLATFORM, label: `+ ${pendingPlatform.name}` }] : []),
+              // Marked "new" like the developers and publishers to create,
+              // a mark the name truncates before.
+              ...(pendingPlatform ? [{ value: PENDING_PLATFORM, label: pendingPlatform.name, marker: <NewMark /> }] : []),
             ]}
           />
         </div>
