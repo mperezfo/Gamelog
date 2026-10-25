@@ -88,7 +88,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   // back to that page.
   useEffect(() => () => clearTimeout(closeTimer.current), [])
 
-  // Closes for good, skipping the confirmation — for the paths where there
+  // Closes for good, skipping the confirmation, for the paths where there
   // is nothing left to lose: a successful save or delete.
   function closeNow() {
     setVisible(false)

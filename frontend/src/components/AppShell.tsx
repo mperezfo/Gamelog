@@ -9,6 +9,7 @@ import { useSidebarPinned } from '../hooks/useSidebarPinned'
 import { useLogout } from '../hooks/useSession'
 import { useThemeChoice } from '../theme/themeContext'
 import type { User } from '../types/auth'
+import type { Game } from '../types/game'
 import { Button } from './Button'
 import { DiscardPrompt } from './DiscardPrompt'
 import { GamePanel } from './GamePanel'
@@ -56,6 +57,15 @@ function LibraryShell({ user, children }: AppShellProps) {
   // useGameModal), so there is never more than one on screen at once.
   const modal = useGameModal()
   const unsaved = useUnsavedChangesContext()
+  // The game the panel last showed, kept while the address still asks for
+  // it: a game deleted from the panel leaves every list at once (see
+  // useDeleteGame), and the panel still has to slide out with it.
+  const [lastGame, setLastGame] = useState<Game>()
+  if (modal.game && modal.game !== lastGame) setLastGame(modal.game)
+  // Forgotten once the address moves on, so that going back to a deleted
+  // game's address later finds nothing, as for any unknown slug.
+  if (!modal.game && lastGame && lastGame.slug !== modal.slug) setLastGame(undefined)
+  const panelGame = modal.game ?? (lastGame && lastGame.slug === modal.slug ? lastGame : undefined)
 
   // `main` is the same element whatever the route, and would otherwise keep
   // the last section's scroll: a section is entered at its top. Only on a
@@ -124,7 +134,7 @@ function LibraryShell({ user, children }: AppShellProps) {
         </main>
       </div>
 
-      {(modal.game || modal.creating) && <GamePanel game={modal.game} onClose={modal.close} />}
+      {(panelGame || modal.creating) && <GamePanel game={panelGame} onClose={modal.close} />}
     </div>
   )
 }

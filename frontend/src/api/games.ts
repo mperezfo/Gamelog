@@ -36,6 +36,8 @@ export function updateGame(id: number, input: GameInput): Promise<Game> {
   return apiSend<Game>(`/games/${id}`, 'PUT', input)
 }
 
-export function deleteGame(id: number): Promise<void> {
-  return apiFetch<void>(`/games/${id}`, { method: 'DELETE' })
+/** `keepalive` lets the request outlive the page, for one sent as it is
+ * closed (see useDeleteGame). */
+export function deleteGame(id: number, keepalive = false): Promise<void> {
+  return apiFetch<void>(`/games/${id}`, { method: 'DELETE', keepalive })
 }

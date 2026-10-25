@@ -1,15 +1,50 @@
+import { useCallback, useSyncExternalStore } from 'react'
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { errorMessage } from '../api/client'
 import { createGame, deleteGame, gameStats, getGame, listGames, updateGame } from '../api/games'
 import type { Game, GameFilter, GameInput } from '../types/game'
+import { useToast } from './toast'
 
 const gamesKey = (filter: GameFilter = {}) => ['games', filter] as const
 const gameKey = (ref: number | string) => ['games', 'detail', ref] as const
 const statsKey = (filter: GameFilter = {}) => ['games', 'stats', filter] as const
 
-/** Games matching a filter. An empty filter is the whole library. */
+/** Games matching a filter. An empty filter is the whole library, less any
+ * game deleted a moment ago and still waiting for its Undo to run out (see
+ * useDeleteGame). */
 export function useGames(filter: GameFilter = {}) {
-  return useQuery({ queryKey: gamesKey(filter), queryFn: () => listGames(filter) })
+  const deleting = useSyncExternalStore(subscribeDeletes, deletesSnapshot)
+  const select = useCallback(
+    (games: Game[]) => (deleting.size === 0 ? games : games.filter((game) => !deleting.has(game.id))),
+    [deleting],
+  )
+  return useQuery({ queryKey: gamesKey(filter), queryFn: () => listGames(filter), select })
+}
+
+/** The games deleted but not sent to the server yet, while their toast can
+ * still undo it. Outside React's state because every list of games reads
+ * it, and a page being closed has to reach it too (see useDeleteGame). A new
+ * Set on each change, so that a reader sees it change. */
+let deleting: ReadonlySet<number> = new Set()
+const deleteListeners = new Set<() => void>()
+
+function subscribeDeletes(listener: () => void) {
+  deleteListeners.add(listener)
+  return () => deleteListeners.delete(listener)
+}
+
+function deletesSnapshot() {
+  return deleting
+}
+
+function setDeleting(id: number, on: boolean) {
+  const next = new Set(deleting)
+  if (on) next.add(id)
+  else next.delete(id)
+  deleting = next
+  deleteListeners.forEach((listener) => listener())
 }
 
 /** The table footer: count, average score, logged-date range. */
@@ -136,11 +171,65 @@ export function useUpdateGame() {
   })
 }
 
+/** How a delete still waiting for its toast is sent if the page goes away
+ * first, by id: a game deleted on screen must never come back on its own.
+ * `pagehide` rather than `beforeunload`, which a page with unsaved changes
+ * would ask about first; listened to once for the whole app, since the form
+ * a delete came from is gone long before its toast is. */
+const sendOnLeave = new Map<number, () => void>()
+window.addEventListener('pagehide', () => sendOnLeave.forEach((send) => send()))
+
+/**
+ * Deleting a game, with a few seconds to take it back.
+ *
+ * The game leaves every list at once and a toast offers Undo, but the server
+ * only hears of it once the toast has gone: Undo simply puts the game back
+ * where it was, as nothing has changed yet. Closing or reloading the page in
+ * the meantime sends it right away. If the server refuses it, the game comes
+ * back and the toast says why.
+ */
 export function useDeleteGame() {
   const queryClient = useQueryClient()
+  const toast = useToast()
 
-  return useMutation({
-    mutationFn: (id: number) => deleteGame(id),
-    onSuccess: () => invalidateGames(queryClient),
-  })
+  return useCallback(
+    (game: Game) => {
+      setDeleting(game.id, true)
+      void queryClient.cancelQueries({ queryKey: ['games'] })
+
+      let sent = false
+      sendOnLeave.set(game.id, () => {
+        sent = true
+        sendOnLeave.delete(game.id)
+        void deleteGame(game.id, true).catch(() => {})
+      })
+
+      toast.show({
+        message: `Deleted “${game.title}”`,
+        action: {
+          label: 'Undo',
+          onPress: () => {
+            sendOnLeave.delete(game.id)
+            setDeleting(game.id, false)
+          },
+        },
+        onExpire: () => {
+          if (sent) return
+          sendOnLeave.delete(game.id)
+          deleteGame(game.id)
+            // Kept out of the lists until they have been fetched again
+            // without it, so that it does not flash back in between.
+            .then(() => queryClient.invalidateQueries({ queryKey: ['games'] }))
+            .then(
+              () => setDeleting(game.id, false),
+              (error: unknown) => {
+                setDeleting(game.id, false)
+                toast.show({ message: `Could not delete “${game.title}”: ${errorMessage(error)}` })
+              },
+            )
+        },
+      })
+    },
+    [queryClient, toast],
+  )
 }
