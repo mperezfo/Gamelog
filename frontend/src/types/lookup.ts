@@ -35,3 +35,12 @@ export const MAX_LOOKUP_NAME = 100
 
 /** The four simple entities, plural as their endpoint segment. */
 export type LookupKind = 'genres' | 'developers' | 'publishers' | 'platforms'
+
+/** The Games page's filter param for each kind, singular unlike the kind
+ * itself: `/games?developer=<slug>` lists that developer's games. */
+export const LOOKUP_FILTER_PARAM: Record<LookupKind, string> = {
+  genres: 'genre',
+  developers: 'developer',
+  publishers: 'publisher',
+  platforms: 'platform',
+}

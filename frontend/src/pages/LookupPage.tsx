@@ -28,7 +28,7 @@ import { useOffline } from '../hooks/useOffline'
 import { useReloadScroll } from '../hooks/useReloadScroll'
 import { fuzzyMatch } from '../lib/fuzzy'
 import type { Game } from '../types/game'
-import { MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
+import { LOOKUP_FILTER_PARAM, MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
 
 /** The IGDB records a developer, publisher or platform is linked to, and
  * what kind they are. Genres have none. */
@@ -54,14 +54,6 @@ function hasCountry(kind: LookupKind): boolean {
 
 /** A default so a new platform doesn't start colorless. */
 const DEFAULT_COLOR = '#787774'
-
-/** GamesPage's filter param for each kind — singular, unlike the kind itself. */
-const FILTER_PARAM: Record<LookupKind, string> = {
-  genres: 'genre',
-  developers: 'developer',
-  publishers: 'publisher',
-  platforms: 'platform',
-}
 
 type SortMode = 'count' | 'name'
 
@@ -385,7 +377,7 @@ function LookupRow({
           )}
           {count > 0 ? (
             <Link
-              to={`/games?${FILTER_PARAM[kind]}=${encodeURIComponent(item.slug)}`}
+              to={`/games?${LOOKUP_FILTER_PARAM[kind]}=${encodeURIComponent(item.slug)}`}
               className="shrink-0 text-xs text-ink-faint underline decoration-line-strong underline-offset-2 hover:text-ink hover:decoration-ink-faint"
             >
               {count}
