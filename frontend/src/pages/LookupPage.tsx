@@ -505,25 +505,22 @@ function LookupForm({
         // be dropped, on Save like the rest of the form.
         //
         // Inline rather than a flex row, so that the ids read as part of the
-        // sentence, a word's space after it, instead of a gap's width away.
+        // sentence. Each id is a small pill, like the filter pills on Games,
+        // so that its × plainly belongs to it.
         <p className="text-xs leading-relaxed text-ink-faint">
           {links.ids.length > 0 ? (
             <>
               Linked to IGDB as {links.ids.length === 1 ? IGDB_NOUN[links.kind].one : IGDB_NOUN[links.kind].many}
-              {links.ids.map((id, index) => {
+              {links.ids.map((id) => {
                 const dropped = unlinking.includes(id)
                 return (
                   <Fragment key={id}>
                     {' '}
-                    <span className={`inline-flex items-center gap-1 ${index > 0 ? 'ml-1.5' : ''}`}>
+                    <span className="inline-flex h-5 items-center gap-0.5 rounded-control bg-sunken pr-0.5 pl-1.5 align-middle">
                       {dropped ? (
                         <s className="tabular-nums decoration-ink-faint">{id}</s>
                       ) : (
-                        <IgdbLink
-                          kind={links.kind}
-                          id={id}
-                          className="tabular-nums underline decoration-line-strong underline-offset-2"
-                        >
+                        <IgdbLink kind={links.kind} id={id} className="text-ink-muted tabular-nums">
                           {id}
                         </IgdbLink>
                       )}
@@ -534,9 +531,9 @@ function LookupForm({
                         }
                         data-tooltip={dropped ? 'Keep this link' : 'Unlink when saved'}
                         aria-label={dropped ? `Keep the link to ${id}` : `Unlink from ${id}`}
-                        className="transition-colors duration-75 hover:text-ink"
+                        className={`flex h-4 items-center justify-center rounded-full transition-colors duration-75 hover:bg-hover hover:text-ink ${dropped ? 'px-1' : 'w-4'}`}
                       >
-                        {dropped ? 'Undo' : <XIcon className="size-3" />}
+                        {dropped ? 'Undo' : <XIcon className="size-2.5" />}
                       </button>
                     </span>
                   </Fragment>
