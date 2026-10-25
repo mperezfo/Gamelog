@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table'
 
@@ -39,10 +39,16 @@ import { Emoji } from '../components/Emoji'
 
 const DEFAULT_SORT_FIELD = 'title'
 
+/** Says that an option only looks at Played games: a quiet aside on the
+ * label's baseline. */
+function PlayedOnly() {
+  return <span className="shrink-0 text-xs font-normal text-ink-faint">(played only)</span>
+}
+
 /** Every field a game can be missing, and how to tell it's missing — the
  * options behind the "Missing" filter below. Checked against `games.data`
  * client-side, same as every other GamesPage filter. */
-const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => boolean }> = {
+const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => boolean; marker?: ReactNode }> = {
   cover: { label: 'No cover image', test: (g) => !g.cover_image_url },
   // Only games that have a cover count: without one there is nothing to crop,
   // and "No cover image" already covers them.
@@ -52,6 +58,14 @@ const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => bool
       !!g.cover_image_url && g.cover_focal_x == null && g.cover_focal_y == null && g.cover_zoom == null,
   },
   release_date: { label: 'No release date', test: (g) => !g.release_date },
+  // Played games only: those are the ones Stats leaves out without one (see
+  // playedGames in lib/stats), and the date is not missing from a game not
+  // played yet. Marked as such wherever it is offered or applied.
+  logged_date: {
+    label: 'No logged date',
+    test: (g) => g.status === 'played' && !g.logged_date,
+    marker: <PlayedOnly />,
+  },
   score: { label: 'No score', test: (g) => g.score == null },
   tagline: { label: 'No tagline', test: (g) => !g.tagline },
   notes: { label: 'No notes', test: (g) => !g.notes },
@@ -211,7 +225,7 @@ export function GamesPage() {
         key: 'missing',
         label: 'Missing',
         kind: 'single',
-        options: Object.entries(MISSING_FIELDS).map(([value, { label }]) => ({ value, label })),
+        options: Object.entries(MISSING_FIELDS).map(([value, { label, marker }]) => ({ value, label, marker })),
       },
     ],
     [genres.data, developers.data, publishers.data, platforms.data, releaseYears, playedYears],

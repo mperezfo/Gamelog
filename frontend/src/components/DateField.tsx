@@ -13,6 +13,8 @@ interface DateFieldProps {
   /** yyyy-mm-dd, or empty for no date. */
   value: string
   onChange: (value: string) => void
+  /** A quiet line under the field, as Field has. */
+  hint?: string
 }
 
 type SegmentKind = 'd' | 'm' | 'y'
@@ -65,7 +67,7 @@ const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(in
  * than the browser's: a pick from it lands in the segments through `value`,
  * like any other change from outside.
  */
-export function DateField({ label, value, onChange }: DateFieldProps) {
+export function DateField({ label, value, onChange, hint }: DateFieldProps) {
   const id = useId()
   const dateFormat = useDateFormat()
   const order = SEGMENT_ORDER[dateFormat]
@@ -275,6 +277,7 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
           }}
         />
       </Popover>
+      {hint && <p className="text-xs text-ink-faint">{hint}</p>}
     </div>
   )
 }
