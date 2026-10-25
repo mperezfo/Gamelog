@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 import { errorMessage } from '../api/client'
 import { igdbPage } from '../api/metadata'
@@ -51,10 +52,10 @@ interface GameFormProps {
   /** Reports whether the fields differ from what they started as, so a
    * container can warn before discarding them (see GamePanel). */
   onDirtyChange?: (dirty: boolean) => void
-  /** Pins the action row to the bottom of the container that scrolls the
-   * form, so Save is always in reach: the classes line its background up
-   * with that container's edges and padding (see GamePanel). */
-  stickyActionsClassName?: string
+  /** Where the action row goes instead of the end of the form: a footer of
+   * the container's own, outside what scrolls, so that Save is always in
+   * reach and never moves (see GamePanel). Null until that footer is there. */
+  actionsTarget?: HTMLElement | null
   /** Shown just above the action row, such as GamePanel's question before
    * discarding changes, so that it is in view next to the buttons. */
   actionsNotice?: ReactNode
@@ -80,9 +81,11 @@ export function GameForm({
   onDeleted,
   onCancel,
   onDirtyChange,
-  stickyActionsClassName,
+  actionsTarget,
   actionsNotice,
 }: GameFormProps) {
+  // Ties the Save button to the form when it is drawn in actionsTarget.
+  const formId = useId()
   const genres = useLookups('genres')
   const developers = useLookups('developers')
   const publishers = useLookups('publishers')
@@ -359,7 +362,7 @@ export function GameForm({
   }
 
   return (
-    <form onSubmit={submit} onKeyDown={guardEnter} className="flex flex-col gap-5">
+    <form id={formId} onSubmit={submit} onKeyDown={guardEnter} className="flex flex-col gap-5">
       {/* Offline, the game can still be read here, just not changed. A
           disabled fieldset disables every control inside it at once, and
           keeps whatever was being typed for when the server is back. */}
@@ -586,14 +589,14 @@ export function GameForm({
         />
       </fieldset>
 
-      <ActionsBar className={stickyActionsClassName}>
+      <ActionsBar target={actionsTarget}>
         {saveError && <Notice tone="error">{errorMessage(saveError)}</Notice>}
         {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}
         {actionsNotice}
 
         <div className="flex items-center justify-between gap-2 pt-2">
           <div className="flex gap-2">
-            <Button type="submit" variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame) || !title.trim()}>
+            <Button type="submit" form={formId} variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame) || !title.trim()}>
               {saving ? 'Saving…' : coverBusy ? 'Storing cover…' : game ? 'Save' : 'Create game'}
             </Button>
             {onCancel && <Button onClick={onCancel}>Cancel</Button>}
@@ -636,40 +639,14 @@ export function GameForm({
 
 /**
  * The end of the form: what a save or delete went wrong with, and the
- * buttons. With a `className` it is pinned to the bottom of the container
- * scrolling the form and keeps a background of its own, with a line along
- * its top only while fields are scrolling under it.
- *
- * Whether they are is read off the bar itself: pinned one pixel past the
- * bottom edge, it is never quite all in view while stuck there, and always
- * is once the end of the form is reached and it sits in its own place.
+ * buttons. With a `target` they are drawn there instead (see actionsTarget);
+ * a portal keeps them part of the form for React, and the Save button's
+ * `form` attribute for the browser.
  */
-function ActionsBar({ className, children }: { className?: string; children: ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [covering, setCovering] = useState(false)
-
-  useEffect(() => {
-    const bar = ref.current
-    if (!className || !bar) return
-    const observer = new IntersectionObserver(([entry]) => setCovering(entry.intersectionRatio < 1), { threshold: 1 })
-    observer.observe(bar)
-    return () => observer.disconnect()
-  }, [className])
-
-  if (!className) return <div className="flex flex-col gap-5">{children}</div>
-
-  return (
-    <div
-      ref={ref}
-      className={[
-        'sticky -bottom-px z-10 flex flex-col gap-3 bg-surface transition-shadow duration-150',
-        covering ? 'shadow-[0_-1px_0_0_var(--color-line)]' : '',
-        className,
-      ].join(' ')}
-    >
-      {children}
-    </div>
-  )
+function ActionsBar({ target, children }: { target: HTMLElement | null | undefined; children: ReactNode }) {
+  if (target === undefined) return <div className="flex flex-col gap-5">{children}</div>
+  if (!target) return null
+  return createPortal(<div className="flex flex-col gap-3">{children}</div>, target)
 }
 
 interface IgdbGameLinkProps {
