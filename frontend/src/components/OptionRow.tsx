@@ -1,10 +1,13 @@
-import type { ComponentProps } from 'react'
+import type { ComponentProps, ReactNode } from 'react'
 
 import { CheckIcon } from './icons'
 import { Emoji } from './Emoji'
 
 interface OptionRowProps extends Omit<ComponentProps<'button'>, 'children'> {
   label: string
+  /** Something after the label that is never cut, such as NewMark: the
+   * label truncates first. */
+  marker?: ReactNode
   /** The current choice: shown with a check, and not dimmed like the rest. */
   active: boolean
 }
@@ -12,7 +15,7 @@ interface OptionRowProps extends Omit<ComponentProps<'button'>, 'children'> {
 /** One row of a pick-one-or-several list: the label, and a check when it is
  * chosen. Shared by the filter popovers and the Dropdown, so every list in
  * the app reads and feels the same. */
-export function OptionRow({ label, active, className = '', ...props }: OptionRowProps) {
+export function OptionRow({ label, marker, active, className = '', ...props }: OptionRowProps) {
   return (
     <button
       type="button"
@@ -24,8 +27,11 @@ export function OptionRow({ label, active, className = '', ...props }: OptionRow
       ].join(' ')}
       {...props}
     >
-      <span className="truncate">
-        <Emoji value={label} />
+      <span className="flex min-w-0 items-baseline gap-1.5">
+        <span className="truncate">
+          <Emoji value={label} />
+        </span>
+        {marker}
       </span>
       {active && <CheckIcon className="size-3.5 shrink-0 text-accent" />}
     </button>
