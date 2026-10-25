@@ -516,7 +516,7 @@ function LookupForm({
                 return (
                   <Fragment key={id}>
                     {' '}
-                    <span className="inline-flex h-5 items-center gap-0.5 rounded-control bg-sunken pr-0.5 pl-1.5 align-middle">
+                    <span className="inline-flex h-[18px] items-center gap-0.5 rounded-control bg-sunken pr-px pl-1 leading-[14px]">
                       {dropped ? (
                         <s className="tabular-nums decoration-ink-faint">{id}</s>
                       ) : (
@@ -531,7 +531,7 @@ function LookupForm({
                         }
                         data-tooltip={dropped ? 'Keep this link' : 'Unlink when saved'}
                         aria-label={dropped ? `Keep the link to ${id}` : `Unlink from ${id}`}
-                        className={`flex h-4 items-center justify-center rounded-full transition-colors duration-75 hover:bg-hover hover:text-ink ${dropped ? 'px-1' : 'w-4'}`}
+                        className={`flex h-3.5 items-center justify-center rounded-full transition-colors duration-75 hover:bg-hover hover:text-ink ${dropped ? 'px-1' : 'w-3.5'}`}
                       >
                         {dropped ? 'Undo' : <XIcon className="size-2.5" />}
                       </button>
