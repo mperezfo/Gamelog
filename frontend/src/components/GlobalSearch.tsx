@@ -192,7 +192,7 @@ export function GlobalSearch({ onSelect, onSelectLookup }: GlobalSearchProps) {
       )}
 
       {open && query.trim() && (
-        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-[min(30rem,calc(100dvh-6rem))] overflow-y-auto rounded-control border border-line bg-surface py-1 shadow-popover">
+        <div className="absolute inset-x-0 top-full z-50 mt-1 max-h-[min(30rem,calc(100dvh-6rem))] overflow-y-auto rounded-control border border-line bg-surface shadow-popover">
           {results.length === 0 ? (
             <p className="px-3 py-2 text-[13px] text-ink-faint">Nothing matches &ldquo;{query}&rdquo;.</p>
           ) : (
