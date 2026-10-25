@@ -19,6 +19,7 @@ import { PlatformBadge } from '../components/PlatformBadge'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGameModal } from '../hooks/useGameModal'
+import { useShortcut } from '../hooks/useShortcut'
 import { useDateFormat, useDefaultGamesView } from '../hooks/useSession'
 import { useGames } from '../hooks/useGames'
 import { useOffline } from '../hooks/useOffline'
@@ -170,6 +171,8 @@ export function GamesPage() {
 
   const modal = useGameModal()
   const offline = useOffline()
+  // N opens the "New game" panel, unless one is open already.
+  useShortcut('n', modal.openNew, !offline && !modal.game && !modal.creating)
 
   // The search box is local state, not `filters.q` directly: a value bound
   // straight to the URL snaps back to it on every re-render, and a fast
@@ -510,7 +513,15 @@ export function GamesPage() {
           </button>
         </div>
 
-        <Button variant="primary" className="order-6 sm:order-none" onClick={modal.openNew} disabled={offline}>
+        <Button
+          variant="primary"
+          className="order-6 sm:order-none"
+          onClick={modal.openNew}
+          disabled={offline}
+          data-tooltip="Create a game"
+          data-tooltip-kbd="N"
+          aria-keyshortcuts="n"
+        >
           <PlusIcon className="size-4" />
           New game
         </Button>
