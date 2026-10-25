@@ -516,11 +516,11 @@ function LookupForm({
                 return (
                   <Fragment key={id}>
                     {' '}
-                    <span className="inline-flex h-[18px] items-center gap-0.5 rounded-control bg-sunken pr-px pl-1 leading-[14px]">
+                    <span className="inline-flex h-[18px] items-center rounded-control bg-sunken pr-px pl-1 leading-[14px]">
                       {dropped ? (
                         <s className="tabular-nums decoration-ink-faint">{id}</s>
                       ) : (
-                        <IgdbLink kind={links.kind} id={id} className="text-ink-muted tabular-nums">
+                        <IgdbLink kind={links.kind} id={id} className="text-ink-muted tabular-nums [&_svg]:-translate-y-px">
                           {id}
                         </IgdbLink>
                       )}
