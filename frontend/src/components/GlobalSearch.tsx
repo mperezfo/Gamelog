@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import { useGames } from '../hooks/useGames'
 import { useLookups } from '../hooks/useLookups'
+import { useShortcut } from '../hooks/useShortcut'
 import { coverFocalStyle, preloadImage } from '../lib/cover'
 import { fuzzySearch, type FuzzyMatch } from '../lib/fuzzy'
 import { STATUS_DOT, STATUS_LABELS, type Game } from '../types/game'
@@ -37,13 +38,6 @@ const KIND_LABEL: Record<LookupKind, string> = {
 type Result =
   | { type: 'game'; game: Game; match: FuzzyMatch }
   | { type: 'lookup'; kind: LookupKind; item: Lookup; match: FuzzyMatch }
-
-/** Whether `element` is a place typing "f" should type an "f", not trigger the shortcut. */
-function isTypingTarget(element: Element | null): boolean {
-  if (!element) return false
-  if (element instanceof HTMLElement && element.isContentEditable) return true
-  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement
-}
 
 /**
  * Fuzzy search over the whole library, sitting at the top of the sidebar so
@@ -83,19 +77,8 @@ export function GlobalSearch({ onSelect, onSelectLookup }: GlobalSearchProps) {
   const firstLookup = results.findIndex((result) => result.type === 'lookup')
   const safeIndex = Math.min(activeIndex, Math.max(results.length - 1, 0))
 
-  // Pressing "f" anywhere on the page focuses the search box, as long as the
-  // keystroke isn't meant for a text field the user is already typing into.
-  useEffect(() => {
-    function handleGlobalKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key !== 'f' && event.key !== 'F') return
-      if (event.metaKey || event.ctrlKey || event.altKey) return
-      if (isTypingTarget(document.activeElement)) return
-      event.preventDefault()
-      inputRef.current?.focus()
-    }
-    document.addEventListener('keydown', handleGlobalKeyDown)
-    return () => document.removeEventListener('keydown', handleGlobalKeyDown)
-  }, [])
+  // Pressing "f" anywhere on the page focuses the search box.
+  useShortcut('f', () => inputRef.current?.focus())
 
   function moveActiveIndex(index: number) {
     setActiveIndex(index)
