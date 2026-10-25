@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import { imageUrl, type ImageSize } from '../lib/cover'
 import { CoverOverlay } from './CoverOverlay'
@@ -25,31 +25,24 @@ interface CoverImageProps {
   onLoad?: (image: HTMLImageElement) => void
 }
 
-/** How quickly an image has to arrive to count as coming from a cache, in
- * ms: the service worker's answers are not instant like the browser's own
- * memory cache, but they are far quicker than the network. */
-const CACHED_MS = 60
+/** How long an image can keep its slot waiting on screen and still show
+ * at once, in ms: the service worker's answers are not instant like the
+ * browser's own memory cache, but they are far quicker than the network. */
+const QUICK_MS = 60
 
-// Resource timings are only kept until the browser's buffer fills (a few
-// hundred entries, fewer than a long library's covers), and covers read
-// them to tell a cached image apart. Each time it fills it is made twice as
-// large instead of cleared, which could drop the entry of an image whose
-// load is about to be handled.
-let timingBufferSize = 250
-performance.addEventListener?.('resourcetimingbufferfull', () => {
-  timingBufferSize *= 2
-  performance.setResourceTimingBufferSize(timingBufferSize)
-})
+/** When each slot came into view, for the images still on their way. One
+ * observer is shared by every cover on the page. */
+const inView = new WeakMap<Element, number>()
+let viewObserver: IntersectionObserver | undefined
 
-/** Whether an image that has just loaded came from a cache: its download,
- * as the browser timed it, was too short for a trip over the network. An
- * image loaded lazily may start long after its slot appeared, so the time
- * since then says nothing. */
-function arrivedFromCache(image: HTMLImageElement, since: number): boolean {
-  if (performance.now() - since < CACHED_MS) return true
-  const entries = performance.getEntriesByName(image.currentSrc)
-  const entry = entries[entries.length - 1]
-  return entry !== undefined && entry.startTime >= since && entry.duration < CACHED_MS
+function observeView(slot: Element): () => void {
+  viewObserver ??= new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting && !inView.has(entry.target)) inView.set(entry.target, entry.time)
+    }
+  })
+  viewObserver.observe(slot)
+  return () => viewObserver?.unobserve(slot)
 }
 
 /**
@@ -65,9 +58,13 @@ function arrivedFromCache(image: HTMLImageElement, since: number): boolean {
  * thumbnail size it showed as a hairline around the art; a pixel of a cover's
  * edge is never missed.
  *
- * An image that has to come over the network fades in as it arrives; one
- * already in a cache (most of them, after the first visit) shows at once, so
- * a page that opens instantly does not flicker.
+ * An image that keeps its slot waiting on screen fades in as it arrives;
+ * one that arrives at once (from a cache, most of them after the first
+ * visit) or before its slot is scrolled into view simply shows, so a page
+ * that opens instantly does not flicker. What counts is the wait on screen
+ * rather than how long the download took, which the browser may not know:
+ * a lazy image starts at no telling when, and a throttle such as the
+ * developer tools' may not show in its timings.
  */
 export function CoverImage({
   url,
@@ -85,16 +82,32 @@ export function CoverImage({
   const [outcome, setOutcome] = useState<{ src: string; loaded: boolean; fade: boolean } | null>(null)
   const loaded = outcome?.src === src && outcome.loaded
   const failed = outcome?.src === src && !outcome.loaded
-  // When the image element appeared, and whether it was complete already.
-  const mounted = useRef({ at: 0, complete: false })
+  // Whether the image element was complete already when it appeared.
+  const completeAtMount = useRef(false)
   // Stable, so that it runs when an image element appears (a new source is
   // a new element, see its key) and not again on every render.
   const imageRef = useCallback((image: HTMLImageElement | null) => {
-    if (image) mounted.current = { at: performance.now(), complete: image.complete && image.naturalWidth > 0 }
+    if (image) completeAtMount.current = image.complete && image.naturalWidth > 0
   }, [])
+  const slotRef = useRef<HTMLSpanElement>(null)
+  const waiting = Boolean(src) && !loaded && !failed
+  useEffect(() => {
+    const slot = slotRef.current
+    if (!waiting || !slot) return
+    inView.delete(slot)
+    return observeView(slot)
+  }, [waiting, src])
+
+  /** Whether the image kept its slot waiting on screen long enough to be
+   * seen arriving. */
+  function keptWaiting(): boolean {
+    if (completeAtMount.current || !slotRef.current) return false
+    const since = inView.get(slotRef.current)
+    return since !== undefined && performance.now() - since >= QUICK_MS
+  }
 
   return (
-    <span className={`relative flex shrink-0 items-center justify-center overflow-hidden text-ink-faint ${className}`}>
+    <span ref={slotRef} className={`relative flex shrink-0 items-center justify-center overflow-hidden text-ink-faint ${className}`}>
       {/* While the image is on its way the glyph only fades in late, so a
           cover coming from the cache does not flash it on every load. */}
       {!loaded && <ImageIcon className={`${iconClassName} ${src && !failed ? 'appear-late' : ''}`} />}
@@ -109,8 +122,7 @@ export function CoverImage({
           draggable={false}
           onLoad={(event) => {
             const image = event.currentTarget
-            const cached = mounted.current.complete || arrivedFromCache(image, mounted.current.at)
-            setOutcome({ src, loaded: true, fade: !cached })
+            setOutcome({ src, loaded: true, fade: keptWaiting() })
             onLoad?.(image)
           }}
           onError={() => setOutcome({ src, loaded: false, fade: false })}
