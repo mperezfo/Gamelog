@@ -153,10 +153,9 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
                 />
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate text-[13px] font-medium text-ink"><Emoji value={game.title} /></span>
-                  <span className="truncate text-[11px] text-ink-faint">{formatDate(game.release_date, dateFormat)}</span>
-                  <NewDate game={game} date={newDate(game)} className="text-[11px]" short />
+                  <RowDate game={game} date={newDate(game)} />
                 </span>
-                <OutIn releaseDate={game.release_date!} />
+                <OutIn game={game} date={newDate(game)} />
               </div>
             ))}
           </div>
@@ -166,12 +165,32 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
   )
 }
 
-/** A list row's countdown, or "Out now" on release day. */
-function OutIn({ releaseDate }: { releaseDate: string }) {
-  const days = daysUntilRelease(releaseDate)
+/** A list row's date, followed by the one IGDB has now when it is another
+ * one, so that a row with a new date is no taller than the others. */
+function RowDate({ game, date }: { game: Game; date: string | undefined }) {
+  const dateFormat = useDateFormat()
   return (
-    <span className={`shrink-0 text-[11px] font-medium ${days === 0 ? 'text-accent' : 'text-ink-faint'}`}>
-      {days === 0 ? 'Out now' : `${days}d`}
+    <span className="flex min-w-0 flex-wrap gap-x-1 text-[11px] text-ink-faint">
+      <span className="truncate">{formatDate(game.release_date, dateFormat)}</span>
+      {date && (
+        <span className="truncate text-ink-muted">
+          <span aria-hidden="true">→ </span>
+          <span className="sr-only">IGDB now says </span>
+          {formatDate(`${date}T00:00:00Z`, dateFormat)}
+        </span>
+      )}
+    </span>
+  )
+}
+
+/** A list row's countdown, or "Out now" on release day, with Apply under it
+ * when IGDB has a new date for the game. */
+function OutIn({ game, date }: { game: Game; date: string | undefined }) {
+  const days = daysUntilRelease(game.release_date!)
+  return (
+    <span className="flex shrink-0 flex-col items-end gap-0.5 text-[11px] font-medium">
+      <span className={days === 0 ? 'text-accent' : 'text-ink-faint'}>{days === 0 ? 'Out now' : `${days}d`}</span>
+      {date && <ApplyDate game={game} date={date} />}
     </span>
   )
 }
@@ -179,46 +198,37 @@ function OutIn({ releaseDate }: { releaseDate: string }) {
 /**
  * The release date IGDB has now for a game, when it is another one: said
  * quietly, with Apply to save it. Nothing is written without it.
- *
- * Drawn above the button that covers the card or row it is in (see
- * UpcomingRelease), so that its own button can be pressed.
  */
-function NewDate({
-  game,
-  date,
-  className,
-  short = false,
-}: {
-  game: Game
-  date: string | undefined
-  className: string
-  /** For a narrow row: "IGDB:" rather than "IGDB now says". */
-  short?: boolean
-}): ReactNode {
+function NewDate({ game, date, className }: { game: Game; date: string | undefined; className: string }): ReactNode {
   const dateFormat = useDateFormat()
-  const update = useUpdateGame()
   if (!date) return null
 
   return (
-    <span className={`relative z-10 flex min-w-0 flex-wrap items-baseline gap-x-1 self-start text-ink-muted ${className}`}>
-      {update.isError ? (
-        <span className="text-danger">Not saved: {errorMessage(update.error)}</span>
-      ) : (
-        <>
-          <span>
-            {short ? 'IGDB:' : 'IGDB now says'} {formatDate(`${date}T00:00:00Z`, dateFormat)}
-          </span>
-          <span aria-hidden="true" className="text-ink-faint">·</span>
-          <button
-            type="button"
-            disabled={update.isPending}
-            onClick={() => update.mutate({ id: game.id, input: gameInput(game, { release_date: `${date}T00:00:00Z` }) })}
-            className="font-medium text-accent hover:underline disabled:opacity-50"
-          >
-            Apply
-          </button>
-        </>
-      )}
+    <span className={`flex min-w-0 flex-wrap items-baseline gap-x-1 self-start text-ink-muted ${className}`}>
+      <span>IGDB now says {formatDate(`${date}T00:00:00Z`, dateFormat)}</span>
+      <span aria-hidden="true" className="text-ink-faint">·</span>
+      <ApplyDate game={game} date={date} />
     </span>
+  )
+}
+
+/**
+ * Saves the date IGDB has now as the game's release date. Drawn above the
+ * button that covers the card or row it is in (see UpcomingRelease), so
+ * that it can be pressed itself. A failed save says why in its tooltip and
+ * can be retried.
+ */
+function ApplyDate({ game, date }: { game: Game; date: string }) {
+  const update = useUpdateGame()
+  return (
+    <button
+      type="button"
+      disabled={update.isPending}
+      onClick={() => update.mutate({ id: game.id, input: gameInput(game, { release_date: `${date}T00:00:00Z` }) })}
+      data-tooltip={update.isError ? `Not saved: ${errorMessage(update.error)}` : undefined}
+      className={`relative z-10 font-medium hover:underline disabled:opacity-50 ${update.isError ? 'text-danger' : 'text-accent'}`}
+    >
+      {update.isError ? 'Retry' : 'Apply'}
+    </button>
   )
 }
