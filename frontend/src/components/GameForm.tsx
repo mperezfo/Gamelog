@@ -594,7 +594,7 @@ export function GameForm({
         {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}
         {actionsNotice}
 
-        <div className="flex items-center justify-between gap-2 pt-2">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex gap-2">
             <Button type="submit" form={formId} variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame) || !title.trim()}>
               {saving ? 'Saving…' : coverBusy ? 'Storing cover…' : game ? 'Save' : 'Create game'}
@@ -641,12 +641,13 @@ export function GameForm({
  * The end of the form: what a save or delete went wrong with, and the
  * buttons. With a `target` they are drawn there instead (see actionsTarget);
  * a portal keeps them part of the form for React, and the Save button's
- * `form` attribute for the browser.
+ * `form` attribute for the browser. Its top padding sets off whatever comes
+ * first, a notice as much as the buttons.
  */
 function ActionsBar({ target, children }: { target: HTMLElement | null | undefined; children: ReactNode }) {
-  if (target === undefined) return <div className="flex flex-col gap-5">{children}</div>
+  if (target === undefined) return <div className="flex flex-col gap-5 pt-2">{children}</div>
   if (!target) return null
-  return createPortal(<div className="flex flex-col gap-3">{children}</div>, target)
+  return createPortal(<div className="flex flex-col gap-3 pt-2">{children}</div>, target)
 }
 
 interface IgdbGameLinkProps {
