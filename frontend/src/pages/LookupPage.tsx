@@ -204,18 +204,21 @@ export function LookupPage({ kind, title }: LookupPageProps) {
     return items
   }, [list.data, sortMode, counts])
 
-  // What the search matched in each name, to draw it bold. The list keeps
-  // its order rather than ranking by match, the way the Games page does:
-  // the search narrows it, the sort still decides how it reads. The row
-  // being edited stays whatever is typed, so a search never takes a form
-  // out from under its changes.
+  // What the search matched in each name, to draw it bold. While there is a
+  // search the list is ranked by how well each name matches it (the name
+  // starting with it first, see fuzzyMatch), and the chosen sort only breaks
+  // ties: otherwise a weak match with more games would come before the
+  // obvious one. The row being edited stays whatever is typed, so a search
+  // never takes a form out from under its changes.
   const shown = useMemo(() => {
-    const out: { item: Lookup; indices: number[] }[] = []
+    const out: { item: Lookup; indices: number[]; score: number }[] = []
     for (const item of sorted) {
       const match = fuzzyMatch(debouncedSearch, item.name)
-      if (match) out.push({ item, indices: match.indices })
-      else if (editing !== 'new' && editing?.id === item.id) out.push({ item, indices: [] })
+      if (match) out.push({ item, indices: match.indices, score: match.score })
+      else if (editing !== 'new' && editing?.id === item.id) out.push({ item, indices: [], score: -Infinity })
     }
+    // A stable sort: equal scores keep the sorted order.
+    if (debouncedSearch.trim()) out.sort((a, b) => b.score - a.score)
     return out
   }, [sorted, debouncedSearch, editing])
 
