@@ -517,7 +517,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
               ...(platforms.data ?? []).map((platform) => ({ value: String(platform.id), label: platform.name })),
               // Marked "new" like the developers and publishers to create,
               // a mark the name truncates before.
-              ...(pendingPlatform ? [{ value: PENDING_PLATFORM, label: pendingPlatform.name, marker: <NewMark /> }] : []),
+              ...(pendingPlatform ? [{ value: PENDING_PLATFORM, label: pendingPlatform.name, marker: <NewMark raised /> }] : []),
             ]}
           />
         </div>

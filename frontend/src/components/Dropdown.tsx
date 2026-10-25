@@ -146,7 +146,7 @@ export function Dropdown<T extends string>({
           className,
         ].join(' ')}
       >
-        <span className={`flex min-w-0 items-baseline gap-1 ${selected ? '' : 'text-ink-faint'}`}>
+        <span className={`flex min-w-0 items-baseline gap-1.5 ${selected ? '' : 'text-ink-faint'}`}>
           <span className="truncate">{selected?.label ?? placeholder}</span>
           {selected?.marker}
         </span>

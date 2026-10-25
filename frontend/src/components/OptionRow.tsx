@@ -27,7 +27,7 @@ export function OptionRow({ label, marker, active, className = '', ...props }: O
       ].join(' ')}
       {...props}
     >
-      <span className="flex min-w-0 items-baseline gap-1">
+      <span className="flex min-w-0 items-baseline gap-1.5">
         <span className="truncate">
           <Emoji value={label} />
         </span>
