@@ -41,6 +41,8 @@ export function useGameModal() {
   return {
     /** The game the panel is editing, once resolved. */
     game,
+    /** The slug in the address, resolved or not. */
+    slug: raw && !creating ? raw : undefined,
     /** Whether the panel is open for a new game. */
     creating,
     /** Opens the panel to edit an existing game. */

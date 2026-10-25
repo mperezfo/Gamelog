@@ -287,6 +287,17 @@
   }
 }
 
+/* A toast's time left (ToastProvider): a bar along its bottom, shrinking
+   towards its start. */
+@keyframes gl-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
 /* A dot of a waiting ellipsis (IdentifyPanel): a small lift and back, then
    a rest, so that three of them in turn read as a gentle wave. */
 @keyframes gl-bob {
