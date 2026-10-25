@@ -25,7 +25,7 @@ import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
 import { useReloadScroll } from '../hooks/useReloadScroll'
 import { useScrollToTop } from '../hooks/useScrollToTop'
-import { STATUS_DOT, STATUS_LABELS, type Game } from '../types/game'
+import { STATUS_LABELS, type Game } from '../types/game'
 import type { Lookup } from '../types/lookup'
 import { dateRange, dateRangeSpan, formatDate, formatScore, yearOf } from '../lib/format'
 import { preloadImage } from '../lib/cover'
@@ -39,15 +39,10 @@ import { Emoji } from '../components/Emoji'
 
 const DEFAULT_SORT_FIELD = 'title'
 
-/** Says that an option only looks at Played games, the way the status shows
- * elsewhere (see GlobalSearch): its dot and its name. */
+/** Says that an option only looks at Played games: a quiet aside on the
+ * label's baseline. */
 function PlayedOnly() {
-  return (
-    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-normal text-ink-faint">
-      <span className={`size-1.5 rounded-full ${STATUS_DOT.played}`} aria-hidden="true" />
-      {STATUS_LABELS.played}
-    </span>
-  )
+  return <span className="shrink-0 text-xs font-normal text-ink-faint">(played only)</span>
 }
 
 /** Every field a game can be missing, and how to tell it's missing — the

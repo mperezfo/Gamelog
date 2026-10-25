@@ -41,7 +41,7 @@ interface FilterBarProps {
 const SEARCHABLE_THRESHOLD = 6
 
 /** The same width whatever the field, wide enough for a search box. */
-const POPOVER_CLASS = 'w-56 overflow-hidden'
+const POPOVER_CLASS = 'w-60 overflow-hidden'
 
 /** Focuses each view of a popover as it is drawn: the "+ Filter" one swaps
  * its field list for a field's values, and the button that had focus goes
@@ -301,10 +301,18 @@ function FilterPill({
 
   return (
     <span className="order-4 inline-flex h-9 items-center gap-0.5 rounded-control bg-sunken pr-1 pl-2.5 text-[13px] sm:order-none">
-      <button ref={anchorRef} type="button" onClick={() => setOpen((o) => !o)} className="max-w-[220px] truncate py-1.5 text-left">
-        <span className="text-ink-faint">{field.label}: </span>
-        <span className="font-medium text-ink">{valueSummary(field, value)}</span>
-        {marker && <span className="ml-1">{marker}</span>}
+      <button
+        ref={anchorRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex min-w-0 items-baseline gap-1 py-1.5 text-left"
+      >
+        {/* The summary truncates, and never the marker after it. */}
+        <span className="max-w-[220px] truncate">
+          <span className="text-ink-faint">{field.label}: </span>
+          <span className="font-medium text-ink">{valueSummary(field, value)}</span>
+        </span>
+        {marker}
       </button>
       <button
         type="button"
