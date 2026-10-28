@@ -287,6 +287,22 @@
   }
 }
 
+/* A step of a menu coming in and going out (see MenuSteps): from the side
+   --gl-step-offset names, and towards the other one. */
+@keyframes gl-step-in {
+  from {
+    translate: var(--gl-step-offset) 0;
+    opacity: 0;
+  }
+}
+
+@keyframes gl-step-out {
+  to {
+    translate: calc(var(--gl-step-offset) * -1) 0;
+    opacity: 0;
+  }
+}
+
 /* A dot of a waiting ellipsis (IdentifyPanel): a small lift and back, then
    a rest, so that three of them in turn read as a gentle wave. */
 @keyframes gl-bob {
