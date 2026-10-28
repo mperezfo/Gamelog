@@ -2,9 +2,11 @@ import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 
 import { useGames } from '../hooks/useGames'
 import { useLookups } from '../hooks/useLookups'
+import { usePreference } from '../hooks/useSession'
 import { useShortcut } from '../hooks/useShortcut'
 import { coverFocalStyle, preloadImage } from '../lib/cover'
 import { fuzzySearch, type FuzzyMatch } from '../lib/fuzzy'
+import type { SearchKind } from '../types/auth'
 import { STATUS_DOT, STATUS_LABELS, type Game } from '../types/game'
 import type { Lookup, LookupKind } from '../types/lookup'
 import { CountryFlag } from './CountryFlag'
@@ -51,29 +53,35 @@ export function GlobalSearch({ onSelect, onSelectLookup }: GlobalSearchProps) {
   const publishers = useLookups('publishers')
   const platforms = useLookups('platforms')
   const genres = useLookups('genres')
+  const hidden = usePreference('search_hidden')
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const optionRefs = useRef<(HTMLButtonElement | null)[]>([])
 
-  // One list for the keyboard to move through: the games, then the rest.
+  // One list for the keyboard to move through: the games, then the rest,
+  // leaving out the kinds the account chose not to search (see Account).
+  // Without games, the rest has the room they would have taken.
   const results = useMemo((): Result[] => {
-    const lookups = [
-      ...(developers.data ?? []).map((item) => ({ kind: 'developers' as const, item })),
-      ...(publishers.data ?? []).map((item) => ({ kind: 'publishers' as const, item })),
-      ...(platforms.data ?? []).map((item) => ({ kind: 'platforms' as const, item })),
-      ...(genres.data ?? []).map((item) => ({ kind: 'genres' as const, item })),
-    ]
+    const shown = (kind: SearchKind) => !hidden.includes(kind)
+    const lookups = (
+      [
+        ['developers', developers.data],
+        ['publishers', publishers.data],
+        ['platforms', platforms.data],
+        ['genres', genres.data],
+      ] as const
+    ).flatMap(([kind, items]) => (shown(kind) ? (items ?? []).map((item) => ({ kind, item })) : []))
     return [
-      ...fuzzySearch(query, games.data ?? [], (game) => game.title, GAME_LIMIT).map(
+      ...(shown('games') ? fuzzySearch(query, games.data ?? [], (game) => game.title, GAME_LIMIT) : []).map(
         ({ item, match }): Result => ({ type: 'game', game: item, match }),
       ),
-      ...fuzzySearch(query, lookups, ({ item }) => item.name, LOOKUP_LIMIT).map(
+      ...fuzzySearch(query, lookups, ({ item }) => item.name, shown('games') ? LOOKUP_LIMIT : GAME_LIMIT).map(
         ({ item, match }): Result => ({ type: 'lookup', ...item, match }),
       ),
     ]
-  }, [query, games.data, developers.data, publishers.data, platforms.data, genres.data])
+  }, [query, hidden, games.data, developers.data, publishers.data, platforms.data, genres.data])
   const firstLookup = results.findIndex((result) => result.type === 'lookup')
   const safeIndex = Math.min(activeIndex, Math.max(results.length - 1, 0))
 

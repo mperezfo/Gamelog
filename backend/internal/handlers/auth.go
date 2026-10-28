@@ -91,10 +91,17 @@ func (preferencesBody) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Sc
 		if !ok {
 			panic("no field for the preference " + preference.Key)
 		}
-		property.Enum = make([]any, 0, len(preference.Values))
+		values := make([]any, 0, len(preference.Values))
 		for _, value := range preference.Values {
-			property.Enum = append(property.Enum, value)
+			values = append(values, value)
 		}
+		if preference.List {
+			property.Items.Enum = values
+			property.UniqueItems = true
+			property.MaxItems = &preference.MaxItems
+			continue
+		}
+		property.Enum = values
 	}
 	return s
 }
