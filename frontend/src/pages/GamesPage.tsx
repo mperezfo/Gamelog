@@ -20,7 +20,7 @@ import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGameModal } from '../hooks/useGameModal'
 import { useShortcut } from '../hooks/useShortcut'
-import { useDateFormat, useDefaultGamesView } from '../hooks/useSession'
+import { usePreference } from '../hooks/useSession'
 import { useGames } from '../hooks/useGames'
 import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
@@ -106,8 +106,8 @@ export function GamesPage() {
   const developers = useLookups('developers')
   const publishers = useLookups('publishers')
   const platforms = useLookups('platforms')
-  const dateFormat = useDateFormat()
-  const defaultView = useDefaultGamesView()
+  const dateFormat = usePreference('date_format')
+  const defaultView = usePreference('games_view')
 
   // Every filter, the search text and the view mode live in the URL (see
   // useFilterParams) rather than in local state: reloading the page, or

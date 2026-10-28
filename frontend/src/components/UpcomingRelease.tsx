@@ -5,7 +5,7 @@ import { useEdgeFade } from '../hooks/useEdgeFade'
 import { errorMessage } from '../api/client'
 import { useUpdateGame } from '../hooks/useGames'
 import { useIgdbReleaseDates, useMetadataCapabilities } from '../hooks/useMetadata'
-import { useDateFormat } from '../hooks/useSession'
+import { usePreference } from '../hooks/useSession'
 import { coverFocalStyle, preloadImage } from '../lib/cover'
 import { formatDate } from '../lib/format'
 import { gameInput } from '../lib/gameInput'
@@ -38,7 +38,7 @@ interface UpcomingReleaseProps {
  * that fade into that solid background, not the box's own edge fading into
  * the page behind it. */
 export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
-  const dateFormat = useDateFormat()
+  const dateFormat = usePreference('date_format')
   const fadeRef = useEdgeFade('y')
   const [nextEl, setNextEl] = useState<HTMLDivElement | null>(null)
   const [nextHeight, setNextHeight] = useState<number | null>(null)
@@ -168,7 +168,7 @@ export function UpcomingRelease({ games, onSelectGame }: UpcomingReleaseProps) {
 /** A list row's date, followed by the one IGDB has now when it is another
  * one, so that a row with a new date is no taller than the others. */
 function RowDate({ game, date }: { game: Game; date: string | undefined }) {
-  const dateFormat = useDateFormat()
+  const dateFormat = usePreference('date_format')
   return (
     <span className="flex min-w-0 flex-wrap gap-x-1 text-[11px] text-ink-faint">
       <span className="truncate">{formatDate(game.release_date, dateFormat)}</span>
@@ -200,7 +200,7 @@ function OutIn({ game, date }: { game: Game; date: string | undefined }) {
  * quietly, with Apply to save it. Nothing is written without it.
  */
 function NewDate({ game, date, className }: { game: Game; date: string | undefined; className: string }): ReactNode {
-  const dateFormat = useDateFormat()
+  const dateFormat = usePreference('date_format')
   if (!date) return null
 
   return (

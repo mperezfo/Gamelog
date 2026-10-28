@@ -2,7 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 
 import { errorMessage } from '../api/client'
 import { useGameCandidates } from '../hooks/useMetadata'
-import { useDateFormat } from '../hooks/useSession'
+import { usePreference } from '../hooks/useSession'
 import { formatDate } from '../lib/format'
 import { foldCase } from '../lib/fuzzy'
 import type { CompanyLink, NewLookup, NewPlatform, PlatformLink } from '../types/game'
@@ -362,7 +362,7 @@ function IdentifyConfirm({
   onApply,
   onCancel,
 }: IdentifyConfirmProps) {
-  const dateFormat = useDateFormat()
+  const dateFormat = usePreference('date_format')
   const [developerChoices, setDeveloperChoices] = useState(() => candidate.developers.map(defaultChoice))
   const [publisherChoices, setPublisherChoices] = useState(() => candidate.publishers.map(defaultChoice))
 

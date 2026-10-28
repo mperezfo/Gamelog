@@ -2,8 +2,10 @@ package handlers_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -467,6 +469,45 @@ func TestNameDefaultsToUsernameButCanDiverge(t *testing.T) {
 	}
 	if after.Username != "player" {
 		t.Errorf("username = %q, want it unchanged by a profile update", after.Username)
+	}
+}
+
+// An update changes only the preferences it carries, and refuses a value a
+// preference does not take.
+func TestPreferencesUpdateOnlyWhatIsSent(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	bare := newBareRouter(db, false)
+	handler := signedIn(t, bare, db, "player", false)
+
+	expectStatus(t, request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{
+		"theme":         "dark",
+		"date_format":   "ymd",
+		"games_view":    "grid",
+		"calendar_view": "logged",
+	}), http.StatusOK, "setting every preference")
+
+	updated := request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{"games_view": "table"})
+	expectStatus(t, updated, http.StatusOK, "changing one preference")
+	var after models.User
+	decode(t, updated, &after)
+	want := models.Preferences{Theme: "dark", DateFormat: "ymd", GamesView: "table", CalendarView: "logged"}
+	if !reflect.DeepEqual(after.Preferences, want) {
+		t.Errorf("preferences = %+v, want %+v", after.Preferences, want)
+	}
+
+	for _, body := range []map[string]any{
+		{"theme": "sepia"},
+		{"games_view": "table", "calendar_view": "someday"},
+	} {
+		expectStatus(t, request(t, handler, http.MethodPut, "/api/auth/preferences", body),
+			http.StatusUnprocessableEntity, fmt.Sprintf("updating the preferences with %v", body))
+	}
+
+	me := request(t, handler, http.MethodGet, "/api/auth/me", nil)
+	var reread models.User
+	decode(t, me, &reread)
+	if !reflect.DeepEqual(reread.Preferences, want) {
+		t.Errorf("preferences after refused updates = %+v, want %+v", reread.Preferences, want)
 	}
 }
 
