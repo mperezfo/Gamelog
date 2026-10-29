@@ -287,6 +287,19 @@
   }
 }
 
+/* A step of a menu going out, then the next one coming in (see MenuSteps). */
+@keyframes gl-step-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes gl-step-out {
+  to {
+    opacity: 0;
+  }
+}
+
 /* A dot of a waiting ellipsis (IdentifyPanel): a small lift and back, then
    a rest, so that three of them in turn read as a gentle wave. */
 @keyframes gl-bob {
