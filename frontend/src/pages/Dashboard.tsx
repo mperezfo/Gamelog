@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import {
   DndContext,
@@ -175,6 +175,20 @@ export function Dashboard() {
     return groups
   }, [all])
 
+  // The card just dropped, until the board shows it in its new place (see
+  // revealCard).
+  const droppedRef = useRef<{ id: number; status: GameStatus } | null>(null)
+  // A layout effect, so that it runs before dnd-kit's drop animation
+  // measures the card: finding it on screen, that skips its own scroll,
+  // which centres the card and moves the page along with the column.
+  useLayoutEffect(() => {
+    const dropped = droppedRef.current
+    if (!dropped || !byStatus[dropped.status].some((g) => g.id === dropped.id)) return
+    droppedRef.current = null
+    const card = document.querySelector<HTMLElement>(`[data-board-card="${dropped.id}"]`)
+    if (card) revealCard(card)
+  }, [byStatus])
+
   /** Which column an id (a card's, or a column's own drop-target id) belongs
    * to. */
   function containerOf(id: number | string): GameStatus | undefined {
@@ -327,9 +341,13 @@ export function Dashboard() {
     // only thing decided here; position settles on its own via the date
     // sort, same as dropping anywhere in a column normally would.
     if (!indicator || indicator.status !== destStatus) {
-      if (destStatus !== dragged.status) saveGame(dragged, { status: destStatus })
+      if (destStatus !== dragged.status) {
+        droppedRef.current = { id: dragged.id, status: destStatus }
+        saveGame(dragged, { status: destStatus })
+      }
       return
     }
+    droppedRef.current = { id: dragged.id, status: destStatus }
 
     // The destination tie group with dragged inserted exactly where the
     // drop-line indicator showed it landing — the same computation whether
@@ -554,6 +572,25 @@ export function Dashboard() {
   )
 }
 
+/** Brings a card that was just dropped on screen, if it landed out of
+ * sight: by scrolling its column to the part of it that is on screen, and
+ * the page only as far as the column alone cannot show the whole card. */
+function revealCard(card: HTMLElement) {
+  const column = card.parentElement
+  if (column) {
+    // Kept clear of the column's faded edges (see useEdgeFade).
+    const margin = 16
+    const bounds = column.getBoundingClientRect()
+    const top = Math.max(bounds.top, 0) + margin
+    const bottom = Math.min(bounds.bottom, window.innerHeight) - margin
+    const rect = card.getBoundingClientRect()
+    if (rect.top < top) column.scrollTop -= top - rect.top
+    else if (rect.bottom > bottom) column.scrollTop += rect.bottom - bottom
+  }
+  // A no-op once the card is in full view.
+  card.scrollIntoView({ block: 'nearest' })
+}
+
 /** A status column's drop target — its own droppable, so a column with no
  * cards (or space below the last one) still accepts a drag.
  *
@@ -631,6 +668,7 @@ function SortableGameCard({
   return (
     <div
       ref={setNodeRef}
+      data-board-card={game.id}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={[draggable ? 'touch-none' : '', isDragging ? 'opacity-0' : ''].join(' ')}
       {...(draggable ? attributes : undefined)}
