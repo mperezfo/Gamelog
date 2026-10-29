@@ -8,7 +8,7 @@ import { isTypingTarget } from '../lib/keyboard'
  *
  * It stays out of the way of everything else a key can mean: typing in a
  * field, a combination with a modifier, and anything already open on top of
- * the page (a popover, a dialog), whose keys are its own. `enabled` covers
+ * the page (a popover, a dialog, the game panel), whose keys are its own. `enabled` covers
  * what only the page knows about, such as its own panel being open, or being
  * offline where the action would be disabled anyway.
  */
