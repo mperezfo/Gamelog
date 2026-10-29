@@ -81,9 +81,11 @@ func TestRunOnceTakesOneBackupADayAndPrunes(t *testing.T) {
 	ctx := context.Background()
 	users := repository.NewUserRepository(db)
 	player := &models.User{Username: "player", PasswordHash: "hash"}
+	accented := &models.User{Username: "Martín", PasswordHash: "hash"}
 	odd := &models.User{Username: "../odd name", PasswordHash: "hash"}
+	unwritable := &models.User{Username: "日本", PasswordHash: "hash"}
 	admin := &models.User{Username: "admin", PasswordHash: "hash", IsAdmin: true}
-	for _, user := range []*models.User{player, odd, admin} {
+	for _, user := range []*models.User{player, accented, odd, unwritable, admin} {
 		if err := users.Create(ctx, user); err != nil {
 			t.Fatalf("creating %q: %v", user.Username, err)
 		}
@@ -93,7 +95,7 @@ func TestRunOnceTakesOneBackupADayAndPrunes(t *testing.T) {
 	now := time.Date(2026, 10, 20, 3, 0, 0, 0, time.UTC)
 	scheduler := New(db, t.TempDir(), dir, Retention{Daily: 2}, func() time.Time { return now })
 
-	playerDir := filepath.Join(dir, "player")
+	playerDir := filepath.Join(dir, itoa(player.ID)+"-player")
 	// Not a backup's name: never touched.
 	if err := os.MkdirAll(playerDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -128,10 +130,18 @@ func TestRunOnceTakesOneBackupADayAndPrunes(t *testing.T) {
 	if got := names(playerDir); !slices.Equal(got, want) {
 		t.Errorf("player's backups = %v, want %v", got, want)
 	}
-	// An account whose name is no safe file name goes under its id; the
+	// Each account goes under its id and its username folded into a safe
+	// file name, or its id alone when nothing of the name survives; the
 	// admin, who owns no library, has none.
-	if got := names(dir); !slices.Equal(got, []string{"player", "user-" + itoa(odd.ID)}) {
-		t.Errorf("accounts with backups = %v", got)
+	wantDirs := []string{
+		itoa(player.ID) + "-player",
+		itoa(accented.ID) + "-martin",
+		itoa(odd.ID) + "-odd-name",
+		itoa(unwritable.ID),
+	}
+	slices.Sort(wantDirs)
+	if got := names(dir); !slices.Equal(got, wantDirs) {
+		t.Errorf("accounts with backups = %v, want %v", got, wantDirs)
 	}
 
 	// What is stored is the same backup an export downloads, which restores

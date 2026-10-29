@@ -20,6 +20,7 @@ import (
 	"github.com/mperezfo/gamelog/internal/models"
 	"github.com/mperezfo/gamelog/internal/repository"
 	"github.com/mperezfo/gamelog/internal/service"
+	"github.com/mperezfo/gamelog/internal/slug"
 )
 
 // Retention is how many backups to keep of each kind: the newest of each of
@@ -227,13 +228,14 @@ func Keep(backups []Backup, retention Retention) map[string]bool {
 	return kept
 }
 
-// accountDir is the directory an account's backups go in: its username, or
-// for one that would not make a safe file name, its id.
+// accountDir is the directory an account's backups go in: its id, which
+// keeps two accounts apart whatever their names, then its username folded
+// into a safe file name so the directory is easy to tell ("7-martin" for
+// "Martín"), or the id alone when nothing of the username survives.
 func accountDir(user *models.User) string {
-	if safeName.MatchString(user.Username) {
-		return user.Username
+	id := strconv.FormatUint(user.ID, 10)
+	if name := slug.Fold(user.Username); name != "" {
+		return id + "-" + name
 	}
-	return "user-" + strconv.FormatUint(user.ID, 10)
+	return id
 }
-
-var safeName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
