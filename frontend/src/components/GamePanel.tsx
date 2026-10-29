@@ -194,6 +194,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
               onDeleted={closeNow}
               onCancel={requestClose}
               onDirtyChange={setDirty}
+              focusTitle={!game}
               actionsTarget={actionsEl}
               actionsNotice={
                 pendingDiscard ? (

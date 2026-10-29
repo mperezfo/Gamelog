@@ -60,6 +60,8 @@ interface GameFormProps {
   /** Shown just above the action row, such as GamePanel's question before
    * discarding changes, so that it is in view next to the buttons. */
   actionsNotice?: ReactNode
+  /** Puts the cursor in Title once the form is there, for a new game. */
+  focusTitle?: boolean
 }
 
 /** Same members, regardless of order — good enough for genre/developer/
@@ -84,6 +86,7 @@ export function GameForm({
   onDirtyChange,
   actionsTarget,
   actionsNotice,
+  focusTitle = false,
 }: GameFormProps) {
   // Ties the Save button to the form when it is drawn in actionsTarget.
   const formId = useId()
@@ -97,6 +100,7 @@ export function GameForm({
   const offline = useOffline()
 
   const [title, setTitle] = useState(game?.title ?? '')
+  const titleRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState<GameStatus>(game?.status ?? 'wishlist')
   const [score, setScore] = useState(game?.score != null ? String(game.score) : '')
   const [tagline, setTagline] = useState(game?.tagline ?? '')
@@ -291,6 +295,12 @@ export function GameForm({
     onDirtyChange?.(isDirty)
   }, [isDirty, onDirtyChange])
 
+  // Once, as the form appears. Without scrolling: the panel is still sliding
+  // in, and the browser would otherwise move it to bring the field into view.
+  useEffect(() => {
+    if (focusTitle) titleRef.current?.focus({ preventScroll: true })
+  }, [focusTitle])
+
   // Warns on a tab close or reload, and asks before the sidebar leaves the
   // section. Closing the game panel asks on its own (see GamePanel).
   useUnsavedChanges(isDirty)
@@ -391,6 +401,7 @@ export function GameForm({
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <input
+              ref={titleRef}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Untitled"
