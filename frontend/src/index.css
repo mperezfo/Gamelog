@@ -287,18 +287,15 @@
   }
 }
 
-/* A step of a menu coming in and going out (see MenuSteps): from the side
-   --gl-step-offset names, and towards the other one. */
+/* A step of a menu going out, then the next one coming in (see MenuSteps). */
 @keyframes gl-step-in {
   from {
-    translate: var(--gl-step-offset) 0;
     opacity: 0;
   }
 }
 
 @keyframes gl-step-out {
   to {
-    translate: calc(var(--gl-step-offset) * -1) 0;
     opacity: 0;
   }
 }

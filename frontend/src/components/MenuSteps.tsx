@@ -1,30 +1,22 @@
-import { useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from 'react'
 
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ChevronLeftIcon, ChevronRightIcon } from './icons'
 
-/** How far a step slides as it comes in or goes out. */
-const OFFSET = '1.5rem'
-
-type Direction = 'forward' | 'back'
-
 interface MenuStepsProps {
-  /** Which step is showing. A change slides the new one in. */
+  /** Which step is showing. A change fades the new one in. */
   step: string
-  /** How deep `step` is: a deeper step comes in from the right, a shallower
-   * one from the left. */
-  depth: number
-  /** Draws a step: the one showing, and the one going out while it slides
+  /** Draws a step: the one showing, and the one going out while it fades
    * away, which keeps its state for as long as it is there. */
   renderStep: (step: string) => ReactNode
 }
 
 /**
  * A menu in steps, such as "+ Filter" on Games: a list of fields, then the
- * values of the one picked. Moving forward, the new step slides in from the
- * right and the old one out to the left; going back, the other way round.
- * The menu takes the height of the new step as it does, rather than jumping
- * to it.
+ * values of the one picked. The old step fades out, then the new one fades
+ * in, never the two at once, which would read as two lists on top of each
+ * other; meanwhile the menu takes the height of the new step rather than
+ * jumping to it.
  *
  * The height is measured, since Firefox has no `interpolate-size` to
  * animate to `auto`: the box always has the height of the step showing, in
@@ -36,18 +28,14 @@ interface MenuStepsProps {
  * FilterBar); a step that comes back while still going out, which does not
  * appear again, gets it here.
  */
-export function MenuSteps({ step, depth, renderStep }: MenuStepsProps) {
+export function MenuSteps({ step, renderStep }: MenuStepsProps) {
   const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
-  // Null direction: nothing to animate (the first step, or reduced motion).
-  const [current, setCurrent] = useState<{ step: string; depth: number; direction: Direction | null }>({
-    step,
-    depth,
-    direction: null,
-  })
+  // Not animated: the first step, or any step with reduced motion.
+  const [current, setCurrent] = useState({ step, animated: false })
   const [leaving, setLeaving] = useState<string | null>(null)
 
   if (step !== current.step) {
-    setCurrent({ step, depth, direction: reduceMotion ? null : depth < current.depth ? 'back' : 'forward' })
+    setCurrent({ step, animated: !reduceMotion })
     setLeaving(reduceMotion ? null : current.step)
   }
 
@@ -63,7 +51,7 @@ export function MenuSteps({ step, depth, renderStep }: MenuStepsProps) {
     const box = boxRef.current
     const element = currentRef.current
     if (!box || !element) return
-    if (current.direction !== null && !element.contains(document.activeElement)) element.focus({ preventScroll: true })
+    if (current.animated && !element.contains(document.activeElement)) element.focus({ preventScroll: true })
 
     const fit = () => {
       box.style.height = `${element.getBoundingClientRect().height}px`
@@ -72,12 +60,11 @@ export function MenuSteps({ step, depth, renderStep }: MenuStepsProps) {
     const observer = new ResizeObserver(fit)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [current.step, current.direction])
+  }, [current.step, current.animated])
 
   return (
     <div
       ref={boxRef}
-      style={{ '--gl-step-offset': current.direction === 'back' ? `-${OFFSET}` : OFFSET } as CSSProperties}
       className="relative overflow-hidden transition-[height] duration-150 ease-out motion-reduce:transition-none"
     >
       {leaving !== null && (
@@ -87,7 +74,7 @@ export function MenuSteps({ step, depth, renderStep }: MenuStepsProps) {
           onAnimationEnd={(event) => {
             if (event.target === event.currentTarget) setLeaving(null)
           }}
-          className="absolute inset-x-0 top-0 animate-[gl-step-out_150ms_ease-out_forwards]"
+          className="absolute inset-x-0 top-0 animate-[gl-step-out_50ms_ease-in_forwards]"
         >
           {renderStep(leaving)}
         </div>
@@ -96,7 +83,7 @@ export function MenuSteps({ step, depth, renderStep }: MenuStepsProps) {
         key={current.step}
         ref={currentRef}
         tabIndex={-1}
-        className={['outline-none', current.direction ? 'animate-[gl-step-in_150ms_ease-out]' : ''].join(' ')}
+        className={['outline-none', current.animated ? 'animate-[gl-step-in_90ms_ease-out_50ms_both]' : ''].join(' ')}
       >
         {renderStep(current.step)}
       </div>

@@ -276,7 +276,7 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
       </button>
 
       <Popover anchorRef={anchorRef} open={open} onClose={close} aria-label="Add a filter" className={POPOVER_CLASS}>
-        <MenuSteps step={selectedKey ?? ''} depth={selectedKey ? 1 : 0} renderStep={renderStep} />
+        <MenuSteps step={selectedKey ?? ''} renderStep={renderStep} />
       </Popover>
     </div>
   )
