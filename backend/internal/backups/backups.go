@@ -114,15 +114,11 @@ func (s *Scheduler) backUp(ctx context.Context, user *models.User) error {
 // write stores the backup under a temporary name first, so that a backup
 // cut short is never mistaken for a whole one.
 func (s *Scheduler) write(ctx context.Context, user *models.User, dir, target string) error {
-	archive, _, err := service.ExportBackup(ctx, s.db, user, s.imagesDir)
-	if err != nil {
-		return err
-	}
 	file, err := os.CreateTemp(dir, tempPattern)
 	if err != nil {
 		return err
 	}
-	if _, err := file.Write(archive); err != nil {
+	if _, err := service.ExportBackup(ctx, s.db, user, s.imagesDir, file); err != nil {
 		_ = file.Close()
 		_ = os.Remove(file.Name())
 		return err

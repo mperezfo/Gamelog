@@ -2,10 +2,11 @@ package service
 
 import (
 	"archive/zip"
-	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -38,73 +39,77 @@ func AccountEntryOf(user *models.User) AccountEntry {
 	}
 }
 
-// ExportBackup builds the full backup of an account: its library, its
-// profile and every image they use, as a .zip, and when it was made. The
-// same file whether it is downloaded or taken on a schedule, so that either
-// restores the same way.
-func ExportBackup(ctx context.Context, db *gorm.DB, user *models.User, imagesDir string) ([]byte, time.Time, error) {
+// ExportBackup writes the full backup of an account to w: its library, its
+// profile and every image they use, as a .zip. It returns when the backup
+// was made. The same file whether it is downloaded or taken on a schedule,
+// so that either restores the same way.
+//
+// The archive is streamed, so a scheduled backup goes straight to its file
+// and only one image at a time is held in memory.
+func ExportBackup(ctx context.Context, db *gorm.DB, user *models.User, imagesDir string, w io.Writer) (time.Time, error) {
 	document, err := NewExporter(db, user.ID).Export(ctx)
 	if err != nil {
-		return nil, time.Time{}, err
+		return time.Time{}, err
 	}
-	archive, err := BuildBackupArchive(document, AccountEntryOf(user), imagesDir)
-	if err != nil {
-		return nil, time.Time{}, fmt.Errorf("building the backup: %w", err)
+	if err := writeBackupArchive(w, document, AccountEntryOf(user), imagesDir); err != nil {
+		return time.Time{}, fmt.Errorf("building the backup: %w", err)
 	}
-	return archive, document.ExportedAt, nil
+	return document.ExportedAt, nil
 }
 
-// BuildBackupArchive writes a Document and its account as gamelog.json, plus
+// writeBackupArchive writes a Document and its account as gamelog.json, plus
 // every cover and avatar either of them names, into a .zip.
 //
 // An image the database still names but whose file is gone from disk is left
 // out rather than failing the whole export: a missing cover is something to
 // notice in the application, not a reason a backup of everything else cannot
 // be made.
-func BuildBackupArchive(document *Document, account AccountEntry, imagesDir string) ([]byte, error) {
+func writeBackupArchive(w io.Writer, document *Document, account AccountEntry, imagesDir string) error {
 	body, err := json.Marshal(BackupDocument{Document: document, Account: account})
 	if err != nil {
-		return nil, fmt.Errorf("encoding the backup document: %w", err)
+		return fmt.Errorf("encoding the backup document: %w", err)
 	}
 
-	var buf bytes.Buffer
-	archive := zip.NewWriter(&buf)
+	archive := zip.NewWriter(w)
 
 	entry, err := archive.Create(BackupDocumentName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if _, err := entry.Write(body); err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, name := range referencedImages(document, account.AvatarURL) {
 		if err := addImageToZip(archive, imagesDir, name); err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	if err := archive.Close(); err != nil {
-		return nil, fmt.Errorf("closing the backup archive: %w", err)
+		return fmt.Errorf("closing the backup archive: %w", err)
 	}
-	return buf.Bytes(), nil
+	return nil
 }
 
 func addImageToZip(archive *zip.Writer, imagesDir, name string) error {
-	data, err := os.ReadFile(filepath.Join(imagesDir, name))
+	file, err := os.Open(filepath.Join(imagesDir, name))
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil
 		}
 		return fmt.Errorf("reading %s: %w", name, err)
 	}
+	defer file.Close()
 
 	entry, err := archive.Create(path.Join("images", name))
 	if err != nil {
 		return err
 	}
-	_, err = entry.Write(data)
-	return err
+	if _, err := io.Copy(entry, file); err != nil {
+		return fmt.Errorf("reading %s: %w", name, err)
+	}
+	return nil
 }
 
 // referencedImages is the de-duplicated, content-addressed filenames a

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -184,7 +185,8 @@ func registerPortability(api huma.API, db *gorm.DB, authentication *auth.Service
 			return nil, err
 		}
 
-		archive, exportedAt, err := service.ExportBackup(ctx, db, user, imagesDir)
+		var archive bytes.Buffer
+		exportedAt, err := service.ExportBackup(ctx, db, user, imagesDir, &archive)
 		if err != nil {
 			return nil, apiError(err, "nothing to export")
 		}
@@ -192,7 +194,7 @@ func registerPortability(api huma.API, db *gorm.DB, authentication *auth.Service
 		return &exportBackupOutput{
 			ContentType:        "application/zip",
 			ContentDisposition: fmt.Sprintf("attachment; filename=%q", service.BackupFilename(exportedAt)),
-			Body:               archive,
+			Body:               archive.Bytes(),
 		}, nil
 	})
 
