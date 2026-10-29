@@ -7,6 +7,7 @@ import { Button } from '../components/Button'
 import { ColorField } from '../components/ColorField'
 import { CountryField } from '../components/CountryField'
 import { CountryFlag } from '../components/CountryFlag'
+import { DiscardPrompt } from '../components/DiscardPrompt'
 import { Emoji } from '../components/Emoji'
 import { EmojiField } from '../components/EmojiField'
 import { Field } from '../components/Field'
@@ -462,15 +463,25 @@ function LookupForm({
   const links = item ? igdbLinksOf(kind, item) : { kind: 'companies' as const, ids: [] }
   // IGDB links to forget on Save, struck through until then.
   const [unlinking, setUnlinking] = useState<number[]>([])
+  // Whether Cancel is waiting on "Discard unsaved changes?".
+  const [confirmingCancel, setConfirmingCancel] = useState(false)
 
   // A form opened and left as it was is as disposable as no form at all.
-  useUnsavedChanges(
+  const dirty =
     name !== (item?.name ?? '') ||
-      icon !== (item?.icon ?? '') ||
-      country !== (item?.country ?? '') ||
-      color !== (item?.color ?? DEFAULT_COLOR) ||
-      unlinking.length > 0,
-  )
+    icon !== (item?.icon ?? '') ||
+    country !== (item?.country ?? '') ||
+    color !== (item?.color ?? DEFAULT_COLOR) ||
+    unlinking.length > 0
+  useUnsavedChanges(dirty)
+
+  // Cancel, and Escape with it, asks first only when there is something to
+  // lose, the way the game panel's close does.
+  function requestCancel() {
+    if (confirmingCancel) return
+    if (dirty) setConfirmingCancel(true)
+    else onDone()
+  }
 
   const create = useCreateLookup(kind)
   const update = useUpdateLookup(kind)
@@ -493,7 +504,17 @@ function LookupForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3 sm:max-w-[360px]">
+    <form
+      onSubmit={submit}
+      // An Escape in one of the form's own popovers (country, emoji, colour)
+      // closes that popover alone, and never gets here.
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || event.nativeEvent.isComposing) return
+        event.preventDefault()
+        requestCancel()
+      }}
+      className="flex flex-col gap-3 sm:max-w-[360px]"
+    >
       <div className="flex gap-3">
         <Field
           label="Name"
@@ -559,12 +580,16 @@ function LookupForm({
         </p>
       )}
       {error && <Notice tone="error">{errorMessage(error)}</Notice>}
-      <div className="flex gap-2">
-        <Button type="submit" variant="primary" disabled={saving || offline || !name.trim()}>
-          {saving ? 'Saving…' : item ? 'Save' : 'Create'}
-        </Button>
-        <Button onClick={onDone}>Cancel</Button>
-      </div>
+      {confirmingCancel ? (
+        <DiscardPrompt onDiscard={onDone} onKeep={() => setConfirmingCancel(false)} />
+      ) : (
+        <div className="flex gap-2">
+          <Button type="submit" variant="primary" disabled={saving || offline || !name.trim()}>
+            {saving ? 'Saving…' : item ? 'Save' : 'Create'}
+          </Button>
+          <Button onClick={requestCancel}>Cancel</Button>
+        </div>
+      )}
     </form>
   )
 }
