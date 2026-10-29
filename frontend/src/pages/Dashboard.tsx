@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import {
   DndContext,
@@ -36,9 +36,6 @@ import { GAME_STATUSES, STATUS_DOT, STATUS_LABELS, type Game, type GameStatus } 
 
 const TOP_RATED_COUNT = 10
 
-/** How the dragged card glides to where it landed, once dropped. */
-const DROP_ANIMATION = { duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' }
-
 /**
  * Where most of the time on this application goes: the whole library at a
  * glance, and the fastest path to editing any one game in it.
@@ -70,12 +67,6 @@ export function Dashboard() {
    * tie group, clears it instead; the whole column is already highlighted
    * for those via `hoveredColumn`. */
   const [dropIndicator, setDropIndicator] = useState<{ status: GameStatus; beforeId: number | null } | null>(null)
-
-  /** Whether the last drop glides the card to where it landed. Before it
-   * glides, dnd-kit scrolls the card into view if it is off screen, which
-   * moves the column and the whole page with it: so a drop whose place the
-   * date sort decides, often far down a long column, skips the glide. */
-  const [dropAnimates, setDropAnimates] = useState(true)
 
   // The library board is only capped to the calendar's height from `xl` up,
   // where the two sit side by side (see the comment further down) — below
@@ -183,6 +174,20 @@ export function Dashboard() {
     for (const status of GAME_STATUSES) groups[status].sort(compareForBoard)
     return groups
   }, [all])
+
+  // The card just dropped, until the board shows it in its new place (see
+  // revealCard).
+  const droppedRef = useRef<{ id: number; status: GameStatus } | null>(null)
+  // A layout effect, so that it runs before dnd-kit's drop animation
+  // measures the card: finding it on screen, that skips its own scroll,
+  // which centres the card and moves the page along with the column.
+  useLayoutEffect(() => {
+    const dropped = droppedRef.current
+    if (!dropped || !byStatus[dropped.status].some((g) => g.id === dropped.id)) return
+    droppedRef.current = null
+    const card = document.querySelector<HTMLElement>(`[data-board-card="${dropped.id}"]`)
+    if (card) revealCard(card)
+  }, [byStatus])
 
   /** Which column an id (a card's, or a column's own drop-target id) belongs
    * to. */
@@ -317,7 +322,6 @@ export function Dashboard() {
     setActiveGame(undefined)
     setHoveredColumn(null)
     setDropIndicator(null)
-    setDropAnimates(true)
 
     const { active, over } = event
     if (!over) return
@@ -338,11 +342,12 @@ export function Dashboard() {
     // sort, same as dropping anywhere in a column normally would.
     if (!indicator || indicator.status !== destStatus) {
       if (destStatus !== dragged.status) {
-        setDropAnimates(false)
+        droppedRef.current = { id: dragged.id, status: destStatus }
         saveGame(dragged, { status: destStatus })
       }
       return
     }
+    droppedRef.current = { id: dragged.id, status: destStatus }
 
     // The destination tie group with dragged inserted exactly where the
     // drop-line indicator showed it landing — the same computation whether
@@ -514,7 +519,7 @@ export function Dashboard() {
                     ))}
                   </div>
 
-                  <DragOverlay dropAnimation={dropAnimates ? DROP_ANIMATION : null}>
+                  <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' }}>
                     {activeGame && (
                       <div className="w-64 rotate-2 scale-105 opacity-95 shadow-drag">
                         <GameCard game={activeGame} onClick={() => {}} />
@@ -565,6 +570,45 @@ export function Dashboard() {
 
     </div>
   )
+}
+
+/** Brings a card that was just dropped on screen, if it landed out of
+ * sight: by scrolling its column to the part of it that is on screen, and
+ * the page only as far as the column alone cannot show the whole card. */
+function revealCard(card: HTMLElement) {
+  const column = card.parentElement
+  if (!column) return
+
+  // Where the card sits in the layout. While the drop animates, dnd-kit
+  // still shifts it with a transform, which no amount of scrolling undoes.
+  const rect = card.getBoundingClientRect()
+  const shift = new DOMMatrixReadOnly(getComputedStyle(card).transform).m42
+  let top = (rect.top + rect.bottom) / 2 - shift - card.offsetHeight / 2
+  let bottom = top + card.offsetHeight
+
+  // Kept clear of the column's faded edges (see useEdgeFade).
+  const margin = 16
+  const bounds = column.getBoundingClientRect()
+  const visibleTop = Math.max(bounds.top, 0) + margin
+  const visibleBottom = Math.min(bounds.bottom, window.innerHeight) - margin
+  const scrolledFrom = column.scrollTop
+  if (top < visibleTop) column.scrollTop -= visibleTop - top
+  else if (bottom > visibleBottom) column.scrollTop += bottom - visibleBottom
+  top -= column.scrollTop - scrolledFrom
+  bottom -= column.scrollTop - scrolledFrom
+
+  const page = scrollParent(column)
+  if (top < 0) page.scrollTop += top
+  else if (bottom > window.innerHeight) page.scrollTop += bottom - window.innerHeight
+}
+
+/** The nearest ancestor of `element` that scrolls: in the app's layout,
+ * the page itself. */
+function scrollParent(element: HTMLElement): Element {
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    if (/auto|scroll/.test(getComputedStyle(node).overflowY) && node.scrollHeight > node.clientHeight) return node
+  }
+  return document.scrollingElement ?? document.documentElement
 }
 
 /** A status column's drop target — its own droppable, so a column with no
@@ -644,6 +688,7 @@ function SortableGameCard({
   return (
     <div
       ref={setNodeRef}
+      data-board-card={game.id}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={[draggable ? 'touch-none' : '', isDragging ? 'opacity-0' : ''].join(' ')}
       {...(draggable ? attributes : undefined)}
