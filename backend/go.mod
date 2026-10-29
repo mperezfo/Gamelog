@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/danielgtaylor/huma/v2 v2.39.1
 	github.com/gen2brain/avif v0.6.0
-	github.com/go-chi/chi/v5 v5.3.2
+	github.com/go-chi/chi/v5 v5.4.0
 	github.com/go-sql-driver/mysql v1.10.1
 	github.com/pressly/goose/v3 v3.28.0
 	github.com/testcontainers/testcontainers-go v0.44.0

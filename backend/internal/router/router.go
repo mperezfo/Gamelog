@@ -50,7 +50,10 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	// The client's address, for the request log, is read from X-Forwarded-For
+	// only when the request comes from loopback, which is Caddy in the image:
+	// a header a client sends itself is never believed.
+	r.Use(middleware.ClientIPFromXFF("127.0.0.0/8", "::1/128"))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(requestTimeout(RequestTimeout))
