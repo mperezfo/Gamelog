@@ -114,7 +114,7 @@ Adminer (<http://localhost:8081>) is the quickest way to inspect the data by han
 cd backend && go test ./...
 ```
 
-Tests do not depend on the development environment: each one starts its own throwaway MariaDB container with testcontainers and migrates it, so nothing has to be running beforehand — but Docker must be available. A full run takes about a minute.
+Tests do not depend on the development environment: each test package starts one throwaway MariaDB container with testcontainers, kept in memory, and each test gets an empty database of its own in it, freshly migrated. Nothing has to be running beforehand, but Docker must be available. A full run takes a few seconds once compiled.
 
 To skip everything that needs Docker:
 
