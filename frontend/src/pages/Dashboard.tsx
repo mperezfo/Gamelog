@@ -38,6 +38,9 @@ import { GAME_STATUSES, STATUS_DOT, STATUS_LABELS, type Game, type GameStatus } 
 
 const TOP_RATED_COUNT = 10
 
+/** One game's new place on the board, as a drop saves it. */
+type Save = [game: Game, changes: Partial<Pick<Game, 'status' | 'position'>>]
+
 /**
  * Where most of the time on this application goes: the whole library at a
  * glance, and the fastest path to editing any one game in it.
@@ -187,17 +190,18 @@ export function Dashboard() {
     return GAME_STATUSES.find((status) => byStatus[status].some((g) => g.id === id))
   }
 
-  /** Saves where a game was dropped. `moved` is the game the drag was
-   * about, for a failure to name: a drag into a group of equal positions
-   * saves its neighbours too (see handleDragEnd). The cached board is
-   * already showing the move (see useUpdateGame); if the save fails it puts
-   * the card back, and a toast says why. */
-  function saveGame(game: Game, changes: Partial<Pick<Game, 'status' | 'position'>>, moved: Game = game) {
-    // The promise rather than mutate's own onError, which only runs for the
+  /** Saves where `dragged` was dropped: its own new place, and its
+   * neighbours' too when the drop renumbers a group of equal positions (see
+   * handleDragEnd). The cached board is already showing the move (see
+   * useUpdateGame); if a save fails it puts the card back, and a single
+   * toast says why, naming the dragged game however many saves failed. */
+  function saveDrop(dragged: Game, saves: Save[]) {
+    // The promises rather than mutate's own onError, which only runs for the
     // latest of several saves in a row, as a renumbering makes.
-    updateGame
-      .mutateAsync({ id: game.id, input: gameInput(game, changes) })
-      .catch((error: unknown) => toast.show({ message: `Could not move “${moved.title}”: ${errorMessage(error)}` }))
+    const saved = saves.map(([game, changes]) => updateGame.mutateAsync({ id: game.id, input: gameInput(game, changes) }))
+    Promise.all(saved).catch((error: unknown) =>
+      toast.show({ message: `Could not move “${dragged.title}”: ${errorMessage(error)}`, tone: 'error' }),
+    )
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -318,7 +322,7 @@ export function Dashboard() {
     // only thing decided here; position settles on its own via the date
     // sort, same as dropping anywhere in a column normally would.
     if (!indicator || indicator.status !== destStatus) {
-      if (destStatus !== dragged.status) saveGame(dragged, { status: destStatus })
+      if (destStatus !== dragged.status) saveDrop(dragged, [[dragged, { status: destStatus }]])
       return
     }
 
@@ -340,10 +344,12 @@ export function Dashboard() {
     // in the group is then distinct, keeps future drags in it cheap again.
     const hasCollision = new Set(ordered.map((g) => g.position)).size !== ordered.length
     if (hasCollision) {
+      const saves: Save[] = []
       ordered.forEach((g, index) => {
-        if (g.id === dragged.id) saveGame(g, { status: destStatus, position: index })
-        else if (g.position !== index) saveGame(g, { position: index }, dragged)
+        if (g.id === dragged.id) saves.push([g, { status: destStatus, position: index }])
+        else if (g.position !== index) saves.push([g, { position: index }])
       })
+      saveDrop(dragged, saves)
       return
     }
 
@@ -353,7 +359,7 @@ export function Dashboard() {
     const position =
       prev && next ? (prev.position + next.position) / 2 : prev ? prev.position + 1 : next ? next.position - 1 : 0
 
-    saveGame(dragged, { status: destStatus, position })
+    saveDrop(dragged, [[dragged, { status: destStatus, position }]])
   }
 
   return (
