@@ -577,38 +577,18 @@ export function Dashboard() {
  * the page only as far as the column alone cannot show the whole card. */
 function revealCard(card: HTMLElement) {
   const column = card.parentElement
-  if (!column) return
-
-  // Where the card sits in the layout. While the drop animates, dnd-kit
-  // still shifts it with a transform, which no amount of scrolling undoes.
-  const rect = card.getBoundingClientRect()
-  const shift = new DOMMatrixReadOnly(getComputedStyle(card).transform).m42
-  let top = (rect.top + rect.bottom) / 2 - shift - card.offsetHeight / 2
-  let bottom = top + card.offsetHeight
-
-  // Kept clear of the column's faded edges (see useEdgeFade).
-  const margin = 16
-  const bounds = column.getBoundingClientRect()
-  const visibleTop = Math.max(bounds.top, 0) + margin
-  const visibleBottom = Math.min(bounds.bottom, window.innerHeight) - margin
-  const scrolledFrom = column.scrollTop
-  if (top < visibleTop) column.scrollTop -= visibleTop - top
-  else if (bottom > visibleBottom) column.scrollTop += bottom - visibleBottom
-  top -= column.scrollTop - scrolledFrom
-  bottom -= column.scrollTop - scrolledFrom
-
-  const page = scrollParent(column)
-  if (top < 0) page.scrollTop += top
-  else if (bottom > window.innerHeight) page.scrollTop += bottom - window.innerHeight
-}
-
-/** The nearest ancestor of `element` that scrolls: in the app's layout,
- * the page itself. */
-function scrollParent(element: HTMLElement): Element {
-  for (let node = element.parentElement; node; node = node.parentElement) {
-    if (/auto|scroll/.test(getComputedStyle(node).overflowY) && node.scrollHeight > node.clientHeight) return node
+  if (column) {
+    // Kept clear of the column's faded edges (see useEdgeFade).
+    const margin = 16
+    const bounds = column.getBoundingClientRect()
+    const top = Math.max(bounds.top, 0) + margin
+    const bottom = Math.min(bounds.bottom, window.innerHeight) - margin
+    const rect = card.getBoundingClientRect()
+    if (rect.top < top) column.scrollTop -= top - rect.top
+    else if (rect.bottom > bottom) column.scrollTop += rect.bottom - bottom
   }
-  return document.scrollingElement ?? document.documentElement
+  // A no-op once the card is in full view.
+  card.scrollIntoView({ block: 'nearest' })
 }
 
 /** A status column's drop target — its own droppable, so a column with no
