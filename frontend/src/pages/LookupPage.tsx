@@ -68,24 +68,40 @@ const DEFAULT_COLOR = '#787774'
 type SortMode = 'count' | 'name'
 
 /**
- * The IGDB link of a row in the list. A record linked to a single IGDB
- * record opens its page straight away; one standing for several (Nintendo
- * and its EPD groups, say, or a "VR" platform) asks which, in a small menu
- * naming them as IGDB does, since the library keeps nothing but their ids.
+ * The IGDB link of a row in the list. It opens a small menu naming the IGDB
+ * records the row is linked to as IGDB does, since the library keeps nothing
+ * but their ids, even when there is only one: the name says which record the
+ * link goes to before it is followed. One standing for several (Nintendo and
+ * its EPD groups, say, or a "VR" platform) says how many next to its glyph,
+ * so that it shows in the list at a glance.
  */
 function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
   const capabilities = useMetadataCapabilities()
   const [open, setOpen] = useState(false)
+  // Asked for as soon as the pointer or the focus reaches the glyph, so that
+  // the menu opens on the names rather than on the ids.
+  const [wanted, setWanted] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const named = useIgdbNames(kind, ids, open)
+  const named = useIgdbNames(kind, ids, wanted || open)
+  const count = ids.length > 1 && (
+    <span aria-hidden="true" className="-mt-0.5 ml-px text-[9px] leading-none font-medium tabular-nums">
+      {ids.length}
+    </span>
+  )
 
-  if (ids.length === 1 || !capabilities.data?.identify) {
-    return <IgdbLink kind={kind} id={ids[0]} className="shrink-0 text-ink-faint" />
+  if (!capabilities.data?.identify) {
+    return (
+      <span className="inline-flex shrink-0 items-start text-ink-faint">
+        <IgdbLink kind={kind} id={ids[0]} />
+        {count}
+      </span>
+    )
   }
 
   // Named as IGDB does once the names are in; by id until then, or if IGDB
   // cannot be reached.
   const names = new Map((named.data ?? []).map((record) => [record.id, record.name]))
+  const label = ids.length === 1 ? 'Linked to IGDB' : `Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`
 
   return (
     <span className="inline-flex shrink-0">
@@ -93,12 +109,15 @@ function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        data-tooltip={`Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`}
-        aria-label={`Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`}
+        onPointerEnter={() => setWanted(true)}
+        onFocus={() => setWanted(true)}
+        data-tooltip={label}
+        aria-label={label}
         aria-expanded={open}
-        className="inline-flex text-ink-faint transition-colors duration-75 hover:text-ink"
+        className="inline-flex items-start text-ink-faint transition-colors duration-75 hover:text-ink"
       >
         <ExternalLinkIcon className="size-3" />
+        {count}
       </button>
       <Popover
         anchorRef={triggerRef}
@@ -489,6 +508,13 @@ function LookupForm({
   const error = create.error ?? update.error
   const offline = useOffline()
 
+  // What IGDB calls each linked record, for the tooltip of its id, since
+  // the id alone says nothing about which record it is. Fetched as the form
+  // opens, so that the tooltip has it by the time the pointer gets there.
+  const capabilities = useMetadataCapabilities()
+  const named = useIgdbNames(links.kind, links.ids, links.ids.length > 0 && Boolean(capabilities.data?.identify))
+  const igdbNames = new Map((named.data ?? []).map((record) => [record.id, record.name]))
+
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim()) return
@@ -554,7 +580,12 @@ function LookupForm({
                       {dropped ? (
                         <s className="tabular-nums decoration-ink-faint">{id}</s>
                       ) : (
-                        <IgdbLink kind={links.kind} id={id} className="text-ink-muted tabular-nums [&_svg]:-translate-y-px">
+                        <IgdbLink
+                          kind={links.kind}
+                          id={id}
+                          tooltip={igdbNames.get(id)}
+                          className="text-ink-muted tabular-nums [&_svg]:-translate-y-px"
+                        >
                           {id}
                         </IgdbLink>
                       )}
