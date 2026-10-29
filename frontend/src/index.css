@@ -287,6 +287,13 @@
   }
 }
 
+/* A popover closing (see Popover), the way back from gl-appear. */
+@keyframes gl-disappear {
+  to {
+    opacity: 0;
+  }
+}
+
 /* A dot of a waiting ellipsis (IdentifyPanel): a small lift and back, then
    a rest, so that three of them in turn read as a gentle wave. */
 @keyframes gl-bob {
