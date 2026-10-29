@@ -269,16 +269,18 @@ environment:
   GAMELOG_BACKUP_MONTHLY: 12
 ```
 
-A backup is taken when the server starts and checked for every hour after, at most one per account and day, named by its date: `/data/backups/<account>/gamelog-backup-2026-10-24.zip` (an account whose name would not make a safe file name gets `user-<id>` instead). A backup that fails is logged and tried again an hour later; it never stops the server. Nothing is backed up for the admin, who owns no library.
+A backup is taken when the server starts and checked for every hour after, at most one per account and day, named by its date: `/data/backups/7-martin/gamelog-backup-2026-10-24.zip`. Each account's directory is its id followed by its username in plain lowercase letters and digits (`Martín` becomes `martin`), or just its id when nothing of the username is left. A backup that fails is logged and tried again an hour later; it never stops the server. Nothing is backed up for the admin, who owns no library.
 
 After each backup the old ones are pruned, with no state kept but the files themselves: a file stays if it is the newest backup of one of the last 7 days that have a backup (with `GAMELOG_BACKUP_DAILY=7`), of one of the last 4 weeks, or of one of the last 12 months. Every other backup is deleted. A server that was down for a while still keeps as many as asked for, and files that are not named like a backup are never touched.
+
+Deleting an account leaves its backups where they are, and they are no longer pruned: it is how that account can still be restored, onto a new account, if it was deleted by mistake. Remove its directory once it is no longer needed.
 
 Each file is the same `.zip` the Account page downloads, so it restores the same way, from the Account page of that account.
 
 They live on the `gamelog-data` volume, the same disk as everything else. To copy them off the machine, sync the directory somewhere else on a schedule of your own, for example with `rsync` from the host:
 
 ```sh
-docker compose cp gamelog:/data/backups ./gamelog-backups
+docker compose cp gamelog:/data/backups/. ./gamelog-backups
 rsync -a ./gamelog-backups/ backup-host:/srv/gamelog-backups/
 ```
 
