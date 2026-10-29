@@ -28,17 +28,21 @@ var diacritics = transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), n
 // what makes the stored value unique, by appending "-2", "-3", ... the way a
 // filesystem avoids overwriting a file of the same name.
 func Make(title string) string {
-	folded, _, err := transform.String(diacritics, title)
+	if s := Fold(title); s != "" {
+		return s
+	}
+	return "game"
+}
+
+// Fold is Make without the fallback: empty when nothing of s survives
+// ("---", or a name written only in a script other than Latin).
+func Fold(s string) string {
+	folded, _, err := transform.String(diacritics, s)
 	if err != nil {
-		folded = title
+		folded = s
 	}
 
-	s := nonSlugRun.ReplaceAllString(strings.ToLower(folded), "-")
-	s = strings.Trim(s, "-")
-	if s == "" {
-		s = "game"
-	}
-	return s
+	return strings.Trim(nonSlugRun.ReplaceAllString(strings.ToLower(folded), "-"), "-")
 }
 
 // Reserved reports whether a slug, unique or not, must not be stored as it

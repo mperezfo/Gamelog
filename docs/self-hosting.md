@@ -192,6 +192,8 @@ Everything is configured through environment variables. Every variable has a def
 | `GAMELOG_IGDB_CLIENT_SECRET` | — | Its client secret. Set both or neither |
 | `GAMELOG_IGDB_SEARCH_LIMIT` | `10` | How many games the Identify button offers at most, from 1 to 500 |
 | `GAMELOG_STEAMGRIDDB_API_KEY` | — | A SteamGridDB API key, for searching cover images there as well. See [Cover image search](#cover-image-search) |
+| `GAMELOG_BACKUP_DAILY`, `_WEEKLY`, `_MONTHLY` | `0` | How many scheduled backups of each kind to keep. See [Scheduled backups](#scheduled-backups) |
+| `GAMELOG_BACKUP_DIR` | `/data/backups` in the image | Where scheduled backups are stored, a directory per account |
 | `GAMELOG_PORT` | `8080` | Backend port. Inside the image it is an internal detail between Caddy and the backend: the container's public port is always 9999 |
 
 The defaults are local development credentials. Change them before deploying anywhere, even behind Tailscale.
@@ -246,6 +248,43 @@ It reads the new password from stdin and ends every session the account had.
 The **Account** page can download a full backup of your account as a `.zip` — every game, genre, developer, publisher and platform, your profile, plus every cover and avatar they use — and restore one, replacing what is there. It covers one account at a time; see [Import and export](import-export.md) for the details.
 
 To back up a whole deployment, back up both volumes: the database (`db-data`, or a `mariadb-dump`) and `gamelog-data`, which holds the images.
+
+### Scheduled backups
+
+Gamelog can also take that same `.zip` of every account on its own, once a day, and keep a history of them. It is off by default, and turns on when any of these is above zero:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `GAMELOG_BACKUP_DAILY` | `0` | How many daily backups to keep |
+| `GAMELOG_BACKUP_WEEKLY` | `0` | How many weekly ones (ISO weeks, Monday to Sunday) |
+| `GAMELOG_BACKUP_MONTHLY` | `0` | How many monthly ones |
+| `GAMELOG_BACKUP_DIR` | `/data/backups` in the image | Where they are stored |
+
+For example, to keep the last 7 daily, 4 weekly and 12 monthly backups:
+
+```yaml
+environment:
+  GAMELOG_BACKUP_DAILY: 7
+  GAMELOG_BACKUP_WEEKLY: 4
+  GAMELOG_BACKUP_MONTHLY: 12
+```
+
+A backup is taken when the server starts and checked for every hour after, at most one per account and day, named by its date: `/data/backups/7-martin/gamelog-backup-2026-10-24.zip`. Each account's directory is its id followed by its username in plain lowercase letters and digits (`Martín` becomes `martin`), or just its id when nothing of the username is left. A backup that fails is logged and tried again an hour later; it never stops the server. Nothing is backed up for the admin, who owns no library.
+
+After each backup the old ones are pruned, with no state kept but the files themselves: a file stays if it is the newest backup of one of the last 7 days that have a backup (with `GAMELOG_BACKUP_DAILY=7`), of one of the last 4 weeks, or of one of the last 12 months. Every other backup is deleted. A server that was down for a while still keeps as many as asked for, and files that are not named like a backup are never touched.
+
+Deleting an account leaves its backups where they are, and they are no longer pruned: it is how that account can still be restored, onto a new account, if it was deleted by mistake. Remove its directory once it is no longer needed.
+
+Each file is the same `.zip` the Account page downloads, so it restores the same way, from the Account page of that account.
+
+They live on the `gamelog-data` volume, the same disk as everything else. To copy them off the machine, sync the directory somewhere else on a schedule of your own, for example with `rsync` from the host:
+
+```sh
+docker compose cp gamelog:/data/backups/. ./gamelog-backups
+rsync -a ./gamelog-backups/ backup-host:/srv/gamelog-backups/
+```
+
+or point any backup tool (restic, Borg, a NAS's own sync) at the volume's directory on the host.
 
 ## Stored images
 
