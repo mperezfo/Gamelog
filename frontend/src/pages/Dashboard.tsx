@@ -36,6 +36,9 @@ import { GAME_STATUSES, STATUS_DOT, STATUS_LABELS, type Game, type GameStatus } 
 
 const TOP_RATED_COUNT = 10
 
+/** How the dragged card glides to where it landed, once dropped. */
+const DROP_ANIMATION = { duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' }
+
 /**
  * Where most of the time on this application goes: the whole library at a
  * glance, and the fastest path to editing any one game in it.
@@ -67,6 +70,12 @@ export function Dashboard() {
    * tie group, clears it instead; the whole column is already highlighted
    * for those via `hoveredColumn`. */
   const [dropIndicator, setDropIndicator] = useState<{ status: GameStatus; beforeId: number | null } | null>(null)
+
+  /** Whether the last drop glides the card to where it landed. Before it
+   * glides, dnd-kit scrolls the card into view if it is off screen, which
+   * moves the column and the whole page with it: so a drop whose place the
+   * date sort decides, often far down a long column, skips the glide. */
+  const [dropAnimates, setDropAnimates] = useState(true)
 
   // The library board is only capped to the calendar's height from `xl` up,
   // where the two sit side by side (see the comment further down) — below
@@ -308,6 +317,7 @@ export function Dashboard() {
     setActiveGame(undefined)
     setHoveredColumn(null)
     setDropIndicator(null)
+    setDropAnimates(true)
 
     const { active, over } = event
     if (!over) return
@@ -327,7 +337,10 @@ export function Dashboard() {
     // only thing decided here; position settles on its own via the date
     // sort, same as dropping anywhere in a column normally would.
     if (!indicator || indicator.status !== destStatus) {
-      if (destStatus !== dragged.status) saveGame(dragged, { status: destStatus })
+      if (destStatus !== dragged.status) {
+        setDropAnimates(false)
+        saveGame(dragged, { status: destStatus })
+      }
       return
     }
 
@@ -501,7 +514,7 @@ export function Dashboard() {
                     ))}
                   </div>
 
-                  <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' }}>
+                  <DragOverlay dropAnimation={dropAnimates ? DROP_ANIMATION : null}>
                     {activeGame && (
                       <div className="w-64 rotate-2 scale-105 opacity-95 shadow-drag">
                         <GameCard game={activeGame} onClick={() => {}} />
