@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react'
 
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { ChevronLeftIcon, ChevronRightIcon } from './icons'
@@ -23,13 +23,14 @@ interface MenuStepsProps {
  * A menu in steps, such as "+ Filter" on Games: a list of fields, then the
  * values of the one picked. Moving forward, the new step slides in from the
  * right and the old one out to the left; going back, the other way round.
- * The menu takes the size of the new step as it does, rather than jumping
+ * The menu takes the height of the new step as it does, rather than jumping
  * to it.
  *
- * The size is measured, since Firefox has no `interpolate-size` to animate
- * to `auto`: the old size is pinned, then the new one, and the box goes back
- * to `auto` once there. With reduced motion a step simply replaces the
- * other.
+ * The height is measured, since Firefox has no `interpolate-size` to
+ * animate to `auto`: the box always has the height of the step showing, in
+ * pixels, kept up to date as that step grows or shrinks (a search narrowing
+ * a list, say), so that a new step is a change from one height to another
+ * like any other. With reduced motion a step simply replaces the other.
  *
  * Focus is the steps' own business (each focuses itself as it appears, see
  * FilterBar); a step that comes back while still going out, which does not
@@ -52,50 +53,32 @@ export function MenuSteps({ step, depth, renderStep }: MenuStepsProps) {
 
   const boxRef = useRef<HTMLDivElement>(null)
   const currentRef = useRef<HTMLDivElement>(null)
-  // The size of the box while it is not on its way to another, which is
-  // where the next change starts from.
-  const settled = useRef<DOMRect | null>(null)
 
-  useEffect(() => {
-    const box = boxRef.current
-    if (!box) return
-    const observer = new ResizeObserver(() => {
-      if (!box.style.height) settled.current = box.getBoundingClientRect()
-    })
-    observer.observe(box)
-    return () => observer.disconnect()
-  }, [])
-
+  // The box takes the height of the step showing, and keeps it: measured as
+  // the step appears, before it is painted, and again whenever it changes
+  // size. The step itself is never held to the box, which only clips, so
+  // its own height is always the one to go to. The transition does the rest,
+  // from wherever the box has got to.
   useLayoutEffect(() => {
     const box = boxRef.current
-    if (!box || current.direction === null) return
     const element = currentRef.current
-    if (element && !element.contains(document.activeElement)) element.focus({ preventScroll: true })
+    if (!box || !element) return
+    if (current.direction !== null && !element.contains(document.activeElement)) element.focus({ preventScroll: true })
 
-    // Halfway to another size, from wherever it has got to.
-    const from = box.style.height ? box.getBoundingClientRect() : settled.current
-    box.style.width = ''
-    box.style.height = ''
-    const to = box.getBoundingClientRect()
-    if (!from || (from.width === to.width && from.height === to.height)) return
-    box.style.width = `${from.width}px`
-    box.style.height = `${from.height}px`
-    // Read back, so that the old size is where the transition starts.
-    void box.offsetHeight
-    box.style.width = `${to.width}px`
-    box.style.height = `${to.height}px`
+    const fit = () => {
+      box.style.height = `${element.getBoundingClientRect().height}px`
+    }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(element)
+    return () => observer.disconnect()
   }, [current.step, current.direction])
 
   return (
     <div
       ref={boxRef}
-      onTransitionEnd={(event) => {
-        if (event.target !== event.currentTarget) return
-        event.currentTarget.style.width = ''
-        event.currentTarget.style.height = ''
-      }}
       style={{ '--gl-step-offset': current.direction === 'back' ? `-${OFFSET}` : OFFSET } as CSSProperties}
-      className="relative overflow-hidden transition-[width,height] duration-150 ease-out"
+      className="relative overflow-hidden transition-[height] duration-150 ease-out motion-reduce:transition-none"
     >
       {leaving !== null && (
         <div
