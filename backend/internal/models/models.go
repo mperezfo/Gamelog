@@ -97,6 +97,16 @@ type Developer struct {
 	// live in a table of their own (see migration 00016) and are filled in
 	// by LookupRepository's List and Get only, never written through here.
 	IGDBCompanyIDs []uint64 `gorm:"-" json:"igdb_company_ids,omitempty"`
+	// IGDBNames are the names IGDB gives those companies, for the ones the
+	// server has seen (see migration 00021). Filled in alongside them.
+	IGDBNames []IGDBName `gorm:"-" json:"igdb_names,omitempty"`
+}
+
+// IGDBName is the name IGDB gives one of the companies or platforms a
+// record is linked to.
+type IGDBName struct {
+	ID   uint64 `json:"id" doc:"IGDB's id for the company or platform." example:"37"`
+	Name string `json:"name" doc:"Its name on IGDB, as last seen." example:"Capcom"`
 }
 
 // Publisher is a game publisher.
@@ -109,6 +119,8 @@ type Publisher struct {
 	Country *string `gorm:"column:country" json:"country"`
 	// IGDBCompanyIDs: see Developer.IGDBCompanyIDs.
 	IGDBCompanyIDs []uint64 `gorm:"-" json:"igdb_company_ids,omitempty"`
+	// IGDBNames: see Developer.IGDBNames.
+	IGDBNames []IGDBName `gorm:"-" json:"igdb_names,omitempty"`
 }
 
 // Platform is a system a game was played.
@@ -124,4 +136,6 @@ type Platform struct {
 	// IGDBPlatformIDs are the IGDB platforms the platform stands for, filled
 	// in the same way as Developer.IGDBCompanyIDs. See migration 00018.
 	IGDBPlatformIDs []uint64 `gorm:"-" json:"igdb_platform_ids,omitempty"`
+	// IGDBNames: see Developer.IGDBNames.
+	IGDBNames []IGDBName `gorm:"-" json:"igdb_names,omitempty"`
 }

@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"reflect"
@@ -53,6 +54,8 @@ type igdbLinkSpec struct {
 	// countryTable is the entity's own table, when it has a country that a
 	// link can fill in (see migration 00019): developers and publishers.
 	countryTable string
+	// nameKind is the kind of IGDB record linked to, in igdb_names.
+	nameKind IGDBKind
 }
 
 // igdbLinkTable describes the link table of T. Genres have none.
@@ -60,44 +63,51 @@ func igdbLinkTable[T Lookup]() (igdbLinkSpec, bool) {
 	var zero T
 	switch any(zero).(type) {
 	case models.Developer:
-		return igdbLinkSpec{"developer_igdb_companies", "igdb_company_id", "developer_id", "IGDBCompanyIDs", true, "developers"}, true
+		return igdbLinkSpec{"developer_igdb_companies", "igdb_company_id", "developer_id", "IGDBCompanyIDs", true, "developers", IGDBCompany}, true
 	case models.Publisher:
-		return igdbLinkSpec{"publisher_igdb_companies", "igdb_company_id", "publisher_id", "IGDBCompanyIDs", true, "publishers"}, true
+		return igdbLinkSpec{"publisher_igdb_companies", "igdb_company_id", "publisher_id", "IGDBCompanyIDs", true, "publishers", IGDBCompany}, true
 	case models.Platform:
-		return igdbLinkSpec{"platform_igdb_platforms", "igdb_platform_id", "platform_id", "IGDBPlatformIDs", false, ""}, true
+		return igdbLinkSpec{"platform_igdb_platforms", "igdb_platform_id", "platform_id", "IGDBPlatformIDs", false, "", IGDBPlatform}, true
 	default:
 		return igdbLinkSpec{}, false
 	}
 }
 
-// igdbLinks returns the IGDB ids each of the owner's records is linked to,
-// keyed by record: all of them, or only the ones of record when it is not
-// zero, read through the index on the record's column rather than the whole
-// table.
-func (r *LookupRepository[T]) igdbLinks(ctx context.Context, record uint64) (map[uint64][]uint64, error) {
+// igdbLinks returns the IGDB records each of the owner's records is linked
+// to, keyed by record, with the name IGDB gives each where it is known (an
+// empty one where not): all of them, or only the ones of record when it is
+// not zero, read through the index on the record's column rather than the
+// whole table.
+func (r *LookupRepository[T]) igdbLinks(ctx context.Context, record uint64) (map[uint64][]models.IGDBName, error) {
 	spec, ok := igdbLinkTable[T]()
 	if !ok {
 		return nil, errNotLinkable
 	}
 
 	var rows []struct {
-		IGDBID   uint64 `gorm:"column:igdb_id"`
-		LookupID uint64 `gorm:"column:lookup_id"`
+		IGDBID   uint64  `gorm:"column:igdb_id"`
+		LookupID uint64  `gorm:"column:lookup_id"`
+		Name     *string `gorm:"column:name"`
 	}
 	query := r.db.WithContext(ctx).
-		Table(spec.table).
-		Select(spec.igdbColumn+" AS igdb_id, "+spec.recordColumn+" AS lookup_id").
-		Where("user_id = ?", r.userID)
+		Table(spec.table+" AS l").
+		Select("l."+spec.igdbColumn+" AS igdb_id, l."+spec.recordColumn+" AS lookup_id, n.name").
+		Joins("LEFT JOIN igdb_names AS n ON n.kind = ? AND n.igdb_id = l."+spec.igdbColumn, spec.nameKind).
+		Where("l.user_id = ?", r.userID)
 	if record != 0 {
-		query = query.Where(spec.recordColumn+" = ?", record)
+		query = query.Where("l."+spec.recordColumn+" = ?", record)
 	}
 	if err := query.Scan(&rows).Error; err != nil {
 		return nil, translate(err)
 	}
 
-	links := make(map[uint64][]uint64)
+	links := make(map[uint64][]models.IGDBName)
 	for _, row := range rows {
-		links[row.LookupID] = append(links[row.LookupID], row.IGDBID)
+		link := models.IGDBName{ID: row.IGDBID}
+		if row.Name != nil {
+			link.Name = *row.Name
+		}
+		links[row.LookupID] = append(links[row.LookupID], link)
 	}
 	return links, nil
 }
@@ -213,8 +223,9 @@ func (r *LookupRepository[T]) UnlinkIGDB(ctx context.Context, id, igdbID uint64)
 }
 
 // attachIGDBLinks fills in the IGDB ids of developers, publishers and
-// platforms, sorted, so that a read hands back the links along with the
-// records. It does nothing for genres, which have none.
+// platforms, sorted, and the names IGDB gives the ones the server has seen,
+// so that a read hands back the links along with the records. It does
+// nothing for genres, which have none.
 func (r *LookupRepository[T]) attachIGDBLinks(ctx context.Context, entities []T) error {
 	spec, ok := igdbLinkTable[T]()
 	if !ok || len(entities) == 0 {
@@ -233,11 +244,21 @@ func (r *LookupRepository[T]) attachIGDBLinks(ctx context.Context, entities []T)
 	}
 
 	for i := range entities {
-		linked := byRecord[idOf(&entities[i])]
-		slices.Sort(linked)
+		links := byRecord[idOf(&entities[i])]
+		slices.SortFunc(links, func(a, b models.IGDBName) int { return cmp.Compare(a.ID, b.ID) })
+		var ids []uint64
+		var names []models.IGDBName
+		for _, link := range links {
+			ids = append(ids, link.ID)
+			if link.Name != "" {
+				names = append(names, link)
+			}
+		}
 		// The same reflection as nameOf and friends in lookup.go: only the
-		// types igdbLinkTable accepts have the field.
-		reflect.ValueOf(&entities[i]).Elem().FieldByName(spec.field).Set(reflect.ValueOf(linked))
+		// types igdbLinkTable accepts have the fields.
+		entity := reflect.ValueOf(&entities[i]).Elem()
+		entity.FieldByName(spec.field).Set(reflect.ValueOf(ids))
+		entity.FieldByName("IGDBNames").Set(reflect.ValueOf(names))
 	}
 	return nil
 }
