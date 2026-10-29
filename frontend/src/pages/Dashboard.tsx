@@ -30,11 +30,16 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGameModal } from '../hooks/useGameModal'
 import { useShortcut } from '../hooks/useShortcut'
 import { useGames, useUpdateGame } from '../hooks/useGames'
+import { useToast } from '../hooks/toast'
 import { useOffline } from '../hooks/useOffline'
+import { gameInput } from '../lib/gameInput'
 import { compareForBoard, sameDateGroup } from '../lib/gameSort'
 import { GAME_STATUSES, STATUS_DOT, STATUS_LABELS, type Game, type GameStatus } from '../types/game'
 
 const TOP_RATED_COUNT = 10
+
+/** One game's new place on the board, as a drop saves it. */
+type Save = [game: Game, changes: Partial<Pick<Game, 'status' | 'position'>>]
 
 /**
  * Where most of the time on this application goes: the whole library at a
@@ -44,6 +49,7 @@ export function Dashboard() {
   useDocumentTitle()
   const games = useGames()
   const updateGame = useUpdateGame()
+  const toast = useToast()
 
   const modal = useGameModal()
   const offline = useOffline()
@@ -184,29 +190,18 @@ export function Dashboard() {
     return GAME_STATUSES.find((status) => byStatus[status].some((g) => g.id === id))
   }
 
-  function saveGame(game: Game, changes: Partial<Pick<Game, 'status' | 'position'>>) {
-    updateGame.mutate({
-      id: game.id,
-      input: {
-        title: game.title,
-        status: changes.status ?? game.status,
-        position: changes.position ?? game.position,
-        score: game.score,
-        tagline: game.tagline,
-        notes: game.notes,
-        cover_image_url: game.cover_image_url,
-        cover_focal_x: game.cover_focal_x,
-        cover_focal_y: game.cover_focal_y,
-        cover_zoom: game.cover_zoom,
-        release_date: game.release_date,
-        logged_date: game.logged_date,
-        platform_id: game.platform_id,
-        igdb_id: game.igdb_id,
-        genre_ids: (game.genres ?? []).map((g) => g.id),
-        developer_ids: (game.developers ?? []).map((d) => d.id),
-        publisher_ids: (game.publishers ?? []).map((p) => p.id),
-      },
-    })
+  /** Saves where `dragged` was dropped: its own new place, and its
+   * neighbours' too when the drop renumbers a group of equal positions (see
+   * handleDragEnd). The cached board is already showing the move (see
+   * useUpdateGame); if a save fails it puts the card back, and a single
+   * toast says why, naming the dragged game however many saves failed. */
+  function saveDrop(dragged: Game, saves: Save[]) {
+    // The promises rather than mutate's own onError, which only runs for the
+    // latest of several saves in a row, as a renumbering makes.
+    const saved = saves.map(([game, changes]) => updateGame.mutateAsync({ id: game.id, input: gameInput(game, changes) }))
+    Promise.all(saved).catch((error: unknown) =>
+      toast.show({ message: `Could not move “${dragged.title}”: ${errorMessage(error)}`, tone: 'error' }),
+    )
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -327,7 +322,7 @@ export function Dashboard() {
     // only thing decided here; position settles on its own via the date
     // sort, same as dropping anywhere in a column normally would.
     if (!indicator || indicator.status !== destStatus) {
-      if (destStatus !== dragged.status) saveGame(dragged, { status: destStatus })
+      if (destStatus !== dragged.status) saveDrop(dragged, [[dragged, { status: destStatus }]])
       return
     }
 
@@ -349,10 +344,12 @@ export function Dashboard() {
     // in the group is then distinct, keeps future drags in it cheap again.
     const hasCollision = new Set(ordered.map((g) => g.position)).size !== ordered.length
     if (hasCollision) {
+      const saves: Save[] = []
       ordered.forEach((g, index) => {
-        if (g.id === dragged.id) saveGame(g, { status: destStatus, position: index })
-        else if (g.position !== index) saveGame(g, { position: index })
+        if (g.id === dragged.id) saves.push([g, { status: destStatus, position: index }])
+        else if (g.position !== index) saves.push([g, { position: index }])
       })
+      saveDrop(dragged, saves)
       return
     }
 
@@ -362,7 +359,7 @@ export function Dashboard() {
     const position =
       prev && next ? (prev.position + next.position) / 2 : prev ? prev.position + 1 : next ? next.position - 1 : 0
 
-    saveGame(dragged, { status: destStatus, position })
+    saveDrop(dragged, [[dragged, { status: destStatus, position }]])
   }
 
   return (

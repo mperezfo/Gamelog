@@ -224,7 +224,7 @@ export function useDeleteGame() {
               () => setDeleting(game.id, false),
               (error: unknown) => {
                 setDeleting(game.id, false)
-                toast.show({ message: `Could not delete “${game.title}”: ${errorMessage(error)}` })
+                toast.show({ message: `Could not delete “${game.title}”: ${errorMessage(error)}`, tone: 'error' })
               },
             )
         },

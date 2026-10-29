@@ -84,14 +84,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false)
             }}
             className={[
-              'pointer-events-auto relative flex w-full max-w-md items-center gap-3 overflow-hidden rounded-control bg-tooltip py-2.5 pr-2.5 pl-4',
+              'pointer-events-auto relative flex w-full max-w-xl items-center gap-3 overflow-hidden rounded-control bg-tooltip py-2.5 pr-2.5 pl-4',
               // A hairline of its own, so that it stands out on a page as dark as
               // it is.
               'border border-white/10 text-sm text-tooltip-ink shadow-popover sm:w-auto sm:min-w-80',
               'animate-[gl-appear_150ms_ease-out] motion-reduce:animate-none',
             ].join(' ')}
           >
-            <span className="min-w-0 flex-1 truncate font-medium">{current.message}</span>
+            {/* Wrapped rather than cut short, so that a long title never
+                hides what went wrong. */}
+            <span className="min-w-0 flex-1 font-medium wrap-anywhere">{current.message}</span>
             {current.action && (
               <button
                 type="button"
@@ -116,7 +118,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {/* The time left, running out from right to left. */}
             <span
               aria-hidden="true"
-              className="absolute inset-x-0 bottom-0 h-[3px] origin-left bg-accent"
+              className={[
+                'absolute inset-x-0 bottom-0 h-[3px] origin-left',
+                current.tone === 'error' ? 'bg-danger' : 'bg-accent',
+              ].join(' ')}
               style={{
                 animation: `gl-countdown ${DURATION_MS}ms linear forwards`,
                 animationPlayState: paused ? 'paused' : 'running',

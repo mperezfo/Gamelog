@@ -3,6 +3,8 @@ import { createContext, use } from 'react'
 export interface Toast {
   /** What happened, in a few words. Read out by screen readers too. */
   message: string
+  /** `error` for something that did not work: its countdown bar is red. */
+  tone?: 'error'
   /** The one thing that can be done about it, such as Undo. */
   action?: { label: string; onPress: () => void }
   /** Called when the toast goes away without its action being pressed: on
