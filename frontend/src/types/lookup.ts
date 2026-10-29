@@ -1,3 +1,5 @@
+import type { IgdbNamed } from './metadata'
+
 /** The shape shared by genres, developers, publishers and platforms. A few
  * fields only ever come with some of them. */
 export interface Lookup {
@@ -18,6 +20,9 @@ export interface Lookup {
   igdb_company_ids?: number[]
   /** The same for a platform and the IGDB platforms it stands for. */
   igdb_platform_ids?: number[]
+  /** The names IGDB gives those companies or platforms, as the server last
+   * saw them: the ones it has seen, which may be none of them. */
+  igdb_names?: IgdbNamed[]
 }
 
 /** What creating or renaming one of them sends. */

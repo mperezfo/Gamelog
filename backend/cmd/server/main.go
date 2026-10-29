@@ -146,7 +146,11 @@ func run(tasks maintenance) error {
 		return err
 	}
 	if cfg.IGDBEnabled() {
-		go backfillCompanyCountries(ctx, db, igdb.New(cfg.IGDBClientID, cfg.IGDBClientSecret, cfg.IGDBSearchLimit))
+		client := igdb.New(cfg.IGDBClientID, cfg.IGDBClientSecret, cfg.IGDBSearchLimit)
+		go func() {
+			backfillCompanyCountries(ctx, db, client)
+			fillIGDBNames(ctx, db, client)
+		}()
 	}
 
 	srv := &http.Server{
@@ -248,6 +252,20 @@ func backfillCompanyCountries(ctx context.Context, db *gorm.DB, client *igdb.Cli
 	}
 	if filled > 0 {
 		slog.Info("filled in countries of developers and publishers from IGDB", "records", filled)
+	}
+}
+
+// fillIGDBNames names the IGDB companies and platforms linked to that the
+// server has no name for yet (see service.FillIGDBNames). In the background
+// and after the countries, on the same client, for the same reasons.
+func fillIGDBNames(ctx context.Context, db *gorm.DB, client *igdb.Client) {
+	named, err := service.FillIGDBNames(ctx, db, client.Companies, client.Platforms)
+	if err != nil {
+		slog.Warn("could not name the IGDB records the libraries link to", "error", err)
+		return
+	}
+	if named > 0 {
+		slog.Info("named IGDB records the libraries link to", "records", named)
 	}
 }
 
