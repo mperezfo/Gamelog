@@ -287,6 +287,13 @@
   }
 }
 
+/* A popover closing (see Popover), the way back from gl-appear. */
+@keyframes gl-disappear {
+  to {
+    opacity: 0;
+  }
+}
+
 /* A step of a menu going out, then the next one coming in (see MenuSteps). */
 @keyframes gl-step-in {
   from {
