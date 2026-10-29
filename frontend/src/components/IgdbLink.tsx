@@ -19,6 +19,7 @@ export function IgdbLink({
   id,
   className = '',
   'aria-label': ariaLabel,
+  tooltip = 'View on IGDB',
   children,
 }: {
   kind: IgdbKind
@@ -26,6 +27,9 @@ export function IgdbLink({
   className?: string
   /** For a glyph with no text beside it. */
   'aria-label'?: string
+  /** What hovering the link says, where there is more to say than that it
+   * opens IGDB (the name IGDB gives the record, say). */
+  tooltip?: string
   children?: ReactNode
 }) {
   const capabilities = useMetadataCapabilities()
@@ -53,7 +57,7 @@ export function IgdbLink({
       href={igdbPage(kind, id)}
       target="_blank"
       rel="noopener noreferrer"
-      data-tooltip="View on IGDB"
+      data-tooltip={tooltip}
       aria-label={ariaLabel}
       onClick={(event) => event.stopPropagation()}
       className={`inline-flex items-center gap-1 transition-colors duration-75 hover:text-ink ${className}`}
