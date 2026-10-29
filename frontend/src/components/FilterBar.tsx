@@ -265,7 +265,10 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
       <button
         ref={anchorRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        // Closing through close(), as a click outside does, so that the
+        // menu opens again on the list of fields rather than on the step it
+        // was left at.
+        onClick={() => (open ? close() : setOpen(true))}
         className="inline-flex h-9 items-center gap-1.5 rounded-control bg-sunken px-2.5 text-[13px] font-medium text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
       >
         <PlusIcon className="size-3.5" />
