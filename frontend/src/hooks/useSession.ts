@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { changePassword, getCurrentUser, login, logout, updatePreferences, updateProfile } from '../api/auth'
 import { clearOfflineCache } from '../lib/offlineCache'
 import { clearImageCache } from '../lib/serviceWorker'
-import type { CalendarView, DateFormat, GamesView, Preferences, User } from '../types/auth'
+import { DEFAULT_PREFERENCES, type Preferences, type User } from '../types/auth'
 
 /** Query key of the current session, so that logging in and out can reset it. */
 export const sessionKey = ['session'] as const
@@ -69,42 +69,43 @@ export function useLogout() {
   })
 }
 
-/** The signed-in account's date format, or the default while it is still
- * loading or nobody is signed in. */
-export function useDateFormat(): DateFormat {
+/** One of the signed-in account's preferences, or its default while the
+ * account is still loading or nobody is signed in. */
+export function usePreference<K extends keyof Preferences>(key: K): Preferences[K] {
   const session = useSession()
-  return session.data?.date_format ?? 'long'
+  return session.data?.[key] ?? DEFAULT_PREFERENCES[key]
 }
 
-/** The signed-in account's default Games view, or 'table' while it is still
- * loading or nobody is signed in. */
-export function useDefaultGamesView(): GamesView {
-  const session = useSession()
-  return session.data?.games_view ?? 'table'
-}
+/** Keys the preference updates, to tell whether another is on its way. */
+const preferencesKey = [...sessionKey, 'preferences'] as const
 
-/** The signed-in account's default calendar view, or 'release' while it is
- * still loading or nobody is signed in. */
-export function useDefaultCalendarView(): CalendarView {
-  const session = useSession()
-  return session.data?.calendar_view ?? 'release'
-}
-
-/** Changes any of the display preferences (theme, date format, default games
- * and calendar views), keeping the rest as the account has them. They all
- * travel with the account, so this is what keeps them in sync across devices
- * and lets them ride along with the rest of a backup. */
+/** Changes some of the display preferences, sending only those: the rest
+ * stay as the account has them. They travel with the account, so this is
+ * what keeps them in sync across devices and lets them ride along with the
+ * rest of a backup.
+ *
+ * A change shows straight away, so that the next one, made before the
+ * server has answered, builds on it, and is undone if the server refuses
+ * it. The account the server answers with only replaces it once no other
+ * change is on its way, which it would not carry yet. */
 export function useUpdatePreferences() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (changes: Partial<Preferences>) => {
-      const user = queryClient.getQueryData<User | null>(sessionKey)
-      if (!user) throw new Error('Not signed in.')
-      const { theme, date_format, games_view, calendar_view } = user
-      return updatePreferences({ theme, date_format, games_view, calendar_view, ...changes })
+    mutationKey: preferencesKey,
+    mutationFn: (changes: Partial<Preferences>) => updatePreferences(changes),
+    onMutate: async (changes) => {
+      await queryClient.cancelQueries({ queryKey: sessionKey, exact: true })
+      const previous = queryClient.getQueryData<User | null>(sessionKey)
+      if (previous) queryClient.setQueryData<User>(sessionKey, { ...previous, ...changes })
+      return { previous }
     },
-    onSuccess: (user) => queryClient.setQueryData(sessionKey, user),
+    onError: (_error, _changes, context) => {
+      if (context?.previous) queryClient.setQueryData(sessionKey, context.previous)
+    },
+    onSuccess: (user) => {
+      if (queryClient.isMutating({ mutationKey: preferencesKey }) <= 1) queryClient.setQueryData(sessionKey, user)
+    },
   })
 }
 

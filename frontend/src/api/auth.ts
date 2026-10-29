@@ -38,8 +38,9 @@ export function updateProfile(name: string, avatarUrl: string | null): Promise<U
   return apiSend<User>('/auth/profile', 'PUT', { name, avatar_url: avatarUrl })
 }
 
-export function updatePreferences(preferences: Preferences): Promise<User> {
-  return apiSend<User>('/auth/preferences', 'PUT', preferences)
+/** Changes the preferences `changes` carries, and only those. */
+export function updatePreferences(changes: Partial<Preferences>): Promise<User> {
+  return apiSend<User>('/auth/preferences', 'PUT', changes)
 }
 
 export function getSetupStatus(): Promise<SetupStatus> {

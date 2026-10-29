@@ -74,12 +74,29 @@ type updateProfileInput struct {
 }
 
 type updatePreferencesInput struct {
-	Body struct {
-		Theme        string `json:"theme" enum:"light,dark,system" doc:"Which theme the application renders in."`
-		DateFormat   string `json:"date_format" enum:"long,ymd,dmy,mdy" doc:"How a date is written out: 'long' (Dec 31, 2023), 'ymd' (2023/12/31), 'dmy' (31/12/2023) or 'mdy' (12/31/2023)."`
-		GamesView    string `json:"games_view" enum:"table,grid" doc:"Which layout the Games page opens in when its URL carries no view of its own."`
-		CalendarView string `json:"calendar_view" enum:"release,logged" doc:"Which dates the dashboard calendar opens on: release dates or logged dates."`
+	Body preferencesBody
+}
+
+// preferencesBody is models.Preferences as PUT /api/auth/preferences takes
+// it: every field optional, since only the ones sent change, and each one
+// taking the values models.PreferenceDefinitions gives it. It lives here
+// for the reason statusSchema gives.
+type preferencesBody models.Preferences
+
+// TransformSchema implements huma.SchemaTransformer.
+func (preferencesBody) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	s.Required = nil
+	for _, preference := range models.PreferenceDefinitions() {
+		property, ok := s.Properties[preference.Key]
+		if !ok {
+			panic("no field for the preference " + preference.Key)
+		}
+		property.Enum = make([]any, 0, len(preference.Values))
+		for _, value := range preference.Values {
+			property.Enum = append(property.Enum, value)
+		}
 	}
+	return s
 }
 
 type setupStatusOutput struct {
@@ -223,9 +240,9 @@ func registerAuth(api huma.API, service *auth.Service) {
 		Method:      http.MethodPut,
 		Path:        "/api/auth/preferences",
 		Summary:     "Update your own display preferences",
-		Description: "Changes the theme, date format, default games view and default calendar view " +
-			"the application renders with. All four travel with the account rather than the browser, so they are also " +
-			"part of the library export and import.",
+		Description: "Changes the display preferences the application renders with: only the ones " +
+			"the body carries, the rest stay as they are. They travel with the account rather than the browser, so " +
+			"they are also part of its backup.",
 		Tags:     []string{authTag},
 		Metadata: auth.Require(auth.AccessAny),
 		Errors:   []int{http.StatusUnauthorized, http.StatusUnprocessableEntity},
@@ -235,7 +252,11 @@ func registerAuth(api huma.API, service *auth.Service) {
 			return nil, err
 		}
 
-		updated, err := service.Users().UpdatePreferences(ctx, user.ID, input.Body.Theme, input.Body.DateFormat, input.Body.GamesView, input.Body.CalendarView)
+		preferences := models.Preferences(input.Body)
+		if err := preferences.Validate(); err != nil {
+			return nil, huma.Error422UnprocessableEntity(err.Error())
+		}
+		updated, err := service.Users().UpdatePreferences(ctx, user.ID, preferences)
 		if err != nil {
 			return nil, apiError(err, "no such account")
 		}

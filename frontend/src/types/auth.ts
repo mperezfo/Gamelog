@@ -23,20 +23,32 @@ export type GamesView = 'table' | 'grid'
  * when it was logged. */
 export type CalendarView = 'release' | 'logged'
 
+/** Display preferences. They travel with the account rather than the
+ * browser, so they follow it across devices and are part of the backup. */
+export interface Preferences {
+  theme: Theme
+  date_format: DateFormat
+  games_view: GamesView
+  calendar_view: CalendarView
+}
+
+/** What an account starts with, and what is shown while it loads, the same
+ * as the backend's (see models.Preferences). */
+export const DEFAULT_PREFERENCES: Preferences = {
+  theme: 'system',
+  date_format: 'long',
+  games_view: 'table',
+  calendar_view: 'release',
+}
+
 /** An account, as every endpoint that returns one describes it. */
-export interface User {
+export interface User extends Preferences {
   id: number
   /** Signs the account in. Not shown anywhere in the application itself. */
   username: string
   /** Shown throughout the application instead of the username. */
   name: string
   avatar_url: string | null
-  /** Display preferences. They travel with the account rather than the
-   * browser, so they follow it across devices and are part of the backup. */
-  theme: Theme
-  date_format: DateFormat
-  games_view: GamesView
-  calendar_view: CalendarView
   /** Set right after a backup is restored: the password was overwritten with
    * whatever the backup carried, so nothing works until a fresh one replaces
    * it. */
@@ -46,9 +58,6 @@ export interface User {
   created_at: string
   updated_at: string
 }
-
-/** The display preferences `PUT /api/auth/preferences` replaces, all at once. */
-export type Preferences = Pick<User, 'theme' | 'date_format' | 'games_view' | 'calendar_view'>
 
 /** Response of `GET /api/setup`. */
 export interface SetupStatus {

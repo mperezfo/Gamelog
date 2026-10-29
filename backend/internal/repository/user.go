@@ -33,7 +33,10 @@ func (r *UserRepository) Create(ctx context.Context, user *models.User) error {
 	if user.Name == "" {
 		user.Name = user.Username
 	}
-	applyDefaultPreferences(user)
+	// GORM writes a Go zero value ("") for a NOT NULL string column
+	// explicitly rather than leaving it to the database default, which the
+	// CHECK would refuse.
+	user.Preferences = user.Preferences.Normalise()
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(user).Error; err != nil {
@@ -82,7 +85,7 @@ func (r *UserRepository) CreateFirst(ctx context.Context, user *models.User) err
 	if user.Name == "" {
 		user.Name = user.Username
 	}
-	applyDefaultPreferences(user)
+	user.Preferences = user.Preferences.Normalise()
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var count int64
@@ -173,31 +176,30 @@ func (r *UserRepository) SetPassword(ctx context.Context, id uint64, hash string
 	return nil
 }
 
-// RestoreAccount overwrites the name, avatar and password hash of an account
-// from a backup, and sets MustChangePassword: the hash is the one that was
-// current when the backup was made, not one anybody just typed, so the
-// account is made to choose a fresh password before anything else about it
-// is trusted.
-func (r *UserRepository) RestoreAccount(ctx context.Context, id uint64, name string, avatarURL *string, passwordHash, theme, dateFormat, gamesView, calendarView string) error {
-	result := r.db.WithContext(ctx).
-		Model(&models.User{ID: id}).
-		Updates(map[string]any{
-			"name":                 name,
-			"avatar_url":           avatarURL,
-			"password_hash":        passwordHash,
-			"must_change_password": true,
-			"theme":                theme,
-			"date_format":          dateFormat,
-			"games_view":           gamesView,
-			"calendar_view":        calendarView,
-		})
-	if result.Error != nil {
-		return translate(result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return ErrNotFound
-	}
-	return nil
+// RestoreAccount overwrites the name, avatar, password hash and preferences
+// of an account from a backup, and sets MustChangePassword: the hash is the
+// one that was current when the backup was made, not one anybody just typed,
+// so the account is made to choose a fresh password before anything else
+// about it is trusted. The preferences are written whole: normalise them
+// first (see models.Preferences.Normalise).
+func (r *UserRepository) RestoreAccount(ctx context.Context, id uint64, name string, avatarURL *string, passwordHash string, preferences models.Preferences) error {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(&models.User{ID: id}).
+			Updates(map[string]any{
+				"name":                 name,
+				"avatar_url":           avatarURL,
+				"password_hash":        passwordHash,
+				"must_change_password": true,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return ErrNotFound
+		}
+		return tx.Model(&models.User{ID: id}).Updates(models.User{Preferences: preferences}).Error
+	})
+	return translate(err)
 }
 
 // UpdateProfile replaces the name and avatar an account shows in the
@@ -217,46 +219,20 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, id uint64, name stri
 	return r.Get(ctx, id)
 }
 
-// UpdatePreferences replaces the theme, date format, default games view and
-// default calendar view an account is shown with — the display settings that travel with the
-// account instead of staying local to one browser (see the migrations that
-// added them).
-func (r *UserRepository) UpdatePreferences(ctx context.Context, id uint64, theme, dateFormat, gamesView, calendarView string) (*models.User, error) {
-	result := r.db.WithContext(ctx).
+// UpdatePreferences changes the display settings an account is shown with,
+// the ones that travel with it instead of staying local to one browser. Only
+// the preferences set in `preferences` change: GORM leaves the empty ones
+// out of the update.
+//
+// An account that does not exist is reported by the read that follows.
+func (r *UserRepository) UpdatePreferences(ctx context.Context, id uint64, preferences models.Preferences) (*models.User, error) {
+	err := r.db.WithContext(ctx).
 		Model(&models.User{ID: id}).
-		Updates(map[string]any{
-			"theme":         theme,
-			"date_format":   dateFormat,
-			"games_view":    gamesView,
-			"calendar_view": calendarView,
-		})
-	if result.Error != nil {
-		return nil, translate(result.Error)
-	}
-	if result.RowsAffected == 0 {
-		return nil, ErrNotFound
+		Updates(models.User{Preferences: preferences}).Error
+	if err != nil {
+		return nil, translate(err)
 	}
 	return r.Get(ctx, id)
-}
-
-// applyDefaultPreferences fills in the theme, date format, games view and
-// calendar view a brand-new account is created with, matching the columns'
-// own DB defaults — GORM writes a Go zero value ("") for a NOT NULL string column explicitly
-// rather than leaving it to the database default, which the enum would
-// reject.
-func applyDefaultPreferences(user *models.User) {
-	if user.Theme == "" {
-		user.Theme = "system"
-	}
-	if user.DateFormat == "" {
-		user.DateFormat = "long"
-	}
-	if user.GamesView == "" {
-		user.GamesView = "table"
-	}
-	if user.CalendarView == "" {
-		user.CalendarView = "release"
-	}
 }
 
 // NormaliseUsername is the stored form of a username: trimmed, and nothing
