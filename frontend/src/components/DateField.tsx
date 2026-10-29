@@ -2,7 +2,7 @@ import { useId, useRef, useState, type FocusEvent, type KeyboardEvent, type RefO
 
 import { MONTH_ABBREVIATIONS } from '../lib/format'
 import type { DateFormat } from '../types/auth'
-import { useDateFormat } from '../hooks/useSession'
+import { usePreference } from '../hooks/useSession'
 import { DatePicker } from './DatePicker'
 import { Dropdown } from './Dropdown'
 import { CalendarIcon } from './icons'
@@ -69,7 +69,7 @@ const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(in
  */
 export function DateField({ label, value, onChange, hint }: DateFieldProps) {
   const id = useId()
-  const dateFormat = useDateFormat()
+  const dateFormat = usePreference('date_format')
   const order = SEGMENT_ORDER[dateFormat]
   const separator = SEPARATOR[dateFormat]
   const monthIsName = dateFormat === 'long'

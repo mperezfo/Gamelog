@@ -2,8 +2,10 @@ package handlers_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 	"time"
 
@@ -470,6 +472,62 @@ func TestNameDefaultsToUsernameButCanDiverge(t *testing.T) {
 	}
 }
 
+// An update changes only the preferences it carries, and refuses a value a
+// preference does not take.
+func TestPreferencesUpdateOnlyWhatIsSent(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	bare := newBareRouter(db, false)
+	handler := signedIn(t, bare, db, "player", false)
+
+	expectStatus(t, request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{
+		"theme":         "dark",
+		"date_format":   "ymd",
+		"games_view":    "grid",
+		"calendar_view": "logged",
+		"search_hidden": []string{"genres", "platforms"},
+	}), http.StatusOK, "setting every preference")
+
+	updated := request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{"games_view": "table"})
+	expectStatus(t, updated, http.StatusOK, "changing one preference")
+	var after models.User
+	decode(t, updated, &after)
+	want := models.Preferences{
+		Theme: "dark", DateFormat: "ymd", GamesView: "table", CalendarView: "logged",
+		SearchHidden: []string{"genres", "platforms"},
+	}
+	if !reflect.DeepEqual(after.Preferences, want) {
+		t.Errorf("preferences = %+v, want %+v", after.Preferences, want)
+	}
+
+	for _, body := range []map[string]any{
+		{"theme": "sepia"},
+		{"games_view": "table", "calendar_view": "someday"},
+		{"search_hidden": []string{"series"}},
+		{"search_hidden": []string{"games", "games"}},
+		// The search box always searches something.
+		{"search_hidden": []string{"games", "developers", "publishers", "platforms", "genres"}},
+	} {
+		expectStatus(t, request(t, handler, http.MethodPut, "/api/auth/preferences", body),
+			http.StatusUnprocessableEntity, fmt.Sprintf("updating the preferences with %v", body))
+	}
+
+	me := request(t, handler, http.MethodGet, "/api/auth/me", nil)
+	var reread models.User
+	decode(t, me, &reread)
+	if !reflect.DeepEqual(reread.Preferences, want) {
+		t.Errorf("preferences after refused updates = %+v, want %+v", reread.Preferences, want)
+	}
+
+	// An empty list is a change of its own: every kind searched again.
+	cleared := request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{"search_hidden": []string{}})
+	expectStatus(t, cleared, http.StatusOK, "searching every kind again")
+	var shown models.User
+	decode(t, cleared, &shown)
+	if len(shown.SearchHidden) != 0 || shown.Theme != "dark" {
+		t.Errorf("preferences = %+v, want nothing hidden and the rest as it was", shown.Preferences)
+	}
+}
+
 func TestPreferencesDefaultAndCanBeChanged(t *testing.T) {
 	db := testsupport.NewDatabase(t)
 	bare := newBareRouter(db, false)
@@ -490,6 +548,9 @@ func TestPreferencesDefaultAndCanBeChanged(t *testing.T) {
 	}
 	if before.CalendarView != "release" {
 		t.Errorf("calendar_view = %q, want it to default to %q", before.CalendarView, "release")
+	}
+	if before.SearchHidden == nil || len(before.SearchHidden) != 0 {
+		t.Errorf("search_hidden = %v, want it to default to an empty list", before.SearchHidden)
 	}
 
 	updated := request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{

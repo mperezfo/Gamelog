@@ -8,10 +8,12 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/mperezfo/gamelog/internal/auth"
+	"github.com/mperezfo/gamelog/internal/models"
 	"github.com/mperezfo/gamelog/internal/testsupport"
 )
 
@@ -115,6 +117,7 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 		"date_format":   "ymd",
 		"games_view":    "grid",
 		"calendar_view": "logged",
+		"search_hidden": []string{"genres"},
 	})
 	expectStatus(t, preferences, http.StatusOK, "setting preferences")
 
@@ -154,13 +157,14 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 			Title string `json:"title"`
 		} `json:"games"`
 		Account struct {
-			Name         string `json:"name"`
-			AvatarURL    string `json:"avatar_url"`
-			PasswordHash string `json:"password_hash"`
-			Theme        string `json:"theme"`
-			DateFormat   string `json:"date_format"`
-			GamesView    string `json:"games_view"`
-			CalendarView string `json:"calendar_view"`
+			Name         string   `json:"name"`
+			AvatarURL    string   `json:"avatar_url"`
+			PasswordHash string   `json:"password_hash"`
+			Theme        string   `json:"theme"`
+			DateFormat   string   `json:"date_format"`
+			GamesView    string   `json:"games_view"`
+			CalendarView string   `json:"calendar_view"`
+			SearchHidden []string `json:"search_hidden"`
 		} `json:"account"`
 	}
 	if err := json.Unmarshal(readZipEntry(t, archive, "gamelog.json"), &document); err != nil {
@@ -176,7 +180,7 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 		t.Errorf("account.password_hash = %q, want a bcrypt hash", document.Account.PasswordHash)
 	}
 	if document.Account.Theme != "dark" || document.Account.DateFormat != "ymd" || document.Account.GamesView != "grid" ||
-		document.Account.CalendarView != "logged" {
+		document.Account.CalendarView != "logged" || !reflect.DeepEqual(document.Account.SearchHidden, []string{"genres"}) {
 		t.Errorf("account preferences = %+v, want theme=dark date_format=ymd games_view=grid calendar_view=logged", document.Account)
 	}
 
@@ -216,13 +220,14 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 	me := requestAs(t, bare, freshCookie, http.MethodGet, "/api/auth/me", nil)
 	expectStatus(t, me, http.StatusOK, "reading the account on the fresh session")
 	var account struct {
-		Name               string `json:"name"`
-		AvatarURL          string `json:"avatar_url"`
-		MustChangePassword bool   `json:"must_change_password"`
-		Theme              string `json:"theme"`
-		DateFormat         string `json:"date_format"`
-		GamesView          string `json:"games_view"`
-		CalendarView       string `json:"calendar_view"`
+		Name               string   `json:"name"`
+		AvatarURL          string   `json:"avatar_url"`
+		MustChangePassword bool     `json:"must_change_password"`
+		Theme              string   `json:"theme"`
+		DateFormat         string   `json:"date_format"`
+		GamesView          string   `json:"games_view"`
+		CalendarView       string   `json:"calendar_view"`
+		SearchHidden       []string `json:"search_hidden"`
 	}
 	decode(t, me, &account)
 	if !account.MustChangePassword {
@@ -231,7 +236,8 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 	if account.Name != "Player One" || account.AvatarURL != avatarBody.URL {
 		t.Errorf("account = %+v, want the profile the backup carried", account)
 	}
-	if account.Theme != "dark" || account.DateFormat != "ymd" || account.GamesView != "grid" || account.CalendarView != "logged" {
+	if account.Theme != "dark" || account.DateFormat != "ymd" || account.GamesView != "grid" || account.CalendarView != "logged" ||
+		!reflect.DeepEqual(account.SearchHidden, []string{"genres"}) {
 		t.Errorf("restored preferences = %+v, want theme=dark date_format=ymd games_view=grid calendar_view=logged", account)
 	}
 
@@ -310,4 +316,77 @@ func containsString(items []string, want string) bool {
 		}
 	}
 	return false
+}
+
+// A backup made before some preference existed restores it to its default,
+// rather than failing or leaving the value the account had before.
+func TestImportBackupFillsInPreferencesItPredates(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	bare := newBareRouter(db, false)
+	handler := signedIn(t, bare, db, "player", false)
+
+	exported := request(t, handler, http.MethodGet, "/api/backup", nil)
+	expectStatus(t, exported, http.StatusOK, "exporting a backup")
+
+	// The same backup with no preferences in its account section, the way
+	// one made before them reads.
+	var document map[string]any
+	if err := json.Unmarshal(readZipEntry(t, exported.Body.Bytes(), "gamelog.json"), &document); err != nil {
+		t.Fatalf("gamelog.json is not valid JSON: %v", err)
+	}
+	account, ok := document["account"].(map[string]any)
+	if !ok {
+		t.Fatal("the backup has no account section")
+	}
+	for _, key := range []string{"theme", "date_format", "games_view", "calendar_view", "search_hidden"} {
+		if _, ok := account[key]; !ok {
+			t.Errorf("the backup's account section has no %q to leave out", key)
+		}
+		delete(account, key)
+	}
+	content, err := json.Marshal(document)
+	if err != nil {
+		t.Fatalf("encoding the edited backup: %v", err)
+	}
+	var archive bytes.Buffer
+	writer := zip.NewWriter(&archive)
+	file, err := writer.Create("gamelog.json")
+	if err != nil {
+		t.Fatalf("creating gamelog.json: %v", err)
+	}
+	if _, err := file.Write(content); err != nil {
+		t.Fatalf("writing gamelog.json: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("closing the archive: %v", err)
+	}
+
+	// Changed after the backup, so that a restore that kept them would show.
+	expectStatus(t, request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{
+		"theme":         "dark",
+		"date_format":   "ymd",
+		"games_view":    "grid",
+		"calendar_view": "logged",
+		"search_hidden": []string{"games"},
+	}), http.StatusOK, "changing the preferences")
+
+	imported := uploadBackup(t, handler, archive.Bytes())
+	expectStatus(t, imported, http.StatusOK, "restoring a backup without preferences")
+	var freshCookie *http.Cookie
+	for _, cookie := range imported.Result().Cookies() {
+		if cookie.Name == auth.CookieName && cookie.Value != "" {
+			freshCookie = cookie
+		}
+	}
+	if freshCookie == nil {
+		t.Fatal("restoring a backup did not hand back a fresh session")
+	}
+
+	me := requestAs(t, bare, freshCookie, http.MethodGet, "/api/auth/me", nil)
+	expectStatus(t, me, http.StatusOK, "reading the restored account")
+	var restored models.User
+	decode(t, me, &restored)
+	if !reflect.DeepEqual(restored.Preferences, models.Preferences{}.Normalise()) {
+		t.Errorf("restored preferences = %+v, want the defaults", restored.Preferences)
+	}
 }

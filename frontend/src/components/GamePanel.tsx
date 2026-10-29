@@ -145,7 +145,12 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
         aria-hidden="true"
       />
 
+      {/* A dialog, so that the page's own shortcuts (F, N) leave it alone
+          while it covers the page (see useShortcut). */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={game ? game.title : 'New game'}
         className={[
           'relative flex h-full w-full flex-col bg-surface',
           'shadow-panel transition-transform duration-200 ease-out sm:w-[760px]',
@@ -189,6 +194,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
               onDeleted={closeNow}
               onCancel={requestClose}
               onDirtyChange={setDirty}
+              focusTitle={!game}
               actionsTarget={actionsEl}
               actionsNotice={
                 pendingDiscard ? (

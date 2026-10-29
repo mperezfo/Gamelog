@@ -9,7 +9,7 @@ import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { Section } from '../components/Section'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
-import { useDateFormat } from '../hooks/useSession'
+import { usePreference } from '../hooks/useSession'
 import { useCreateUser, useDeleteUser, useResetUserPassword, useUsers } from '../hooks/useUsers'
 import { dayKey } from '../lib/calendar'
 import { formatDate } from '../lib/format'
@@ -59,7 +59,7 @@ export function Admin({ admin }: { admin: User }) {
 
 /** One account, with the two things that can be done to it. */
 function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
-  const dateFormat = useDateFormat()
+  const dateFormat = usePreference('date_format')
   const [panel, setPanel] = useState<'none' | 'reset' | 'delete'>('none')
 
   return (
