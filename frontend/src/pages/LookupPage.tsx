@@ -9,12 +9,12 @@ import { CountryField } from '../components/CountryField'
 import { CountryFlag } from '../components/CountryFlag'
 import { DiscardPrompt } from '../components/DiscardPrompt'
 import { Emoji } from '../components/Emoji'
-import { LookupIcon } from '../components/LookupIcon'
 import { Field } from '../components/Field'
-import { IconField } from '../components/IconField'
 import { HighlightMatch } from '../components/HighlightMatch'
+import { IconField } from '../components/IconField'
 import { IgdbLink } from '../components/IgdbLink'
 import { ExternalLinkIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon, XIcon } from '../components/icons'
+import { LookupIcon } from '../components/LookupIcon'
 import { Notice } from '../components/Notice'
 import { PageContainer } from '../components/PageContainer'
 import { PlatformBadge } from '../components/PlatformBadge'
@@ -30,6 +30,7 @@ import { useOffline } from '../hooks/useOffline'
 import { useReloadScroll } from '../hooks/useReloadScroll'
 import { useShortcut } from '../hooks/useShortcut'
 import { fuzzyMatch } from '../lib/fuzzy'
+import { iconName } from '../lib/genreIcons'
 import type { Game } from '../types/game'
 import type { IgdbNamed } from '../types/metadata'
 import { LOOKUP_FILTER_PARAM, MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
@@ -423,7 +424,7 @@ function LookupRow({
             </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2 text-sm text-ink">
-              {item.icon && <span aria-hidden="true"><LookupIcon value={item.icon} /></span>}
+              {item.icon && <span aria-hidden="true"><LookupIcon value={item.icon} color={item.color} /></span>}
               {item.country && <CountryFlag code={item.country} />}
               {/* The link to IGDB hangs off the name itself, the way an
                   external link is usually marked, rather than trailing the
@@ -501,7 +502,9 @@ function LookupForm({
   const [name, setName] = useState(item?.name ?? '')
   const [icon, setIcon] = useState(item?.icon ?? '')
   const [country, setCountry] = useState(item?.country ?? '')
-  const [color, setColor] = useState(item?.color ?? DEFAULT_COLOR)
+  // A platform always has a colour; a genre's icon may well have none.
+  const savedColor = item?.color ?? (kind === 'platforms' ? DEFAULT_COLOR : '')
+  const [color, setColor] = useState(savedColor)
   const links = item ? igdbLinksOf(kind, item) : NO_IGDB_LINKS
   // IGDB links to forget on Save, struck through until then.
   const [unlinking, setUnlinking] = useState<number[]>([])
@@ -513,7 +516,7 @@ function LookupForm({
     name !== (item?.name ?? '') ||
     icon !== (item?.icon ?? '') ||
     country !== (item?.country ?? '') ||
-    color !== (item?.color ?? DEFAULT_COLOR) ||
+    color !== savedColor ||
     unlinking.length > 0
   useUnsavedChanges(dirty)
 
@@ -543,7 +546,7 @@ function LookupForm({
       ? { name: name.trim(), country: country || null }
       : kind === 'platforms'
         ? { name: name.trim(), color }
-        : { name: name.trim(), icon: icon.trim() || null }
+        : { name: name.trim(), icon: icon.trim() || null, color: color || null }
 
     if (item) {
       update.mutate({ id: item.id, input, unlink: unlinking }, { onSuccess: onDone })
@@ -580,7 +583,13 @@ function LookupForm({
         ) : hasCountry(kind) ? (
           <CountryField label="Country" value={country} onChange={setCountry} />
         ) : (
-          <IconField label="Icon" value={icon} onChange={setIcon} />
+          <>
+            <IconField label="Icon" value={icon} color={color} onChange={setIcon} />
+            {/* Only a Tabler icon takes a colour: an emoji has its own. The
+                colour picked stays in the form while an emoji is chosen,
+                and comes back with an icon. */}
+            {iconName(icon) && <ColorField label="Color" value={color} onChange={setColor} optional />}
+          </>
         )}
       </div>
       {item && kind !== 'genres' && (

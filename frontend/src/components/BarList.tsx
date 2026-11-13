@@ -6,9 +6,9 @@ import { previewHandlers, type Highlight, type SetPreview, type Share } from '..
 import type { Game } from '../types/game'
 import { CountryFlag } from './CountryFlag'
 import { Emoji } from './Emoji'
-import { LookupIcon } from './LookupIcon'
 import { GamesPreviewLink } from './GamesPreviewLink'
 import { ChevronRightIcon } from './icons'
+import { LookupIcon } from './LookupIcon'
 
 interface BarListProps {
   rows: Share[]
@@ -156,17 +156,17 @@ function linkClass(pinned: boolean): string {
   ].join(' ')
 }
 
-/** A platform's colour as a dot, a genre's emoji, a company's or a
- * country's flag, or just the name. The row for games with none ("No
- * platform") reads quieter. */
+/** A platform's colour as a dot, a genre's icon (in its colour, if it has
+ * one), a company's or a country's flag, or just the name. The row for games
+ * with none ("No platform") reads quieter. */
 function RowLabel({ row }: { row: Share }) {
   const lookup = row.lookup
   return (
     <span className={`relative flex min-w-0 flex-1 items-center gap-1.5 ${row.none ? 'text-ink-faint' : 'text-ink'}`}>
-      {row.color && <span className="tint-fill size-2 shrink-0 rounded-full" aria-hidden="true" />}
+      {row.color && !lookup?.icon && <span className="tint-fill size-2 shrink-0 rounded-full" aria-hidden="true" />}
       {lookup?.icon && (
         <span className="shrink-0" aria-hidden="true">
-          <LookupIcon value={lookup.icon} />
+          <LookupIcon value={lookup.icon} color={lookup.color} />
         </span>
       )}
       {lookup?.country && <CountryFlag code={lookup.country} />}

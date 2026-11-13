@@ -15,6 +15,8 @@ interface IconFieldProps {
   label: string
   /** The icon (`tabler:<name>`, see LookupIcon), an emoji, or empty for none. */
   value: string
+  /** The colour the icon is drawn in, if the genre has one (see ColorField). */
+  color?: string | null
   onChange: (value: string) => void
 }
 
@@ -23,7 +25,7 @@ interface IconFieldProps {
  * default) and emoji. It opens on the tab of the value it has, and one search
  * serves both, kept when switching.
  */
-export function IconField({ label, value, onChange }: IconFieldProps) {
+export function IconField({ label, value, color, onChange }: IconFieldProps) {
   const id = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
@@ -66,7 +68,7 @@ export function IconField({ label, value, onChange }: IconFieldProps) {
       >
         {value ? (
           <span className="text-lg leading-none">
-            <LookupIcon value={value} />
+            <LookupIcon value={value} color={color} />
           </span>
         ) : (
           <span className="text-ink-faint">None</span>

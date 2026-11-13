@@ -27,10 +27,16 @@ const HEX = /^#[0-9a-f]{6}$/i
 
 interface ColorFieldProps {
   label: string
-  /** #rrggbb */
+  /** #rrggbb, or empty for none where the field is optional. */
   value: string
   onChange: (value: string) => void
+  /** Whether it can be left without a colour, which the popover then offers
+   * as "No colour". */
+  optional?: boolean
 }
+
+/** Where the free picker starts for a field with no colour yet. */
+const PICKER_START = '#787774'
 
 /**
  * A labelled colour, in place of `<input type="color">`, whose swatch looks
@@ -38,7 +44,7 @@ interface ColorFieldProps {
  * dialog. This one opens a popover with the theme's colours to pick from,
  * a free picker (react-colorful, restyled in index.css) and the hex code.
  */
-export function ColorField({ label, value, onChange }: ColorFieldProps) {
+export function ColorField({ label, value, onChange, optional = false }: ColorFieldProps) {
   const id = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
@@ -54,18 +60,22 @@ export function ColorField({ label, value, onChange }: ColorFieldProps) {
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`${label}: ${value}`}
+        aria-label={`${label}: ${value || 'none'}`}
         onClick={() => setOpen((o) => !o)}
         className="flex h-9 w-11 items-center justify-center rounded-control bg-field shadow-field transition-colors duration-75 enabled:hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
       >
-        <span className="size-5 rounded-[3px] shadow-[inset_0_0_0_1px_rgb(0_0_0/0.1)]" style={{ backgroundColor: value }} />
+        {value ? (
+          <span className="size-5 rounded-[3px] shadow-[inset_0_0_0_1px_rgb(0_0_0/0.1)]" style={{ backgroundColor: value }} />
+        ) : (
+          <span className="size-5 rounded-[3px] border border-dashed border-line-strong" />
+        )}
       </button>
 
       <Popover anchorRef={buttonRef} open={open} onClose={() => setOpen(false)} aria-label={`Pick the ${label.toLowerCase()}`}>
         <div className="flex w-60 flex-col gap-3 p-3">
           <div className="grid grid-cols-5 gap-1.5">
             {SWATCHES.map((swatch) => {
-              const selected = swatch.value.toLowerCase() === value.toLowerCase()
+              const selected = !!value && swatch.value.toLowerCase() === value.toLowerCase()
               return (
                 <button
                   key={swatch.value}
@@ -84,9 +94,23 @@ export function ColorField({ label, value, onChange }: ColorFieldProps) {
             })}
           </div>
 
-          <HexColorPicker color={value} onChange={onChange} className="gl-colorful" />
+          <HexColorPicker color={value || PICKER_START} onChange={onChange} className="gl-colorful" />
 
           <HexInput value={value} onChange={onChange} />
+
+          {optional && value && (
+            <button
+              type="button"
+              onClick={() => {
+                onChange('')
+                setOpen(false)
+                buttonRef.current?.focus()
+              }}
+              className="self-start rounded-control px-2 py-1 text-xs font-medium text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              No colour
+            </button>
+          )}
         </div>
       </Popover>
     </div>
@@ -107,6 +131,7 @@ function HexInput({ value, onChange }: { value: string; onChange: (value: string
   return (
     <input
       aria-label="Hex code"
+      placeholder="#rrggbb"
       value={draft}
       maxLength={7}
       autoComplete="off"

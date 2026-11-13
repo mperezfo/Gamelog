@@ -13,7 +13,8 @@ export interface Lookup {
   /** Where a developer or publisher is from, as an ISO 3166-1 two-letter
    * code ("JP"), drawn as its flag. Developers and publishers only. */
   country?: string | null
-  /** Hex color. Only ever set for platforms. */
+  /** Hex color: a platform's, or a genre's icon's (see genreColor). Never set
+   * for developers and publishers. */
   color: string | null
   /** The IGDB companies a developer or publisher has been linked to through
    * Identify. Left out when there are none, and always for the other two. */

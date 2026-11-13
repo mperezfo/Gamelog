@@ -7,7 +7,7 @@ import { LookupIcon } from './LookupIcon'
 export function GenreTag({ genre }: { genre: Lookup }) {
   return (
     <span className="inline-flex items-center gap-1 text-[13px] text-ink-muted">
-      {genre.icon && <span aria-hidden="true"><LookupIcon value={genre.icon} /></span>}
+      {genre.icon && <span aria-hidden="true"><LookupIcon value={genre.icon} color={genre.color} /></span>}
       <Emoji value={genre.name} />
     </span>
   )

@@ -117,7 +117,7 @@ func (l textLimit) String() string {
 	return fmt.Sprintf("%d characters", l.max)
 }
 
-// hexColor is a platform's colour as the API takes it.
+// hexColor is a platform's or a genre's colour as the API takes it.
 var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
 // errDryRun rolls the transaction back after a dry run. It never leaves
@@ -208,9 +208,11 @@ func newImportRun(tx *gorm.DB, userID uint64, report *ImportReport) *importRun {
 
 		genres: newLookupImporter(tx, userID,
 			func(id uint64, name string, a lookupAttributes) models.Genre {
-				return models.Genre{ID: id, Name: name, Icon: a.Icon}
+				return models.Genre{ID: id, Name: name, Icon: a.Icon, Color: a.Color}
 			},
-			func(g *models.Genre) (uint64, lookupAttributes) { return g.ID, lookupAttributes{Icon: g.Icon} }),
+			func(g *models.Genre) (uint64, lookupAttributes) {
+				return g.ID, lookupAttributes{Icon: g.Icon, Color: g.Color}
+			}),
 
 		developers: newLookupImporter(tx, userID,
 			func(id uint64, name string, a lookupAttributes) models.Developer {
@@ -319,8 +321,13 @@ func (r *importRun) importLookups(ctx context.Context, section section) error {
 			r.warn(section.name, index, name, fmt.Sprintf("its icon was longer than %s, so it was left out", iconLimit))
 			icon = nil
 		}
-		color := entry.Color
-		if color != nil && section.name == "platforms" {
+		// Only a platform and a genre have a colour: on the other two it is
+		// ignored, without a word, like an icon.
+		var color *string
+		if section.name == "platforms" || section.name == "genres" {
+			color = entry.Color
+		}
+		if color != nil {
 			if text := strings.TrimSpace(*color); text != "" && !hexColor.MatchString(text) {
 				r.warn(section.name, index, name, fmt.Sprintf(
 					"%q is not a colour written as #rrggbb, so it was left out", text))
@@ -736,7 +743,7 @@ type lookupPort interface {
 }
 
 // lookupAttributes are what a simple entity carries besides its name: an
-// icon for a genre, a colour for a platform, a country for a
+// icon for a genre, a colour for a genre or a platform, a country for a
 // developer or a publisher. Each is left out (nil) to keep what is stored,
 // and empty to clear it.
 type lookupAttributes struct {

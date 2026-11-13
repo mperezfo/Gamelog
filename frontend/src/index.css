@@ -119,6 +119,19 @@
 }
 
 /*
+ * The same colour as `tint`'s text alone, for a genre's icon (see
+ * LookupIcon), which sits on whatever is behind it rather than on a tint of
+ * its own.
+ */
+@utility tint-ink {
+  color: oklch(from var(--tint) 0.47 min(c, 0.16) h);
+
+  @variant dark {
+    color: oklch(from var(--tint) max(l, 0.72) c h);
+  }
+}
+
+/*
  * The same colour as a solid fill, for a platform's share of a chart. The
  * same reasoning as `tint` keeps it visible on either page: its hue and
  * colourfulness are kept, and its lightness is set mid-way, a step darker on

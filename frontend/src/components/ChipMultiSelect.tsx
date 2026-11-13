@@ -47,7 +47,7 @@ export function ChipMultiSelect({
                   active ? 'bg-accent text-accent-ink' : 'bg-sunken text-ink-muted enabled:hover:bg-hover enabled:hover:text-ink',
                 ].join(' ')}
               >
-                {option.icon && <span aria-hidden="true"><LookupIcon value={option.icon} /></span>}
+                {option.icon && <span aria-hidden="true"><LookupIcon value={option.icon} color={active ? null : option.color} /></span>}
                 <Emoji value={option.name} />
               </button>
             )

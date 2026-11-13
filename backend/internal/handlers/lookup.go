@@ -25,18 +25,18 @@ type lookupBody struct {
 	Name string  `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name. Unique, and compared ignoring case and accents." example:"Metroidvania"`
 	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Shown next to the name: an emoji, or \"tabler:<name>\" for one of the Tabler icons the app draws (\"tabler:swords\"). Genres only. Stored without the blank space around it; nothing but blank space clears it." example:"🗺️"`
 	// Icon has a column on genres only (migrations 00019 and 00022), and is
-	// ignored for the other three like color and country are.
+	// ignored for the other three like country is.
 	//
 	// Country has a column on developers and publishers only (migration
 	// 00019), in place of the icon, and is ignored for the other two like
 	// color is.
 	Country *string `json:"country,omitempty" pattern:"^[A-Z]{2}$" doc:"Where the developer or publisher is from, as an ISO 3166-1 two-letter code. Developers and publishers only." example:"JP"`
-	// Color only has a column on platforms (migration 00003): genres,
-	// developers and publishers accept it in the same shared body but the
-	// three of them silently ignore it, the same trade-off made for icon and
-	// country: one schema in the documentation rather than a near-duplicate
-	// endpoint per entity.
-	Color *string `json:"color,omitempty" pattern:"^#[0-9a-fA-F]{6}$" doc:"Hex color. Platforms only." example:"#3b82f6"`
+	// Color only has a column on platforms and genres (migrations 00003 and
+	// 00023): developers and publishers accept it in the same shared body but
+	// silently ignore it, the same trade-off made for icon and country: one
+	// schema in the documentation rather than a near-duplicate endpoint per
+	// entity.
+	Color *string `json:"color,omitempty" pattern:"^#[0-9a-fA-F]{6}$" doc:"Hex color. A platform's, or the colour of a genre's icon when it is one of the app's Tabler icons. Platforms and genres only." example:"#3b82f6"`
 }
 
 type lookupIDInput struct {
@@ -88,7 +88,7 @@ func registerLookups(api huma.API, db *gorm.DB) {
 	registerLookup(api, db,
 		lookupMeta{singular: "genre", plural: "genres", tag: "Genres"},
 		func(id uint64, body lookupBody) models.Genre {
-			return models.Genre{ID: id, Name: body.name(), Icon: body.icon()}
+			return models.Genre{ID: id, Name: body.name(), Icon: body.icon(), Color: body.Color}
 		})
 
 	registerLookup(api, db,
