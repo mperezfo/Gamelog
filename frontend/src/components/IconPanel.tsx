@@ -1,7 +1,8 @@
-import { Suspense, use, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Suspense, use, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
 import { iconLabel } from '../lib/genreIcons'
 import { COLUMN_WIDTH, COLUMNS } from '../lib/pickerGrid'
+import { ColorSliders } from './ColorSliders'
 import { PanelFooter, PanelSearch } from './PickerParts'
 
 type IconEntry = (typeof import('virtual:genre-icons'))['default'][number]
@@ -28,15 +29,20 @@ interface IconPanelProps {
   selected: string | null
   /** Clears the field, where it has a value to clear. */
   onRemove?: () => void
+  /** The colour the icon is drawn in (#rrggbb), or empty for none. */
+  color: string
+  onColor: (color: string) => void
 }
 
 /**
  * The Icons tab of a genre's icon picker: Tabler's icons, as filtered by
  * genre-icons.config.ts, by category, the hand-picked Suggested ones first.
- * The same grid as the Emoji tab, searched by name and by Tabler's tags.
+ * The same grid as the Emoji tab, searched by name and by Tabler's tags,
+ * drawn in the colour picked under it, so that every icon shows as it would.
  */
-export function IconPanel({ search, onSearch, onPick, selected, onRemove }: IconPanelProps) {
+export function IconPanel({ search, onSearch, onPick, selected, onRemove, color, onColor }: IconPanelProps) {
   const panel = useRef<HTMLDivElement>(null)
+  const sliders = <ColorSliders value={color} onChange={onColor} />
 
   // From the search box, Down goes into the grid and Enter picks the first
   // icon found, as in the Emoji tab.
@@ -72,11 +78,12 @@ export function IconPanel({ search, onSearch, onPick, selected, onRemove }: Icon
         fallback={
           <>
             <p className="flex flex-1 items-center justify-center text-xs text-ink-faint">Loading…</p>
+            {sliders}
             <PanelFooter label="" onRemove={onRemove} />
           </>
         }
       >
-        <IconGrid search={search} onPick={onPick} selected={selected} onRemove={onRemove} />
+        <IconGrid search={search} onPick={onPick} selected={selected} onRemove={onRemove} color={color} sliders={sliders} />
       </Suspense>
     </div>
   )
@@ -119,7 +126,14 @@ interface Position {
   column: number
 }
 
-function IconGrid({ search, onPick, selected, onRemove }: Omit<IconPanelProps, 'onSearch'>) {
+function IconGrid({
+  search,
+  onPick,
+  selected,
+  onRemove,
+  color,
+  sliders,
+}: Omit<IconPanelProps, 'onSearch' | 'onColor'> & { sliders: ReactNode }) {
   const icons = use(loadIcons())
   const rows = useMemo(() => rowsFor(icons, search), [icons, search])
   const viewport = useRef<HTMLDivElement>(null)
@@ -221,6 +235,7 @@ function IconGrid({ search, onPick, selected, onRemove }: Omit<IconPanelProps, '
                       strokeLinejoin="round"
                       aria-hidden="true"
                       className="size-5"
+                      style={color ? { color } : undefined}
                       // The drawing comes from the build (genreIconsPlugin),
                       // never from anything a user typed.
                       dangerouslySetInnerHTML={{ __html: drawing }}
@@ -232,6 +247,7 @@ function IconGrid({ search, onPick, selected, onRemove }: Omit<IconPanelProps, '
           </div>
         ))}
       </div>
+      {sliders}
       <PanelFooter label={footer ? iconLabel(footer) : ''} onRemove={onRemove} />
     </>
   )

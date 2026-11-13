@@ -119,19 +119,6 @@
 }
 
 /*
- * The same colour as `tint`'s text alone, for a genre's icon (see
- * LookupIcon), which sits on whatever is behind it rather than on a tint of
- * its own.
- */
-@utility tint-ink {
-  color: oklch(from var(--tint) 0.47 min(c, 0.16) h);
-
-  @variant dark {
-    color: oklch(from var(--tint) max(l, 0.72) c h);
-  }
-}
-
-/*
  * The same colour as a solid fill, for a platform's share of a chart. The
  * same reasoning as `tint` keeps it visible on either page: its hue and
  * colourfulness are kept, and its lightness is set mid-way, a step darker on
@@ -603,10 +590,10 @@
 }
 
 /*
- * HueField's slider: the hues on a track as tall as react-colorful's above,
- * and a thumb in the colour picked.
+ * The sliders of a genre icon's colour (see ColorSliders): a gradient track
+ * as tall as react-colorful's above, and a thumb in the colour picked.
  */
-.gl-hue {
+.gl-slider {
   appearance: none;
   width: 100%;
   height: 16px;
@@ -614,19 +601,19 @@
   cursor: pointer;
 }
 
-.gl-hue::-webkit-slider-runnable-track {
+.gl-slider::-webkit-slider-runnable-track {
   height: 12px;
   border-radius: var(--radius-control);
   background: var(--track);
 }
 
-.gl-hue::-moz-range-track {
+.gl-slider::-moz-range-track {
   height: 12px;
   border-radius: var(--radius-control);
   background: var(--track);
 }
 
-.gl-hue::-webkit-slider-thumb {
+.gl-slider::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
@@ -637,7 +624,7 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
-.gl-hue::-moz-range-thumb {
+.gl-slider::-moz-range-thumb {
   box-sizing: border-box;
   width: 16px;
   height: 16px;
@@ -647,15 +634,15 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
 }
 
-.gl-hue:focus-visible {
+.gl-slider:focus-visible {
   outline: none;
 }
 
-.gl-hue:focus-visible::-webkit-slider-thumb {
+.gl-slider:focus-visible::-webkit-slider-thumb {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 40%, transparent);
 }
 
-.gl-hue:focus-visible::-moz-range-thumb {
+.gl-slider:focus-visible::-moz-range-thumb {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 40%, transparent);
 }
 

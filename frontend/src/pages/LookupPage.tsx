@@ -11,7 +11,6 @@ import { DiscardPrompt } from '../components/DiscardPrompt'
 import { Emoji } from '../components/Emoji'
 import { Field } from '../components/Field'
 import { HighlightMatch } from '../components/HighlightMatch'
-import { HueField } from '../components/HueField'
 import { IconField } from '../components/IconField'
 import { IgdbLink } from '../components/IgdbLink'
 import { ExternalLinkIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon, XIcon } from '../components/icons'
@@ -31,7 +30,6 @@ import { useOffline } from '../hooks/useOffline'
 import { useReloadScroll } from '../hooks/useReloadScroll'
 import { useShortcut } from '../hooks/useShortcut'
 import { fuzzyMatch } from '../lib/fuzzy'
-import { iconName } from '../lib/genreIcons'
 import type { Game } from '../types/game'
 import type { IgdbNamed } from '../types/metadata'
 import { LOOKUP_FILTER_PARAM, MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
@@ -584,13 +582,10 @@ function LookupForm({
         ) : hasCountry(kind) ? (
           <CountryField label="Country" value={country} onChange={setCountry} />
         ) : (
-          <>
-            <IconField label="Icon" value={icon} color={color} onChange={setIcon} />
-            {/* Only a Tabler icon takes a colour: an emoji has its own. The
-                colour picked stays in the form while an emoji is chosen,
-                and comes back with an icon. */}
-            {iconName(icon) && <HueField label="Color" value={color} onChange={setColor} />}
-          </>
+          // Only a Tabler icon takes a colour: an emoji has its own. The
+          // colour picked stays in the form while an emoji is chosen, and
+          // comes back with an icon.
+          <IconField label="Icon" value={icon} color={color} onChange={setIcon} onColorChange={setColor} />
         )}
       </div>
       {item && kind !== 'genres' && (

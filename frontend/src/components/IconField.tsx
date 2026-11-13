@@ -15,17 +15,21 @@ interface IconFieldProps {
   label: string
   /** The icon (`tabler:<name>`, see LookupIcon), an emoji, or empty for none. */
   value: string
-  /** The colour the icon is drawn in, if the genre has one (see ColorField). */
-  color?: string | null
+  /** The colour a Tabler icon is drawn in (#rrggbb), or empty for none. */
+  color: string
   onChange: (value: string) => void
+  onColorChange: (color: string) => void
 }
 
 /**
  * A labelled genre icon: a popover with two tabs, plain icons (Tabler's, the
  * default) and emoji. It opens on the tab of the value it has, and one search
- * serves both, kept when switching.
+ * serves both, kept when switching. The Icons tab also picks the colour the
+ * icon is drawn in, which an emoji, with colours of its own, has no use for:
+ * a colour change shows at once and keeps the popover open, and picking an
+ * icon closes it.
  */
-export function IconField({ label, value, color, onChange }: IconFieldProps) {
+export function IconField({ label, value, color, onChange, onColorChange }: IconFieldProps) {
   const id = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
@@ -76,7 +80,7 @@ export function IconField({ label, value, color, onChange }: IconFieldProps) {
       </button>
 
       <Popover anchorRef={buttonRef} open={open} onClose={() => setOpen(false)} aria-label={`Pick the ${label.toLowerCase()}`}>
-        <div className="flex h-[22rem] w-[19rem] flex-col">
+        <div className={`flex w-[19rem] flex-col ${tab === 'icons' ? 'h-[28rem]' : 'h-[22rem]'}`}>
           <div className={`${COLUMN_WIDTH} flex gap-1 pt-2`} role="tablist" aria-label="Kind of icon">
             {(['icons', 'emoji'] as const).map((option) => (
               <button
@@ -102,6 +106,8 @@ export function IconField({ label, value, color, onChange }: IconFieldProps) {
               onPick={(name) => pick(iconValue(name))}
               selected={icon}
               onRemove={remove}
+              color={color}
+              onColor={onColorChange}
             />
           ) : (
             <EmojiPanel search={search} onSearch={setSearch} onPick={pick} onRemove={remove} />

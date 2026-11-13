@@ -9,10 +9,9 @@ import { Emoji } from './Emoji'
  *
  * The icon is the SVG genreIconsPlugin serves (vite.config.ts) used as a
  * mask over the text's colour, so it follows the theme. A colour of the
- * genre's own takes its place through `tint-ink` (index.css), which keeps it
- * readable in either theme whatever was picked; an emoji ignores it. Sized
- * and placed like an emoji, so that the two sit the same beside a name. A
- * name with no file shows nothing.
+ * genre's own takes its place, exactly as it was picked in either theme;
+ * an emoji ignores it. Sized and placed like an emoji, so that the two sit
+ * the same beside a name. A name with no file shows nothing.
  */
 export function LookupIcon({ value, color }: { value: string; color?: string | null }) {
   const name = iconName(value)
@@ -21,8 +20,8 @@ export function LookupIcon({ value, color }: { value: string; color?: string | n
   const mask = `url(${GENRE_ICONS_PATH}${name}.svg) center / contain no-repeat`
   return (
     <span
-      className={`inline-block size-[1.15em] bg-current align-[-0.2em] ${color ? 'tint-ink' : ''}`}
-      style={{ mask, WebkitMask: mask, ...(color && { '--tint': color }) } as CSSProperties}
+      className="inline-block size-[1.15em] bg-current align-[-0.2em]"
+      style={{ mask, WebkitMask: mask, color: color ?? undefined } as CSSProperties}
     />
   )
 }
