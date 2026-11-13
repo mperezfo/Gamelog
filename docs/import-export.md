@@ -14,7 +14,10 @@
       "igdb_platform_ids": [130]
     }
   ],
-  "genres": [{ "name": "Metroidvania", "icon": "🗺️" }],
+  "genres": [
+    { "name": "Metroidvania", "icon": "tabler:map" },
+    { "name": "Roguelike", "icon": "🎲" }
+  ],
   "developers": [
     {
       "name": "Team Cherry",
@@ -56,7 +59,7 @@ Relations are written **by name, never by id**. An id belongs to one database, w
 
 `igdb_company_ids` are the IGDB companies a developer or publisher has been linked to through the game form's Identify button, and `igdb_platform_ids` the IGDB platforms a platform has. They are left out of a record with none, and an import links them again on top of any the record already has; an older file without them imports as before. On an import they can also be a single number or a string (`"37, 1234"`), and anything that is not an id is left out with a warning rather than failing the import.
 
-Only a genre has an `icon`, an emoji. A platform has a `color` instead, and a developer or publisher a `country`, so their `icon` is always `null`, and an icon on one in a file is ignored (older exports carry one on platforms, and still import).
+Only a genre has an `icon`: an emoji, or `tabler:<name>` for one of the [Tabler](https://tabler.io/icons) icons the app draws (`tabler:map`). A name the app does not know shows no icon. A platform has a `color` instead, and a developer or publisher a `country`, so their `icon` is always `null`, and an icon on one in a file is ignored (older exports carry one on platforms, and still import).
 
 A developer's or publisher's `country` is where it is from, as an ISO 3166-1 two-letter code (`"AU"`), left out when it has none; genres and platforms have no country. An import reads the code in either case, and anything that is not a country is left out with a warning.
 

@@ -1,5 +1,6 @@
 import type { Lookup } from '../types/lookup'
 import { Emoji } from './Emoji'
+import { LookupIcon } from './LookupIcon'
 
 interface ChipMultiSelectProps {
   label: string
@@ -46,7 +47,7 @@ export function ChipMultiSelect({
                   active ? 'bg-accent text-accent-ink' : 'bg-sunken text-ink-muted enabled:hover:bg-hover enabled:hover:text-ink',
                 ].join(' ')}
               >
-                {option.icon && <span aria-hidden="true"><Emoji value={option.icon} /></span>}
+                {option.icon && <span aria-hidden="true"><LookupIcon value={option.icon} /></span>}
                 <Emoji value={option.name} />
               </button>
             )

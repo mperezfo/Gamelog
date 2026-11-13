@@ -3,6 +3,7 @@ import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming
 import type { Game } from '../types/game'
 import { CoverImage } from './CoverImage'
 import { Emoji } from './Emoji'
+import { LookupIcon } from './LookupIcon'
 
 interface GameCardProps {
   game: Game
@@ -71,7 +72,7 @@ export function GameCard({ game, onClick, compact = false }: GameCardProps) {
         <span className="truncate text-sm font-medium text-ink"><Emoji value={game.title} /></span>
         {genre && (
           <span className="flex items-center gap-1 truncate text-xs text-ink-faint">
-            {genre.icon && <span aria-hidden="true"><Emoji value={genre.icon} /></span>}
+            {genre.icon && <span aria-hidden="true"><LookupIcon value={genre.icon} /></span>}
             <Emoji value={genre.name} />
           </span>
         )}

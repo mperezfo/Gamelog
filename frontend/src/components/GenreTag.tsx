@@ -1,12 +1,13 @@
 import type { Lookup } from '../types/lookup'
 import { Emoji } from './Emoji'
+import { LookupIcon } from './LookupIcon'
 
 /** A genre's emoji and name, inline — no pill, no border: the emoji already
  * does the work of setting it apart from plain text. */
 export function GenreTag({ genre }: { genre: Lookup }) {
   return (
     <span className="inline-flex items-center gap-1 text-[13px] text-ink-muted">
-      {genre.icon && <span aria-hidden="true"><Emoji value={genre.icon} /></span>}
+      {genre.icon && <span aria-hidden="true"><LookupIcon value={genre.icon} /></span>}
       <Emoji value={genre.name} />
     </span>
   )

@@ -10,7 +10,7 @@ import type { SearchKind } from '../types/auth'
 import { STATUS_DOT, STATUS_LABELS, type Game } from '../types/game'
 import type { Lookup, LookupKind } from '../types/lookup'
 import { CountryFlag } from './CountryFlag'
-import { Emoji } from './Emoji'
+import { LookupIcon } from './LookupIcon'
 import { HighlightMatch } from './HighlightMatch'
 import { SearchIcon, XIcon } from './icons'
 import { CoverImage } from './CoverImage'
@@ -257,7 +257,7 @@ function LookupResult({ kind, item, match }: { kind: LookupKind; item: Lookup; m
             {item.country && <CountryFlag code={item.country} />}
             {item.icon && (
               <span aria-hidden="true" className="shrink-0">
-                <Emoji value={item.icon} />
+                <LookupIcon value={item.icon} />
               </span>
             )}
             <span className="truncate">
