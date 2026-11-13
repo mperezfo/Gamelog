@@ -598,7 +598,17 @@
   width: 100%;
   height: 16px;
   background: transparent;
-  /* A hand that can take hold of it, and holds it while it is dragged. */
+  /* The track is pressed, like a button: it moves the thumb there. */
+  cursor: pointer;
+}
+
+/* The thumb is taken hold of, and held while it is dragged, wherever the
+   pointer then goes. */
+.gl-slider::-webkit-slider-thumb {
+  cursor: grab;
+}
+
+.gl-slider::-moz-range-thumb {
   cursor: grab;
 }
 

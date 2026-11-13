@@ -34,9 +34,9 @@ interface IconPanelProps {
 
 /**
  * The Icons tab of a genre's icon picker: Tabler's icons, as filtered by
- * genre-icons.config.ts, the hand-picked Suggested ones first and the rest by
- * category, each set apart by a line rather than named: an icon says what it
- * is in its tooltip. The same grid as the Emoji tab, searched by name and by
+ * genre-icons.config.ts, one after another, the hand-picked Suggested ones
+ * first and the rest in the order of their categories, unnamed: an icon
+ * says what it is in its tooltip. The same grid as the Emoji tab, searched by name and by
  * Tabler's tags, drawn in the colour picked under it, so that every icon
  * shows as it would.
  */
@@ -88,34 +88,29 @@ export function IconPanel({ search, onSearch, onPick, selected, color, onColor }
   )
 }
 
+/** One row of the grid. */
 interface Row {
-  /** The category the row belongs to; only its first row shows the name. */
-  category: string
-  first: boolean
   icons: IconEntry[]
 }
 
-/** The icons matching a search, in rows of the grid. Every word of the
- * search has to be in the icon's name or among its tags. */
+/** The icons matching a search, in rows of the grid, one after another
+ * whatever their category. Every word of the search has to be in the icon's
+ * name or among its tags. With no search, the Suggested ones come first and
+ * are not repeated in their own category further on. */
 function rowsFor(icons: IconEntry[], search: string): Row[] {
   const words = search.toLowerCase().split(/\s+/).filter(Boolean)
+  const suggested = new Set(icons.filter(([, category]) => category === SUGGESTED).map(([name]) => name))
   const matching = words.length
     ? icons.filter(([name, category, tags]) => {
         if (category === SUGGESTED) return false
         const text = `${name} ${tags.toLowerCase()}`
         return words.every((word) => text.includes(word))
       })
-    : icons
+    : icons.filter(([name, category]) => category === SUGGESTED || !suggested.has(name))
 
   const rows: Row[] = []
-  let category = ''
-  for (const icon of matching) {
-    const last = rows.at(-1)
-    if (icon[1] !== category || !last || last.icons.length === COLUMNS) {
-      rows.push({ category: icon[1], first: icon[1] !== category, icons: [] })
-      category = icon[1]
-    }
-    rows.at(-1)!.icons.push(icon)
+  for (let start = 0; start < matching.length; start += COLUMNS) {
+    rows.push({ icons: matching.slice(start, start + COLUMNS) })
   }
   return rows
 }
@@ -189,9 +184,7 @@ function IconGrid({
           <p className="absolute inset-0 flex items-center justify-center text-xs text-ink-faint">No icon found.</p>
         )}
         {rows.map((row, rowIndex) => (
-          <div key={`${row.category}-${rowIndex}`} role="row">
-            {/* A category starts after a line, not under its name. */}
-            {row.first && rowIndex > 0 && <div className={`${COLUMN_WIDTH} my-1.5 h-px bg-line`} />}
+          <div key={rowIndex} role="row">
             <div className={`${COLUMN_WIDTH} flex scroll-my-1.5`}>
               {row.icons.map(([name, , , drawing], column) => {
                 const isFocused = rowIndex === current.row && column === current.column

@@ -3,7 +3,6 @@ import { useState, type CSSProperties } from 'react'
 import { hexToOklch, oklchToHex } from '../lib/oklch'
 import { COLUMN_WIDTH } from '../lib/pickerGrid'
 import { HexInput } from './HexInput'
-import { BanIcon } from './icons'
 
 /** The chroma at full saturation: soft rather than loud, so that two genres
  * of any hues sit well side by side. */
@@ -57,8 +56,8 @@ interface ColorSlidersProps {
  * IconPanel), with no heading: its tracks say what it is. Hue, saturation
  * and lightness, each on a slider, in OKLCH so that every hue is as light
  * and as vivid as the next at the same settings; then the colour itself,
- * with its hex code to read or type, and "No colour", which leaves the icon
- * in the colour of the text around it. The colour is drawn exactly as
+ * with its hex code to read or type. Emptying the code (or its ×) leaves the
+ * icon in the colour of the text around it. The colour is drawn exactly as
  * picked, in either theme.
  */
 export function ColorSliders({ value, onChange }: ColorSlidersProps) {
@@ -123,18 +122,7 @@ export function ColorSliders({ value, onChange }: ColorSlidersProps) {
           ) : (
             <span className="size-5 shrink-0 rounded-[3px] border border-dashed border-line-strong" />
           )}
-          <HexInput value={value} onChange={onChange} className="w-24" />
-          {value && (
-            <button
-              type="button"
-              aria-label="No colour"
-              data-tooltip="No colour"
-              onClick={() => onChange('')}
-              className="ml-auto flex size-8 items-center justify-center rounded-control text-ink-faint transition-colors duration-75 hover:bg-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-            >
-              <BanIcon />
-            </button>
-          )}
+          <HexInput value={value} onChange={onChange} clearable className="w-28" />
         </div>
       </div>
     </div>

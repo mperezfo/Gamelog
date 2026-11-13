@@ -26,15 +26,15 @@ interface EmojiPanelProps {
  * The Emoji tab of a genre's icon picker: a searchable picker (frimousse,
  * which only brings the behaviour; everything it draws is styled here),
  * showing every emoji as the same Noto image the rest of the app uses (see
- * Emoji). As in the Icons tab, a line sets each category apart rather than
- * its name, and an emoji names itself in its tooltip.
+ * Emoji). As in the Icons tab, they run on without a break between groups,
+ * and an emoji names itself in its tooltip.
  */
 export function EmojiPanel({ search, onSearch, onPick }: EmojiPanelProps) {
   return (
     <EmojiPicker.Root
       resolveEmojiData={loadEmojiData}
       columns={COLUMNS}
-      // A line has nothing to keep in view, unlike a category's name.
+      // A header with nothing in it has nothing to keep in view.
       sticky={false}
       onEmojiSelect={({ emoji }) => onPick(emoji)}
       className="flex min-h-0 flex-1 flex-col"
@@ -66,12 +66,13 @@ export function EmojiPanel({ search, onSearch, onPick }: EmojiPanelProps) {
   )
 }
 
-/** A category's start: a line across the grid, its name only for assistive
- * technology. */
+/** The one category's start (see shapeEmojiData): a little room above the
+ * grid, as the Icons tab has, and its name for assistive technology. It
+ * cannot be nothing at all: the picker lays out no rows under a header with
+ * no height. */
 function CategoryHeader({ category, ...props }: EmojiPickerListCategoryHeaderProps) {
   return (
-    <div {...props} className="flex h-3 items-center">
-      <div className={`${COLUMN_WIDTH} h-px bg-line`} />
+    <div {...props} className="h-1">
       <span className="sr-only">{category.label}</span>
     </div>
   )
@@ -130,6 +131,10 @@ let emojiData: Promise<EmojiData> | undefined
  * does not apply here: every emoji is drawn as an image. So the data is
  * shaped here instead, the way that loader shapes it, keeping everything up
  * to the version the images cover.
+ *
+ * Every emoji goes into one category, so that the grid runs on from one
+ * group to the next without a gap, as the Icons tab does; Emojibase lists
+ * them in the order of their groups already.
  */
 function loadEmojiData(): Promise<EmojiData> {
   emojiData ??= Promise.all([import('emojibase-data/en/data.json'), import('emojibase-data/en/messages.json')]).then(
@@ -141,22 +146,22 @@ function loadEmojiData(): Promise<EmojiData> {
 function shapeEmojiData(data: EmojibaseEmoji[], messages: EmojibaseMessages): EmojiData {
   const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
   const flags = messages.subgroups.find((subgroup) => subgroup.key === 'country-flag')
+  // Skin tones and hair styles on their own, which are parts of emoji.
+  const component = messages.groups.find((group) => group.key === 'component')?.order
 
   return {
     locale: 'en',
-    categories: messages.groups
-      .filter((group) => group.key !== 'component')
-      .map((group) => ({ index: group.order, label: capitalize(group.message) })),
+    categories: [{ index: 0, label: 'Emoji' }],
     skinTones: Object.fromEntries(
       messages.skinTones.map((tone) => [tone.key, capitalize(tone.message)]),
     ) as EmojiData['skinTones'],
     emojis: data
-      .filter((emoji) => emoji.group !== undefined && emoji.version <= EMOJI_VERSION)
+      .filter((emoji) => emoji.group !== undefined && emoji.group !== component && emoji.version <= EMOJI_VERSION)
       .map((emoji) => {
         const singleToned = emoji.skins?.filter((skin) => typeof skin.tone === 'number')
         return {
           emoji: emoji.emoji,
-          category: emoji.group!,
+          category: 0,
           version: emoji.version,
           label: capitalize(emoji.label),
           tags: emoji.tags ?? [],
