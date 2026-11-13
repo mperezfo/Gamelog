@@ -7,6 +7,7 @@ import {
   type SkinTone,
 } from 'frimousse'
 
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { COLUMN_WIDTH, COLUMNS } from '../lib/pickerGrid'
 import { Emoji } from './Emoji'
 import { PanelSearch } from './PickerParts'
@@ -30,6 +31,7 @@ interface EmojiPanelProps {
  * and an emoji names itself in its tooltip.
  */
 export function EmojiPanel({ search, onSearch, onPick }: EmojiPanelProps) {
+  const touch = useMediaQuery('(pointer: coarse)')
   return (
     <EmojiPicker.Root
       resolveEmojiData={loadEmojiData}
@@ -45,8 +47,10 @@ export function EmojiPanel({ search, onSearch, onPick }: EmojiPanelProps) {
           placeholder="Search emoji…"
           value={search}
           onChange={(event) => onSearch(event.target.value)}
-          data-autofocus=""
-          autoFocus
+          // Not on a touch screen, where it would bring the keyboard up
+          // over the grid; tapping the box searches.
+          data-autofocus={touch ? undefined : ''}
+          autoFocus={!touch}
           className="h-8 w-full rounded-control bg-field shadow-field px-2.5 text-sm text-ink outline-none placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-accent/40"
         />
       </PanelSearch>

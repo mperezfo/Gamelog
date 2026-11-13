@@ -578,7 +578,7 @@ function LookupForm({
           className="flex-1"
         />
         {kind === 'platforms' ? (
-          <ColorField label="Color" value={color} onChange={setColor} />
+          <ColorField label="Color" value={color} onChange={setColor} name={name} />
         ) : hasCountry(kind) ? (
           <CountryField label="Country" value={country} onChange={setCountry} />
         ) : (

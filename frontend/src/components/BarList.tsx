@@ -98,7 +98,7 @@ export function BarList({
                   aria-hidden="true"
                   className={[
                     'absolute inset-y-0 left-0 rounded-control transition-[width,background-color] duration-200 ease-out motion-reduce:transition-none',
-                    active ? (row.color ? 'tint' : 'bg-accent-soft') : 'bg-sunken group-hover:bg-hover',
+                    active ? (row.color ? (row.exact ? 'tint-glaze' : 'tint') : 'bg-accent-soft') : 'bg-sunken group-hover:bg-hover',
                   ].join(' ')}
                   style={{ width: `${Math.max((row.count / max) * 100, 1)}%` }}
                 />

@@ -18,9 +18,13 @@ export interface Highlight {
   key: string
   label: string
   test: (game: Game) => boolean
-  /** A platform's own colour, or a genre's icon's (see genreColor), painted
-   * through the `tint-fill` utility. Null means the accent. */
+  /** A platform's own colour, or a genre's icon's (see genreColor). Null
+   * means the accent. */
   color: string | null
+  /** Whether the colour is drawn exactly as it was picked, as a genre's icon
+   * is (`tint-solid`, `tint-glaze`), rather than adjusted to the theme, as a
+   * platform's badge is (`tint-fill`, `tint`). */
+  exact?: boolean
 }
 
 /** One bar of the time chart: a year, or a month of one. */
@@ -162,6 +166,7 @@ export function breakdown(played: Game[], kind: BreakdownKind, year: string): Sh
       count,
       lookup,
       color: kind === 'platforms' ? lookup.color : kind === 'genres' ? genreColor(lookup) : null,
+      exact: kind === 'genres',
       test: (game) => lookupsOf(game).some((l) => l.id === lookup.id),
       href: gamesHref(year, { [FILTER_KEY[kind]]: lookup.slug }),
     }))

@@ -1,5 +1,6 @@
 import { Suspense, use, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { iconLabel } from '../lib/genreIcons'
 import { COLUMN_WIDTH, COLUMNS } from '../lib/pickerGrid'
 import { ColorSliders } from './ColorSliders'
@@ -41,8 +42,15 @@ interface IconPanelProps {
  * shows as it would.
  */
 export function IconPanel({ search, onSearch, onPick, selected, color, onColor }: IconPanelProps) {
+  const touch = useMediaQuery('(pointer: coarse)')
   const panel = useRef<HTMLDivElement>(null)
-  const sliders = <ColorSliders value={color} onChange={onColor} />
+  const sliders = (
+    <div className="shrink-0 border-t border-line">
+      <div className={`${COLUMN_WIDTH} py-2.5`}>
+        <ColorSliders value={color} onChange={onColor} clearable />
+      </div>
+    </div>
+  )
 
   // From the search box, Down goes into the grid and Enter picks the first
   // icon found, as in the Emoji tab.
@@ -68,8 +76,10 @@ export function IconPanel({ search, onSearch, onPick, selected, color, onColor }
           onChange={(event) => onSearch(event.target.value)}
           onKeyDown={searchKeys}
           aria-label="Search icons"
-          data-autofocus=""
-          autoFocus
+          // Not on a touch screen, where it would bring the keyboard up
+          // over the grid; tapping the box searches.
+          data-autofocus={touch ? undefined : ''}
+          autoFocus={!touch}
           spellCheck={false}
           className="h-8 w-full rounded-control bg-field shadow-field px-2.5 text-sm text-ink outline-none placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-accent/40"
         />
