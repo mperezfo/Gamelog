@@ -56,6 +56,7 @@ function LibraryShell({ user, children }: AppShellProps) {
   // useGameModal), so there is never more than one on screen at once.
   const modal = useGameModal()
   const unsaved = useUnsavedChangesContext()
+  const panelOpen = Boolean(modal.game || modal.creating)
 
   // `main` is the same element whatever the route, and would otherwise keep
   // the last section's scroll: a section is entered at its top. Only on a
@@ -106,9 +107,10 @@ function LibraryShell({ user, children }: AppShellProps) {
 
         <OfflineBanner />
 
-        {/* Asked from the sidebar on its way out of a section (see
-            unsavedChanges). */}
-        {unsaved.leaving && (
+        {/* Asked from the sidebar on its way out of a section, or for the
+            browser's Back (see unsavedChanges). The game panel asks in its
+            own place while it covers the page. */}
+        {unsaved.leaving && !panelOpen && (
           <div className="shrink-0 px-4 pt-3 sm:px-6">
             <DiscardPrompt onDiscard={unsaved.discard} onKeep={unsaved.keep} />
           </div>
@@ -124,7 +126,7 @@ function LibraryShell({ user, children }: AppShellProps) {
         </main>
       </div>
 
-      {(modal.game || modal.creating) && <GamePanel game={modal.game} onClose={modal.close} />}
+      {panelOpen && <GamePanel game={modal.game} onClose={modal.close} />}
     </div>
   )
 }

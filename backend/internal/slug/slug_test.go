@@ -24,6 +24,21 @@ func TestMake(t *testing.T) {
 	}
 }
 
+func TestFold(t *testing.T) {
+	cases := map[string]string{
+		"Martín":      "martin",
+		"../odd name": "odd-name",
+		"---":         "",
+		"日本":          "",
+	}
+
+	for s, want := range cases {
+		if got := slug.Fold(s); got != want {
+			t.Errorf("Fold(%q) = %q, want %q", s, got, want)
+		}
+	}
+}
+
 func TestReserved(t *testing.T) {
 	cases := map[string]bool{
 		"new":                     true,

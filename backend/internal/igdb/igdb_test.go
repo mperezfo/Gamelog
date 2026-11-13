@@ -378,6 +378,44 @@ func TestCompanies(t *testing.T) {
 	}
 }
 
+func TestReleaseDates(t *testing.T) {
+	// 1798675200 is 2026-12-31, 1814313600 2027-06-30, at midnight UTC.
+	fake := newFakeIGDB(t, `[
+		{"id": 2, "first_release_date": 1814313600, "release_dates": [{"date": 1814313600, "date_format": 4}]},
+		{"id": 1, "first_release_date": 1798675200, "release_dates": [
+			{"date": 1830211200, "date_format": 2},
+			{"date": 1798675200, "date_format": 0}
+		]},
+		{"id": 3},
+		{"id": 4, "first_release_date": 1798675200, "release_dates": [{"date": 1798675200}]}
+	]`)
+
+	dates, err := fake.client().ReleaseDates(context.Background(), []uint64{1, 2, 3, 4, 5})
+	if err != nil {
+		t.Fatalf("ReleaseDates: %v", err)
+	}
+	if !strings.Contains(fake.queries[0], "fields first_release_date,release_dates.date,release_dates.date_format;") ||
+		!strings.Contains(fake.queries[0], "where id = (1,2,3,4,5);") {
+		t.Errorf("query = %q, want the release dates of the five ids", fake.queries[0])
+	}
+
+	// Known to the day only for the first: the second is only a quarter
+	// (its date is the quarter's last day), the third has none, and the
+	// fourth does not say how precise it is. The unknown fifth is left out.
+	day := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
+	if len(dates) != 4 || dates[0].GameID != 1 || dates[0].Date == nil || !dates[0].Date.Equal(day) {
+		t.Fatalf("dates = %+v, want 2026-12-31 for game 1 first", dates)
+	}
+	for _, date := range dates[1:] {
+		if date.Date != nil {
+			t.Errorf("game %d date = %v, want none known to the day", date.GameID, date.Date)
+		}
+	}
+	if dates[1].GameID != 2 || dates[2].GameID != 3 || dates[3].GameID != 4 {
+		t.Errorf("dates = %+v, want the order asked for", dates)
+	}
+}
+
 func TestImages(t *testing.T) {
 	fake := newFakeIGDB(t, `[{
 		"id": 26192,

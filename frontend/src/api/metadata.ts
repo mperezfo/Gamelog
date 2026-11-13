@@ -2,6 +2,7 @@ import type {
   GameCandidate,
   IgdbKind,
   IgdbNamed,
+  IgdbReleaseDate,
   ImageSearchResult,
   ImageSource,
   MetadataCapabilities,
@@ -44,4 +45,11 @@ export function searchGameImages(
   if (title) params.set('title', title)
   if (gameId !== null) params.set('game_id', String(gameId))
   return apiFetch<ImageSearchResult>(`/metadata/images?${params}`)
+}
+
+/** The release dates IGDB has now for games, by IGDB id, in the order of
+ * `ids`. A date it only knows to the month, quarter or year is null. */
+export async function listIgdbReleaseDates(ids: number[]): Promise<IgdbReleaseDate[]> {
+  const { games } = await apiFetch<{ games: IgdbReleaseDate[] }>(`/metadata/release-dates?ids=${ids.join(',')}`)
+  return games
 }

@@ -2,7 +2,7 @@ import { useId, useRef, useState, type FocusEvent, type KeyboardEvent, type RefO
 
 import { MONTH_ABBREVIATIONS } from '../lib/format'
 import type { DateFormat } from '../types/auth'
-import { useDateFormat } from '../hooks/useSession'
+import { usePreference } from '../hooks/useSession'
 import { DatePicker } from './DatePicker'
 import { Dropdown } from './Dropdown'
 import { CalendarIcon } from './icons'
@@ -13,6 +13,8 @@ interface DateFieldProps {
   /** yyyy-mm-dd, or empty for no date. */
   value: string
   onChange: (value: string) => void
+  /** A quiet line under the field, as Field has. */
+  hint?: string
 }
 
 type SegmentKind = 'd' | 'm' | 'y'
@@ -65,9 +67,9 @@ const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(in
  * than the browser's: a pick from it lands in the segments through `value`,
  * like any other change from outside.
  */
-export function DateField({ label, value, onChange }: DateFieldProps) {
+export function DateField({ label, value, onChange, hint }: DateFieldProps) {
   const id = useId()
-  const dateFormat = useDateFormat()
+  const dateFormat = usePreference('date_format')
   const order = SEGMENT_ORDER[dateFormat]
   const separator = SEPARATOR[dateFormat]
   const monthIsName = dateFormat === 'long'
@@ -275,6 +277,7 @@ export function DateField({ label, value, onChange }: DateFieldProps) {
           }}
         />
       </Popover>
+      {hint && <p className="text-xs text-ink-faint">{hint}</p>}
     </div>
   )
 }

@@ -103,3 +103,10 @@ export interface GameCandidate {
   developers: CompanyMatch[]
   publishers: CompanyMatch[]
 }
+
+/** A game's release date as IGDB has it now. */
+export interface IgdbReleaseDate {
+  igdb_id: number
+  /** RFC 3339 at midnight UTC, or null when IGDB does not know the day. */
+  release_date: string | null
+}

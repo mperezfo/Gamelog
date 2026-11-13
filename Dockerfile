@@ -42,9 +42,11 @@ COPY Caddyfile /etc/caddy/Caddyfile
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-# Where GAMELOG_IMAGES_DIR points by default, and where the README's compose
-# example mounts a named volume: everything the deployment needs to keep lives here.
+# Where GAMELOG_IMAGES_DIR and GAMELOG_BACKUP_DIR point by default, and where
+# the README's compose example mounts a named volume: everything the
+# deployment needs to keep lives here.
 ENV GAMELOG_IMAGES_DIR=/data/images
+ENV GAMELOG_BACKUP_DIR=/data/backups
 VOLUME /data
 
 EXPOSE 9999

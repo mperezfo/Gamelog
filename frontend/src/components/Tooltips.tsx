@@ -34,6 +34,8 @@ const MARGIN = 8
 interface Tip {
   anchor: HTMLElement
   text: string
+  /** The keyboard shortcut for what it is about, from `data-tooltip-kbd`. */
+  kbd?: string
 }
 
 /** A finger held on something with a tooltip. */
@@ -56,7 +58,8 @@ interface Press {
  * `document` rather than a wrapper around every element that has something
  * to say, so a tooltip is a single attribute wherever it is needed. It also
  * covers truncated text: anything with `truncate` or `line-clamp-*` that is
- * cut short shows its full text, the way it used to as a `title`.
+ * cut short shows its full text, the way it used to as a `title`. A
+ * `data-tooltip-kbd` beside it names a keyboard shortcut, drawn as a key.
  *
  * It shows for a mouse and for keyboard focus, which a `title` never did,
  * and on a touch screen for a long press: a tap is a press, there is nothing
@@ -86,7 +89,7 @@ export function Tooltips() {
       const text = textFor(anchor)
       if (!text) return
       describe(null)
-      shown = { anchor, text }
+      shown = { anchor, text, kbd: anchor.dataset.tooltipKbd }
       describe(shown)
       setTip(shown)
       if (!frame) frame = requestAnimationFrame(follow)
@@ -138,7 +141,7 @@ export function Tooltips() {
         return
       }
       if (text !== shown.text) {
-        shown = { anchor, text }
+        shown = { anchor, text, kbd: anchor.dataset.tooltipKbd }
         setTip(shown)
       }
       if (tipRef.current) place(anchor, tipRef.current)
@@ -341,6 +344,12 @@ export function Tooltips() {
       ].join(' ')}
     >
       <Emoji value={tip.text} />
+      {/* Drawn like the key the search box advertises (see GlobalSearch). */}
+      {tip.kbd && (
+        <kbd className="ml-1.5 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-control border border-current/30 px-1 align-[1px] font-sans text-[10.5px] leading-none font-normal opacity-80">
+          {tip.kbd}
+        </kbd>
+      )}
     </div>,
     document.body,
   )

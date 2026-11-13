@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { getCoreRowModel, getSortedRowModel, useReactTable, type ColumnDef, type SortingState } from '@tanstack/react-table'
 
@@ -19,7 +19,8 @@ import { PlatformBadge } from '../components/PlatformBadge'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useGameModal } from '../hooks/useGameModal'
-import { useDateFormat, useDefaultGamesView } from '../hooks/useSession'
+import { useShortcut } from '../hooks/useShortcut'
+import { usePreference } from '../hooks/useSession'
 import { useGames } from '../hooks/useGames'
 import { useOffline } from '../hooks/useOffline'
 import { useLookups } from '../hooks/useLookups'
@@ -39,10 +40,16 @@ import { Emoji } from '../components/Emoji'
 
 const DEFAULT_SORT_FIELD = 'title'
 
+/** Says that an option only looks at Played games: a quiet aside on the
+ * label's baseline. */
+function PlayedOnly() {
+  return <span className="shrink-0 text-xs font-normal text-ink-faint">(played only)</span>
+}
+
 /** Every field a game can be missing, and how to tell it's missing — the
  * options behind the "Missing" filter below. Checked against `games.data`
  * client-side, same as every other GamesPage filter. */
-const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => boolean }> = {
+const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => boolean; marker?: ReactNode }> = {
   cover: { label: 'No cover image', test: (g) => !g.cover_image_url },
   // Only games that have a cover count: without one there is nothing to crop,
   // and "No cover image" already covers them.
@@ -52,6 +59,14 @@ const MISSING_FIELDS: Record<string, { label: string; test: (game: Game) => bool
       !!g.cover_image_url && g.cover_focal_x == null && g.cover_focal_y == null && g.cover_zoom == null,
   },
   release_date: { label: 'No release date', test: (g) => !g.release_date },
+  // Played games only: those are the ones Stats leaves out without one (see
+  // playedGames in lib/stats), and the date is not missing from a game not
+  // played yet. Marked as such wherever it is offered or applied.
+  logged_date: {
+    label: 'No logged date',
+    test: (g) => g.status === 'played' && !g.logged_date,
+    marker: <PlayedOnly />,
+  },
   score: { label: 'No score', test: (g) => g.score == null },
   tagline: { label: 'No tagline', test: (g) => !g.tagline },
   notes: { label: 'No notes', test: (g) => !g.notes },
@@ -91,8 +106,8 @@ export function GamesPage() {
   const developers = useLookups('developers')
   const publishers = useLookups('publishers')
   const platforms = useLookups('platforms')
-  const dateFormat = useDateFormat()
-  const defaultView = useDefaultGamesView()
+  const dateFormat = usePreference('date_format')
+  const defaultView = usePreference('games_view')
 
   // Every filter, the search text and the view mode live in the URL (see
   // useFilterParams) rather than in local state: reloading the page, or
@@ -156,6 +171,8 @@ export function GamesPage() {
 
   const modal = useGameModal()
   const offline = useOffline()
+  // N opens the "New game" panel, unless one is open already.
+  useShortcut('n', modal.openNew, !offline && !modal.game && !modal.creating)
 
   // The search box is local state, not `filters.q` directly: a value bound
   // straight to the URL snaps back to it on every re-render, and a fast
@@ -211,7 +228,7 @@ export function GamesPage() {
         key: 'missing',
         label: 'Missing',
         kind: 'single',
-        options: Object.entries(MISSING_FIELDS).map(([value, { label }]) => ({ value, label })),
+        options: Object.entries(MISSING_FIELDS).map(([value, { label, marker }]) => ({ value, label, marker })),
       },
     ],
     [genres.data, developers.data, publishers.data, platforms.data, releaseYears, playedYears],
@@ -496,7 +513,15 @@ export function GamesPage() {
           </button>
         </div>
 
-        <Button variant="primary" className="order-6 sm:order-none" onClick={modal.openNew} disabled={offline}>
+        <Button
+          variant="primary"
+          className="order-6 sm:order-none"
+          onClick={modal.openNew}
+          disabled={offline}
+          data-tooltip="Create a game"
+          data-tooltip-kbd="N"
+          aria-keyshortcuts="n"
+        >
           <PlusIcon className="size-4" />
           New game
         </Button>

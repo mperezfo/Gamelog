@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -184,28 +185,16 @@ func registerPortability(api huma.API, db *gorm.DB, authentication *auth.Service
 			return nil, err
 		}
 
-		document, err := service.NewExporter(db, user.ID).Export(ctx)
+		var archive bytes.Buffer
+		exportedAt, err := service.ExportBackup(ctx, db, user, imagesDir, &archive)
 		if err != nil {
 			return nil, apiError(err, "nothing to export")
 		}
 
-		archive, err := buildBackupZip(document, service.AccountEntry{
-			Name:         user.Name,
-			AvatarURL:    user.AvatarURL,
-			PasswordHash: user.PasswordHash,
-			Theme:        user.Theme,
-			DateFormat:   user.DateFormat,
-			GamesView:    user.GamesView,
-			CalendarView: user.CalendarView,
-		}, imagesDir)
-		if err != nil {
-			return nil, fmt.Errorf("building the backup: %w", err)
-		}
-
 		return &exportBackupOutput{
 			ContentType:        "application/zip",
-			ContentDisposition: fmt.Sprintf("attachment; filename=%q", backupZipFilename(document.ExportedAt)),
-			Body:               archive,
+			ContentDisposition: fmt.Sprintf("attachment; filename=%q", service.BackupFilename(exportedAt)),
+			Body:               archive.Bytes(),
 		}, nil
 	})
 
@@ -257,8 +246,7 @@ func registerPortability(api huma.API, db *gorm.DB, authentication *auth.Service
 			return nil, apiError(err, "nothing to import")
 		}
 
-		theme, dateFormat, gamesView, calendarView := account.NormalisePreferences()
-		if err := authentication.RestoreAccount(ctx, user.ID, account.Name, account.AvatarURL, account.PasswordHash, theme, dateFormat, gamesView, calendarView); err != nil {
+		if err := authentication.RestoreAccount(ctx, user.ID, account.Name, account.AvatarURL, account.PasswordHash, account.Preferences.Normalise()); err != nil {
 			return nil, apiError(err, "no such account")
 		}
 
@@ -290,9 +278,4 @@ func registerPortability(api huma.API, db *gorm.DB, authentication *auth.Service
 // exportFilename is what a browser saves the export as.
 func exportFilename(at time.Time) string {
 	return "gamelog-" + at.Format(time.DateOnly) + ".json"
-}
-
-// backupZipFilename is what a browser saves a full backup as.
-func backupZipFilename(at time.Time) string {
-	return "gamelog-backup-" + at.Format(time.DateOnly) + ".zip"
 }

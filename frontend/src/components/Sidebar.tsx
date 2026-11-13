@@ -10,6 +10,7 @@ import { requestScrollToTop } from '../hooks/useScrollToTop'
 import { useLogout } from '../hooks/useSession'
 import type { User } from '../types/auth'
 import type { Game } from '../types/game'
+import { LOOKUP_FILTER_PARAM } from '../types/lookup'
 import { Avatar } from './Avatar'
 import { Button } from './Button'
 import { GlobalSearch } from './GlobalSearch'
@@ -259,6 +260,13 @@ export function Sidebar({ user, open, onClose, onSelectGame, pinned, onTogglePin
               onSelect={(game) => {
                 onSelectGame(game)
                 onClose()
+              }}
+              // The Games page filtered to it, the address its filter bar
+              // builds, asking first like the links below when that leaves
+              // changes behind.
+              onSelectLookup={(kind, item) => {
+                onClose()
+                unsaved.requestLeave(() => navigate(`/games?${LOOKUP_FILTER_PARAM[kind]}=${encodeURIComponent(item.slug)}`))
               }}
             />
           </div>

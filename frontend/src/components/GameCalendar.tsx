@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type CSSProperties } from 'react'
 
-import { useDefaultCalendarView } from '../hooks/useSession'
+import { usePreference } from '../hooks/useSession'
 import { monthGrid, monthLabel, monthNames, weekdayLabels } from '../lib/calendar'
 import { preloadImage } from '../lib/cover'
 import { UNRELEASED_IMAGE, UNRELEASED_RING, isUnreleased } from '../lib/upcoming'
@@ -52,7 +52,7 @@ function isValidYear(value: string): boolean {
  * it. Built by hand: a calendar is arithmetic on a handful of integers, not
  * worth a library for one view. */
 export function GameCalendar({ games, onSelectGame }: GameCalendarProps) {
-  const defaultView = useDefaultCalendarView()
+  const defaultView = usePreference('calendar_view')
   // Only where the calendar starts: toggling it on the dashboard is for the
   // moment, and leaves the account's preference as it was.
   const [field, setField] = useState<DateField>(VIEW_FIELDS[defaultView])

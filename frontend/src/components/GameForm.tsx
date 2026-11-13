@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 import { errorMessage } from '../api/client'
 import { igdbPage } from '../api/metadata'
@@ -19,6 +20,7 @@ import { Field } from './Field'
 import { ExternalLinkIcon, SearchIcon, TrashIcon } from './icons'
 import { IdentifyPanel, type IdentifyCurrent, type IdentifyResult } from './IdentifyPanel'
 import { MultiSelectDropdown } from './MultiSelectDropdown'
+import { NewMark } from './NewMark'
 import { Reveal } from './Reveal'
 import { Notice } from './Notice'
 import { Select } from './Select'
@@ -51,6 +53,15 @@ interface GameFormProps {
   /** Reports whether the fields differ from what they started as, so a
    * container can warn before discarding them (see GamePanel). */
   onDirtyChange?: (dirty: boolean) => void
+  /** Where the action row goes instead of the end of the form: a footer of
+   * the container's own, outside what scrolls, so that Save is always in
+   * reach and never moves (see GamePanel). Null until that footer is there. */
+  actionsTarget?: HTMLElement | null
+  /** Shown just above the action row, such as GamePanel's question before
+   * discarding changes, so that it is in view next to the buttons. */
+  actionsNotice?: ReactNode
+  /** Puts the cursor in Title once the form is there, for a new game. */
+  focusTitle?: boolean
 }
 
 /** Same members, regardless of order — good enough for genre/developer/
@@ -67,7 +78,18 @@ function sameIds(a: number[], b: number[]): boolean {
  * on submit differs. Used both inside the slide-over panel and on the
  * dedicated `/games/:id` page.
  */
-export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: GameFormProps) {
+export function GameForm({
+  game,
+  onSaved,
+  onDeleted,
+  onCancel,
+  onDirtyChange,
+  actionsTarget,
+  actionsNotice,
+  focusTitle = false,
+}: GameFormProps) {
+  // Ties the Save button to the form when it is drawn in actionsTarget.
+  const formId = useId()
   const genres = useLookups('genres')
   const developers = useLookups('developers')
   const publishers = useLookups('publishers')
@@ -78,6 +100,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   const offline = useOffline()
 
   const [title, setTitle] = useState(game?.title ?? '')
+  const titleRef = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState<GameStatus>(game?.status ?? 'wishlist')
   const [score, setScore] = useState(game?.score != null ? String(game.score) : '')
   const [tagline, setTagline] = useState(game?.tagline ?? '')
@@ -272,6 +295,12 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
     onDirtyChange?.(isDirty)
   }, [isDirty, onDirtyChange])
 
+  // Once, as the form appears. Without scrolling: the panel is still sliding
+  // in, and the browser would otherwise move it to bring the field into view.
+  useEffect(() => {
+    if (focusTitle) titleRef.current?.focus({ preventScroll: true })
+  }, [focusTitle])
+
   // Warns on a tab close or reload, and asks before the sidebar leaves the
   // section. Closing the game panel asks on its own (see GamePanel).
   useUnsavedChanges(isDirty)
@@ -344,7 +373,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
   }
 
   return (
-    <form onSubmit={submit} onKeyDown={guardEnter} className="flex flex-col gap-5">
+    <form id={formId} onSubmit={submit} onKeyDown={guardEnter} className="flex flex-col gap-5">
       {/* Offline, the game can still be read here, just not changed. A
           disabled fieldset disables every control inside it at once, and
           keeps whatever was being typed for when the server is back. */}
@@ -372,6 +401,7 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
             <input
+              ref={titleRef}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Untitled"
@@ -514,9 +544,9 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
             options={[
               { value: '', label: '—' },
               ...(platforms.data ?? []).map((platform) => ({ value: String(platform.id), label: platform.name })),
-              // Marked with Identify's "+" for a record to create: a "(new)"
-              // after the name would be the first thing cut on a phone.
-              ...(pendingPlatform ? [{ value: PENDING_PLATFORM, label: `+ ${pendingPlatform.name}` }] : []),
+              // Marked "new" like the developers and publishers to create,
+              // a mark the name truncates before.
+              ...(pendingPlatform ? [{ value: PENDING_PLATFORM, label: pendingPlatform.name, marker: <NewMark raised /> }] : []),
             ]}
           />
         </div>
@@ -531,7 +561,14 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
 
         <div className="grid grid-cols-2 gap-3">
           <DateField label="Release date" value={releaseDate} onChange={setReleaseDate} />
-          <DateField label="Logged date" value={loggedDate} onChange={setLoggedDate} />
+          <DateField
+            label="Logged date"
+            value={loggedDate}
+            onChange={setLoggedDate}
+            // The rule playedGames in lib/stats applies. Only a hint: a game
+            // can be played without its date being known.
+            hint={status === 'played' && !loggedDate ? 'Played games without a logged date are left out of Stats.' : undefined}
+          />
         </div>
 
         <div className="flex flex-col gap-3">
@@ -571,49 +608,65 @@ export function GameForm({ game, onSaved, onDeleted, onCancel, onDirtyChange }: 
         />
       </fieldset>
 
-      {saveError && <Notice tone="error">{errorMessage(saveError)}</Notice>}
-      {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}
+      <ActionsBar target={actionsTarget}>
+        {saveError && <Notice tone="error">{errorMessage(saveError)}</Notice>}
+        {remove.isError && <Notice tone="error">{errorMessage(remove.error)}</Notice>}
+        {actionsNotice}
 
-      <div className="flex items-center justify-between gap-2 pt-2">
-        <div className="flex gap-2">
-          <Button type="submit" variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame) || !title.trim()}>
-            {saving ? 'Saving…' : coverBusy ? 'Storing cover…' : game ? 'Save' : 'Create game'}
-          </Button>
-          {onCancel && <Button onClick={onCancel}>Cancel</Button>}
-        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex gap-2">
+            <Button type="submit" form={formId} variant="primary" disabled={saving || coverBusy || offline || Boolean(duplicateGame) || !title.trim()}>
+              {saving ? 'Saving…' : coverBusy ? 'Storing cover…' : game ? 'Save' : 'Create game'}
+            </Button>
+            {onCancel && <Button onClick={onCancel}>Cancel</Button>}
+          </div>
 
-        {game && onDeleted && (
-          <>
-            {confirmingDelete ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-ink-muted">Delete for good?</span>
+          {game && onDeleted && (
+            <>
+              {confirmingDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-ink-muted">Delete for good?</span>
+                  <Button
+                    variant="danger"
+                    className="border border-danger/30"
+                    disabled={remove.isPending || offline}
+                    onClick={() => remove.mutate(game.id, { onSuccess: onDeleted })}
+                  >
+                    {remove.isPending ? 'Deleting…' : 'Delete'}
+                  </Button>
+                  <Button onClick={() => setConfirmingDelete(false)}>Cancel</Button>
+                </div>
+              ) : (
                 <Button
                   variant="danger"
-                  className="border border-danger/30"
-                  disabled={remove.isPending || offline}
-                  onClick={() => remove.mutate(game.id, { onSuccess: onDeleted })}
+                  className="px-2"
+                  data-tooltip="Delete this game"
+                  aria-label="Delete this game"
+                  onClick={() => setConfirmingDelete(true)}
+                  disabled={offline}
                 >
-                  {remove.isPending ? 'Deleting…' : 'Delete'}
+                  <TrashIcon />
                 </Button>
-                <Button onClick={() => setConfirmingDelete(false)}>Cancel</Button>
-              </div>
-            ) : (
-              <Button
-                variant="danger"
-                className="px-2"
-                data-tooltip="Delete this game"
-                aria-label="Delete this game"
-                onClick={() => setConfirmingDelete(true)}
-                disabled={offline}
-              >
-                <TrashIcon />
-              </Button>
-            )}
-          </>
-        )}
-      </div>
+              )}
+            </>
+          )}
+        </div>
+      </ActionsBar>
     </form>
   )
+}
+
+/**
+ * The end of the form: what a save or delete went wrong with, and the
+ * buttons. With a `target` they are drawn there instead (see actionsTarget);
+ * a portal keeps them part of the form for React, and the Save button's
+ * `form` attribute for the browser. Its top padding sets off whatever comes
+ * first, a notice as much as the buttons.
+ */
+function ActionsBar({ target, children }: { target: HTMLElement | null | undefined; children: ReactNode }) {
+  if (target === undefined) return <div className="flex flex-col gap-5 pt-2">{children}</div>
+  if (!target) return null
+  return createPortal(<div className="flex flex-col gap-3 pt-2">{children}</div>, target)
 }
 
 interface IgdbGameLinkProps {

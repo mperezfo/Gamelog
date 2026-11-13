@@ -5,6 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // TestRequestTimeoutLeavesLibraryLoadsRunning: restoring a backup and
@@ -38,9 +40,16 @@ func TestRequestTimeoutLeavesLibraryLoadsRunning(t *testing.T) {
 	}
 }
 
+// TestClientAddressTrustsOnlyTheBundledProxy: the address failed logins are
+// counted against comes from X-Real-IP only when Caddy sent the request.
 func TestClientAddressTrustsOnlyTheBundledProxy(t *testing.T) {
 	var seen string
-	handler := clientAddress(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { seen = r.RemoteAddr }))
+	handler := clientAddress(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = middleware.GetClientIP(r.Context())
+		if seen == "" {
+			seen = r.RemoteAddr
+		}
+	}))
 
 	for _, tc := range []struct {
 		name, remote, realIP, want string
@@ -49,7 +58,7 @@ func TestClientAddressTrustsOnlyTheBundledProxy(t *testing.T) {
 		{"from the bundled Caddy over IPv6", "[::1]:51234", "2001:db8::7", "2001:db8::7"},
 		{"from the bundled Caddy without a header", "127.0.0.1:51234", "", "127.0.0.1:51234"},
 		{"from the bundled Caddy with nonsense", "127.0.0.1:51234", "not an address", "127.0.0.1:51234"},
-		{"from anyone else", "192.0.2.1:4000", "203.0.113.7", "192.0.2.1:4000"},
+		{"from anyone else", "192.0.2.1:4000", "203.0.113.7", "192.0.2.1"},
 	} {
 		req := httptest.NewRequest(http.MethodGet, "/api/health", nil)
 		req.RemoteAddr = tc.remote
@@ -58,7 +67,7 @@ func TestClientAddressTrustsOnlyTheBundledProxy(t *testing.T) {
 		}
 		handler.ServeHTTP(httptest.NewRecorder(), req)
 		if seen != tc.want {
-			t.Errorf("%s: RemoteAddr = %q, want %q", tc.name, seen, tc.want)
+			t.Errorf("%s: client address = %q, want %q", tc.name, seen, tc.want)
 		}
 	}
 }

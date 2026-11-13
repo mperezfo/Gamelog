@@ -18,12 +18,13 @@ export interface UnsavedChanges {
 
 /**
  * What the forms of the library shell have left unsaved, for the sidebar to
- * ask before leaving the section they are in.
+ * ask before leaving the section they are in, and the browser's Back before
+ * taking them off screen.
  *
- * React Router only blocks a navigation from a data router, which the app
- * does not use, so the links that leave a section ask here themselves (see
- * Sidebar). The context and its hooks live apart from the provider component
- * for the reason themeContext gives.
+ * The links that leave a section ask here themselves (see Sidebar); only
+ * Back, which no link of ours handles, is held back by the router (see
+ * UnsavedChangesProvider). The context and its hooks live apart from the
+ * provider component for the reason themeContext gives.
  */
 export const UnsavedChangesContext = createContext<UnsavedChanges | null>(null)
 
@@ -38,8 +39,8 @@ export function useUnsavedChangesContext(): UnsavedChanges {
 
 /**
  * Reports a form's unsaved changes: to the shell, which asks before a link in
- * the sidebar leaves them behind, and to the browser, which warns before the
- * tab is closed or reloaded.
+ * the sidebar or the browser's Back leaves them behind, and to the browser,
+ * which warns before the tab is closed or reloaded.
  */
 export function useUnsavedChanges(dirty: boolean) {
   const context = use(UnsavedChangesContext)

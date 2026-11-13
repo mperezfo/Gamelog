@@ -200,10 +200,10 @@ func newImportRun(tx *gorm.DB, userID uint64, report *ImportReport) *importRun {
 		// all four is worth fields some of them do nothing with.
 		platforms: newLookupImporter(tx, userID,
 			func(id uint64, name string, a lookupAttributes) models.Platform {
-				return models.Platform{ID: id, Name: name, Icon: a.Icon, Color: a.Color}
+				return models.Platform{ID: id, Name: name, Color: a.Color}
 			},
 			func(p *models.Platform) (uint64, lookupAttributes) {
-				return p.ID, lookupAttributes{Icon: p.Icon, Color: p.Color}
+				return p.ID, lookupAttributes{Color: p.Color}
 			}),
 
 		genres: newLookupImporter(tx, userID,
@@ -309,7 +309,12 @@ func (r *importRun) importLookups(ctx context.Context, section section) error {
 			continue
 		}
 
-		icon := entry.Icon
+		// Only a genre has an icon: on the other three it is ignored, without
+		// a word, like a colour on anything but a platform.
+		var icon *string
+		if section.name == "genres" {
+			icon = entry.Icon
+		}
 		if icon != nil && !iconLimit.fits(strings.TrimSpace(*icon)) {
 			r.warn(section.name, index, name, fmt.Sprintf("its icon was longer than %s, so it was left out", iconLimit))
 			icon = nil
@@ -731,7 +736,7 @@ type lookupPort interface {
 }
 
 // lookupAttributes are what a simple entity carries besides its name: an
-// icon for a genre or a platform, a colour for a platform, a country for a
+// icon for a genre, a colour for a platform, a country for a
 // developer or a publisher. Each is left out (nil) to keep what is stored,
 // and empty to clear it.
 type lookupAttributes struct {

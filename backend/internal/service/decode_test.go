@@ -34,8 +34,8 @@ func onlyGame(t *testing.T, body string) service.ImportGame {
 func TestImportReadsTheCanonicalDocument(t *testing.T) {
 	document := decodeDocument(t, `{
 		"version": 1,
-		"platforms": [{"name": "Nintendo Switch", "icon": "🎮"}],
-		"genres": [{"name": "Metroidvania"}],
+		"platforms": [{"name": "Nintendo Switch", "color": "#e60012"}],
+		"genres": [{"name": "Metroidvania", "icon": "🗺️"}],
 		"games": [{
 			"title": "Hollow Knight",
 			"status": "played",

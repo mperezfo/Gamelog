@@ -16,6 +16,8 @@ import { createPortal } from 'react-dom'
 
 import { autoUpdate, flip, offset, shift, size, useFloating, type Placement } from '@floating-ui/react-dom'
 
+import { useMediaQuery } from '../hooks/useMediaQuery'
+
 /** The popovers opened from inside another (a Dropdown in the date picker,
  * say). Each is drawn into `document.body` too, so it is not inside its
  * parent in the DOM, yet a press or focus in it is not "outside" it. */
@@ -59,11 +61,10 @@ interface PopoverProps {
   children: ReactNode
 }
 
-/** How the panel looks. */
-const BOX = [
-  'z-[70] animate-[gl-appear_100ms_ease-out] rounded-control border border-line bg-surface outline-none',
-  'shadow-popover motion-reduce:animate-none',
-].join(' ')
+/** How the panel looks: fading in as it opens, and out as it closes. */
+const BOX = 'z-[70] rounded-control border border-line bg-surface shadow-popover outline-none'
+const OPENING = 'animate-[gl-appear_100ms_ease-out] motion-reduce:animate-none'
+const CLOSING = 'pointer-events-none animate-[gl-disappear_100ms_ease-in_forwards]'
 
 /** Between the panel and its anchor. */
 const GAP = 4
@@ -86,6 +87,12 @@ const TABBABLE = 'a[href], button, input, select, textarea, [tabindex]'
  * Focus moves into it on opening. Escape, a press outside it or Tab out of
  * it close it; Escape goes no further, so the modal underneath stays open,
  * and Tab carries on from its trigger, as if the panel sat right after it.
+ *
+ * It fades in as it opens and out as it closes. While it fades out it is
+ * only a picture of itself: inert, out of the way of the pointer, no longer
+ * counted as open (see useShortcut), and showing what it showed when it
+ * closed, rather than whatever its owner resets as it closes it (the
+ * "+ Filter" menu going back to its first step, say).
  */
 export function Popover({
   anchorRef,
@@ -105,6 +112,17 @@ export function Popover({
   children,
 }: PopoverProps) {
   const panelRef = useRef<HTMLDivElement | null>(null)
+  const reduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+  const [closing, setClosing] = useState(false)
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    setClosing(!open && !reduceMotion)
+  }
+  // What it showed last while open, to keep showing as it fades out.
+  const [shown, setShown] = useState(children)
+  if (open && shown !== children) setShown(children)
+
   const onCloseRef = useRef(onClose)
   useEffect(() => {
     onCloseRef.current = onClose
@@ -125,7 +143,7 @@ export function Popover({
   }, [open, parent, contains])
 
   const { refs, floatingStyles } = useFloating({
-    open,
+    open: open || closing,
     placement,
     strategy: 'fixed',
     middleware: [
@@ -160,7 +178,7 @@ export function Popover({
 
   useLayoutEffect(() => {
     refs.setReference(anchorRef.current)
-  }, [refs, anchorRef, open])
+  }, [refs, anchorRef, open, closing])
 
   useEffect(() => {
     if (!open || !hover) return
@@ -220,15 +238,18 @@ export function Popover({
     onClose()
   }
 
-  if (!open) return null
+  if (!open && !closing) return null
+
+  const box = [BOX, closing ? CLOSING : OPENING, className].join(' ')
 
   return createPortal(
     <NestedPanels.Provider value={nested}>
       <div
         ref={setPanel}
         id={id}
-        role={role}
-        data-popover=""
+        role={closing ? undefined : role}
+        data-popover={closing ? undefined : ''}
+        inert={closing}
         aria-label={ariaLabel}
         tabIndex={-1}
         onPointerEnter={onPointerEnter}
@@ -243,10 +264,13 @@ export function Popover({
           onClose()
           triggerRef.current?.focus()
         }}
-        className={hover ? 'z-[70] outline-none' : [BOX, className].join(' ')}
+        onAnimationEnd={(event) => {
+          if (event.animationName === 'gl-disappear') setClosing(false)
+        }}
+        className={hover ? 'z-[70] outline-none' : box}
         style={hover ? { ...floatingStyles, padding: GAP } : floatingStyles}
       >
-        {hover ? <div className={[BOX, className].join(' ')}>{children}</div> : children}
+        {hover ? <div className={box}>{shown}</div> : shown}
       </div>
     </NestedPanels.Provider>,
     document.body,

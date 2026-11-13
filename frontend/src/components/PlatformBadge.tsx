@@ -23,12 +23,11 @@ export function PlatformBadge({ platform, className = '', highlight }: PlatformB
 
   return (
     <span
-      className={`inline-flex max-w-full items-center gap-1 truncate rounded-[4px] px-1.5 py-0.5 text-[11px] font-medium ${
+      className={`inline-flex max-w-full items-center truncate rounded-[4px] px-1.5 py-0.5 text-[11px] font-medium ${
         platform.color ? 'tint' : 'bg-sunken text-ink-muted'
       } ${className}`}
       style={platform.color ? ({ '--tint': platform.color } as CSSProperties) : undefined}
     >
-      {platform.icon && <span aria-hidden="true"><Emoji value={platform.icon} /></span>}
       <span className="truncate">
         {highlight ? (
           <HighlightMatch text={platform.name} indices={highlight} matchClassName="font-bold" />

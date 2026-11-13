@@ -29,6 +29,7 @@ type IGDB interface {
 	Companies(ctx context.Context, ids []uint64) ([]igdb.Company, error)
 	Platforms(ctx context.Context, ids []uint64) ([]igdb.Platform, error)
 	Images(ctx context.Context, gameID uint64) ([]igdb.Image, error)
+	ReleaseDates(ctx context.Context, ids []uint64) ([]igdb.ReleaseDate, error)
 }
 
 type metadataCapabilitiesOutput struct {
@@ -119,6 +120,23 @@ type igdbPlatform struct {
 type listIGDBPlatformsOutput struct {
 	Body struct {
 		Platforms []igdbPlatform `json:"platforms" doc:"The platforms, in the order asked for. An id IGDB does not know is left out."`
+	}
+}
+
+type listIGDBReleaseDatesInput struct {
+	IDs []uint64 `query:"ids" required:"true" minItems:"1" maxItems:"50" doc:"IGDB's ids for the games, comma-separated." example:"[26192,119171]"`
+}
+
+type igdbReleaseDate struct {
+	IGDBID uint64 `json:"igdb_id" doc:"IGDB's id for the game." example:"26192"`
+	// RFC 3339 at midnight UTC, the same shape as a game's release_date, so
+	// that it can be written back as it is.
+	ReleaseDate *time.Time `json:"release_date" doc:"First release date across every platform, RFC 3339. Null when IGDB does not know it to the day: only a month, a quarter, a year, or nothing." example:"2027-03-12T00:00:00Z"`
+}
+
+type listIGDBReleaseDatesOutput struct {
+	Body struct {
+		Games []igdbReleaseDate `json:"games" doc:"The games, in the order asked for. An id IGDB does not know is left out."`
 	}
 }
 
@@ -256,6 +274,8 @@ func registerMetadata(api huma.API, db *gorm.DB, sources Sources) {
 			return nil, apiError(err, "")
 		}
 
+		rememberSearchNames(ctx, db, results)
+
 		out := &searchGameMetadataOutput{}
 		out.Body.Candidates = make([]gameCandidate, 0, len(results))
 		for _, result := range results {
@@ -277,8 +297,9 @@ func registerMetadata(api huma.API, db *gorm.DB, sources Sources) {
 		Method:      http.MethodGet,
 		Path:        "/api/metadata/companies",
 		Summary:     "Name IGDB companies",
-		Description: "Returns the names of IGDB companies by id, such as those a developer or publisher " +
-			"is linked to (see its igdb_company_ids), which the library itself does not keep.",
+		Description: "Returns the names of IGDB companies by id, as IGDB has them now, such as those a " +
+			"developer or publisher is linked to (see its igdb_company_ids). The names its igdb_names " +
+			"carries are the server's copy, and this brings them up to date.",
 		Tags: []string{"Metadata"},
 		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusFailedDependency,
 			http.StatusNotImplemented},
@@ -296,8 +317,43 @@ func registerMetadata(api huma.API, db *gorm.DB, sources Sources) {
 
 		out := &listIGDBCompaniesOutput{}
 		out.Body.Companies = make([]igdbCompany, 0, len(companies))
+		names := make([]models.IGDBName, 0, len(companies))
 		for _, company := range companies {
 			out.Body.Companies = append(out.Body.Companies, igdbCompany{ID: company.ID, Name: company.Name})
+			names = append(names, models.IGDBName{ID: company.ID, Name: company.Name})
+		}
+		rememberIGDBNames(ctx, db, repository.IGDBCompany, names)
+		return out, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "list-igdb-release-dates",
+		Method:      http.MethodGet,
+		Path:        "/api/metadata/release-dates",
+		Summary:     "Read release dates from IGDB",
+		Description: "Returns the release dates IGDB has now for games, by IGDB id, such as those of " +
+			"unreleased games of the library (see a game's igdb_id), whose dates move until they are out. " +
+			"Nothing is written: comparing them with the library's own dates, and applying one, is up to the " +
+			"client.",
+		Tags: []string{"Metadata"},
+		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusFailedDependency,
+			http.StatusNotImplemented},
+	}, func(ctx context.Context, input *listIGDBReleaseDatesInput) (*listIGDBReleaseDatesOutput, error) {
+		if source == nil {
+			return nil, errIGDBNotConfigured()
+		}
+		lookupCtx, cancel := context.WithTimeout(ctx, searchTimeout)
+		defer cancel()
+		dates, err := source.ReleaseDates(lookupCtx, input.IDs)
+		if err != nil {
+			slog.Warn("reading IGDB release dates failed", "error", err)
+			return nil, errIGDBFailed()
+		}
+
+		out := &listIGDBReleaseDatesOutput{}
+		out.Body.Games = make([]igdbReleaseDate, 0, len(dates))
+		for _, date := range dates {
+			out.Body.Games = append(out.Body.Games, igdbReleaseDate{IGDBID: date.GameID, ReleaseDate: date.Date})
 		}
 		return out, nil
 	})
@@ -307,8 +363,9 @@ func registerMetadata(api huma.API, db *gorm.DB, sources Sources) {
 		Method:      http.MethodGet,
 		Path:        "/api/metadata/platforms",
 		Summary:     "Name IGDB platforms",
-		Description: "Returns the names of IGDB platforms by id, such as those a platform is linked to " +
-			"(see its igdb_platform_ids), which the library itself does not keep.",
+		Description: "Returns the names of IGDB platforms by id, as IGDB has them now, such as those a " +
+			"platform is linked to (see its igdb_platform_ids). The names its igdb_names carries are the " +
+			"server's copy, and this brings them up to date.",
 		Tags: []string{"Metadata"},
 		Errors: []int{http.StatusUnauthorized, http.StatusUnprocessableEntity, http.StatusFailedDependency,
 			http.StatusNotImplemented},
@@ -326,10 +383,13 @@ func registerMetadata(api huma.API, db *gorm.DB, sources Sources) {
 
 		out := &listIGDBPlatformsOutput{}
 		out.Body.Platforms = make([]igdbPlatform, 0, len(platforms))
+		names := make([]models.IGDBName, 0, len(platforms))
 		for _, platform := range platforms {
 			out.Body.Platforms = append(out.Body.Platforms,
 				igdbPlatform{ID: platform.ID, Name: platform.Name, Abbreviation: platform.Abbreviation})
+			names = append(names, models.IGDBName{ID: platform.ID, Name: platform.Name})
 		}
+		rememberIGDBNames(ctx, db, repository.IGDBPlatform, names)
 		return out, nil
 	})
 
@@ -361,6 +421,33 @@ func registerMetadata(api huma.API, db *gorm.DB, sources Sources) {
 			}
 			return &igdbPageOutput{Status: http.StatusFound, Location: url}, nil
 		})
+	}
+}
+
+// rememberSearchNames keeps the names of the companies and platforms a
+// search came back with, so that whichever of them a game write then links
+// to is named from the start.
+func rememberSearchNames(ctx context.Context, db *gorm.DB, results []igdb.Game) {
+	var companies []models.IGDBName
+	var platforms []models.IGDBName
+	for _, result := range results {
+		for _, company := range slices.Concat(result.Developers, result.Publishers) {
+			companies = append(companies, models.IGDBName{ID: company.ID, Name: company.Name})
+		}
+		for _, platform := range result.Platforms {
+			platforms = append(platforms, models.IGDBName{ID: platform.ID, Name: platform.Name})
+		}
+	}
+	rememberIGDBNames(ctx, db, repository.IGDBCompany, companies)
+	rememberIGDBNames(ctx, db, repository.IGDBPlatform, platforms)
+}
+
+// rememberIGDBNames keeps names IGDB has just given (see migration 00021).
+// A failure is only logged: the answer the names came with is still good,
+// and the copy is caught up the next time IGDB is asked.
+func rememberIGDBNames(ctx context.Context, db *gorm.DB, kind repository.IGDBKind, names []models.IGDBName) {
+	if err := repository.SaveIGDBNames(ctx, db, kind, names); err != nil {
+		slog.Warn("keeping the names IGDB gave failed", "kind", kind, "error", err)
 	}
 }
 

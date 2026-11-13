@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
@@ -7,6 +7,7 @@ import { Button } from '../components/Button'
 import { ColorField } from '../components/ColorField'
 import { CountryField } from '../components/CountryField'
 import { CountryFlag } from '../components/CountryFlag'
+import { DiscardPrompt } from '../components/DiscardPrompt'
 import { Emoji } from '../components/Emoji'
 import { EmojiField } from '../components/EmojiField'
 import { Field } from '../components/Field'
@@ -26,24 +27,56 @@ import { useCreateLookup, useDeleteLookup, useLookups, useUpdateLookup } from '.
 import { useUnsavedChanges } from '../hooks/unsavedChanges'
 import { useOffline } from '../hooks/useOffline'
 import { useReloadScroll } from '../hooks/useReloadScroll'
+import { useShortcut } from '../hooks/useShortcut'
 import { fuzzyMatch } from '../lib/fuzzy'
 import type { Game } from '../types/game'
-import { MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
+import type { IgdbNamed } from '../types/metadata'
+import { LOOKUP_FILTER_PARAM, MAX_LOOKUP_NAME, type Lookup, type LookupKind } from '../types/lookup'
 
-/** The IGDB records a developer, publisher or platform is linked to, and
- * what kind they are. Genres have none. */
-function igdbLinksOf(kind: LookupKind, item: Lookup): { kind: IgdbLinkKind; ids: number[] } {
-  if (kind === 'platforms') return { kind: 'platforms', ids: item.igdb_platform_ids ?? [] }
-  if (kind === 'genres') return { kind: 'companies', ids: [] }
-  return { kind: 'companies', ids: item.igdb_company_ids ?? [] }
+/** The IGDB records a developer, publisher or platform is linked to, what
+ * kind they are, and the names the server has for them. Genres have none. */
+function igdbLinksOf(kind: LookupKind, item: Lookup): IgdbLinkSet {
+  const names = item.igdb_names ?? []
+  if (kind === 'platforms') return { kind: 'platforms', ids: item.igdb_platform_ids ?? [], names }
+  if (kind === 'genres') return NO_IGDB_LINKS
+  return { kind: 'companies', ids: item.igdb_company_ids ?? [], names }
 }
 
 type IgdbLinkKind = 'companies' | 'platforms'
+
+interface IgdbLinkSet {
+  kind: IgdbLinkKind
+  ids: number[]
+  names: IgdbNamed[]
+}
+
+const NO_IGDB_LINKS: IgdbLinkSet = { kind: 'companies', ids: [], names: [] }
+
+/**
+ * What IGDB calls each record of links, by id: the server's copy, which
+ * comes with the record and so is there at once, brought up to date by
+ * asking IGDB itself once `check` is true (which also updates the copy for
+ * next time). Only once per session, and only where IGDB is configured: an
+ * answer that never comes, or a failure, leaves the copy as it is.
+ */
+function useIgdbLinkNames(links: IgdbLinkSet, check: boolean): Map<number, string> {
+  const capabilities = useMetadataCapabilities()
+  const fresh = useIgdbNames(links.kind, links.ids, check && links.ids.length > 0 && Boolean(capabilities.data?.identify))
+  return new Map([...links.names, ...(fresh.data ?? [])].map((record) => [record.id, record.name]))
+}
 
 /** One IGDB record of a kind, for the copy around the links. */
 const IGDB_NOUN: Record<IgdbLinkKind, { one: string; many: string }> = {
   companies: { one: 'company', many: 'companies' },
   platforms: { one: 'platform', many: 'platforms' },
+}
+
+/** One record of a kind, for the copy around it. */
+const KIND_NOUN: Record<LookupKind, string> = {
+  genres: 'genre',
+  developers: 'developer',
+  publishers: 'publisher',
+  platforms: 'platform',
 }
 
 /** Developers and publishers have a country, where the other two have an
@@ -55,35 +88,42 @@ function hasCountry(kind: LookupKind): boolean {
 /** A default so a new platform doesn't start colorless. */
 const DEFAULT_COLOR = '#787774'
 
-/** GamesPage's filter param for each kind — singular, unlike the kind itself. */
-const FILTER_PARAM: Record<LookupKind, string> = {
-  genres: 'genre',
-  developers: 'developer',
-  publishers: 'publisher',
-  platforms: 'platform',
-}
-
 type SortMode = 'count' | 'name'
 
 /**
- * The IGDB link of a row in the list. A record linked to a single IGDB
- * record opens its page straight away; one standing for several (Nintendo
- * and its EPD groups, say, or a "VR" platform) asks which, in a small menu
- * naming them as IGDB does, since the library keeps nothing but their ids.
+ * The IGDB link of a row in the list. It opens a small menu naming the IGDB
+ * records the row is linked to as IGDB does, even when there is only one:
+ * the name says which record the link goes to before it is followed. One
+ * standing for several (Nintendo and its EPD groups, say, or a "VR"
+ * platform) says how many next to its glyph, so that it shows in the list at
+ * a glance.
  */
-function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
+function IgdbLinks({ links }: { links: IgdbLinkSet }) {
+  const { kind, ids } = links
   const capabilities = useMetadataCapabilities()
   const [open, setOpen] = useState(false)
+  // Checked against IGDB as soon as the pointer or the focus reaches the
+  // glyph, so that a name IGDB has changed is usually corrected before the
+  // menu opens.
+  const [wanted, setWanted] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const named = useIgdbNames(kind, ids, open)
+  const names = useIgdbLinkNames(links, wanted || open)
+  const count = ids.length > 1 && (
+    <span aria-hidden="true" className="-mt-0.5 ml-px text-[9px] leading-none font-medium tabular-nums">
+      {ids.length}
+    </span>
+  )
 
-  if (ids.length === 1 || !capabilities.data?.identify) {
-    return <IgdbLink kind={kind} id={ids[0]} className="shrink-0 text-ink-faint" />
+  if (!capabilities.data?.identify) {
+    return (
+      <span className="inline-flex shrink-0 items-start text-ink-faint">
+        <IgdbLink kind={kind} id={ids[0]} tooltip={ids.length === 1 ? names.get(ids[0]) : undefined} />
+        {count}
+      </span>
+    )
   }
 
-  // Named as IGDB does once the names are in; by id until then, or if IGDB
-  // cannot be reached.
-  const names = new Map((named.data ?? []).map((record) => [record.id, record.name]))
+  const label = ids.length === 1 ? 'Linked to IGDB' : `Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`
 
   return (
     <span className="inline-flex shrink-0">
@@ -91,12 +131,15 @@ function IgdbLinks({ kind, ids }: { kind: IgdbLinkKind; ids: number[] }) {
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        data-tooltip={`Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`}
-        aria-label={`Linked to ${ids.length} IGDB ${IGDB_NOUN[kind].many}`}
+        onPointerEnter={() => setWanted(true)}
+        onFocus={() => setWanted(true)}
+        data-tooltip={label}
+        aria-label={label}
         aria-expanded={open}
-        className="inline-flex text-ink-faint transition-colors duration-75 hover:text-ink"
+        className="inline-flex items-start text-ink-faint transition-colors duration-75 hover:text-ink"
       >
         <ExternalLinkIcon className="size-3" />
+        {count}
       </button>
       <Popover
         anchorRef={triggerRef}
@@ -157,6 +200,8 @@ export function LookupPage({ kind, title }: LookupPageProps) {
   const games = useGames()
   const offline = useOffline()
   const [editing, setEditing] = useState<Lookup | 'new' | null>(null)
+  // N opens the create form, unless a form is open already.
+  useShortcut('n', () => setEditing('new'), !offline && editing === null)
   // Kept in the URL, same as GamesPage's own sort — a link built or bookmarked
   // with one of these open reproduces the same order, and each of the four
   // routes this page serves (genres, developers, publishers, platforms) gets
@@ -204,18 +249,21 @@ export function LookupPage({ kind, title }: LookupPageProps) {
     return items
   }, [list.data, sortMode, counts])
 
-  // What the search matched in each name, to draw it bold. The list keeps
-  // its order rather than ranking by match, the way the Games page does:
-  // the search narrows it, the sort still decides how it reads. The row
-  // being edited stays whatever is typed, so a search never takes a form
-  // out from under its changes.
+  // What the search matched in each name, to draw it bold. While there is a
+  // search the list is ranked by how well each name matches it (the name
+  // starting with it first, see fuzzyMatch), and the chosen sort only breaks
+  // ties: otherwise a weak match with more games would come before the
+  // obvious one. The row being edited stays whatever is typed, so a search
+  // never takes a form out from under its changes.
   const shown = useMemo(() => {
-    const out: { item: Lookup; indices: number[] }[] = []
+    const out: { item: Lookup; indices: number[]; score: number }[] = []
     for (const item of sorted) {
       const match = fuzzyMatch(debouncedSearch, item.name)
-      if (match) out.push({ item, indices: match.indices })
-      else if (editing !== 'new' && editing?.id === item.id) out.push({ item, indices: [] })
+      if (match) out.push({ item, indices: match.indices, score: match.score })
+      else if (editing !== 'new' && editing?.id === item.id) out.push({ item, indices: [], score: -Infinity })
     }
+    // A stable sort: equal scores keep the sorted order.
+    if (debouncedSearch.trim()) out.sort((a, b) => b.score - a.score)
     return out
   }, [sorted, debouncedSearch, editing])
 
@@ -259,7 +307,14 @@ export function LookupPage({ kind, title }: LookupPageProps) {
               </button>
             </div>
           </div>
-          <Button variant="primary" onClick={() => setEditing('new')} disabled={offline}>
+          <Button
+            variant="primary"
+            onClick={() => setEditing('new')}
+            disabled={offline}
+            data-tooltip={`Create a ${KIND_NOUN[kind]}`}
+            data-tooltip-kbd="N"
+            aria-keyshortcuts="n"
+          >
             <PlusIcon className="size-4" />
             New
           </Button>
@@ -363,7 +418,7 @@ function LookupRow({
           {kind === 'platforms' ? (
             <span className="flex min-w-0 items-center gap-1">
               <PlatformBadge platform={item} highlight={highlight} />
-              {links.ids.length > 0 && <IgdbLinks kind={links.kind} ids={links.ids} />}
+              {links.ids.length > 0 && <IgdbLinks links={links} />}
             </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2 text-sm text-ink">
@@ -376,13 +431,13 @@ function LookupRow({
                 <span className="truncate">
                   <HighlightMatch text={item.name} indices={highlight} />
                 </span>
-                {links.ids.length > 0 && <IgdbLinks kind={links.kind} ids={links.ids} />}
+                {links.ids.length > 0 && <IgdbLinks links={links} />}
               </span>
             </span>
           )}
           {count > 0 ? (
             <Link
-              to={`/games?${FILTER_PARAM[kind]}=${encodeURIComponent(item.slug)}`}
+              to={`/games?${LOOKUP_FILTER_PARAM[kind]}=${encodeURIComponent(item.slug)}`}
               className="shrink-0 text-xs text-ink-faint underline decoration-line-strong underline-offset-2 hover:text-ink hover:decoration-ink-faint"
             >
               {count}
@@ -446,18 +501,28 @@ function LookupForm({
   const [icon, setIcon] = useState(item?.icon ?? '')
   const [country, setCountry] = useState(item?.country ?? '')
   const [color, setColor] = useState(item?.color ?? DEFAULT_COLOR)
-  const links = item ? igdbLinksOf(kind, item) : { kind: 'companies' as const, ids: [] }
+  const links = item ? igdbLinksOf(kind, item) : NO_IGDB_LINKS
   // IGDB links to forget on Save, struck through until then.
   const [unlinking, setUnlinking] = useState<number[]>([])
+  // Whether Cancel is waiting on "Discard unsaved changes?".
+  const [confirmingCancel, setConfirmingCancel] = useState(false)
 
   // A form opened and left as it was is as disposable as no form at all.
-  useUnsavedChanges(
+  const dirty =
     name !== (item?.name ?? '') ||
-      icon !== (item?.icon ?? '') ||
-      country !== (item?.country ?? '') ||
-      color !== (item?.color ?? DEFAULT_COLOR) ||
-      unlinking.length > 0,
-  )
+    icon !== (item?.icon ?? '') ||
+    country !== (item?.country ?? '') ||
+    color !== (item?.color ?? DEFAULT_COLOR) ||
+    unlinking.length > 0
+  useUnsavedChanges(dirty)
+
+  // Cancel, and Escape with it, asks first only when there is something to
+  // lose, the way the game panel's close does.
+  function requestCancel() {
+    if (confirmingCancel) return
+    if (dirty) setConfirmingCancel(true)
+    else onDone()
+  }
 
   const create = useCreateLookup(kind)
   const update = useUpdateLookup(kind)
@@ -465,12 +530,19 @@ function LookupForm({
   const error = create.error ?? update.error
   const offline = useOffline()
 
+  // What IGDB calls each linked record, for the tooltip of its id, since
+  // the id alone says nothing about which record it is. Checked against
+  // IGDB as the form opens.
+  const igdbNames = useIgdbLinkNames(links, true)
+
   function submit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim()) return
     const input = hasCountry(kind)
       ? { name: name.trim(), country: country || null }
-      : { name: name.trim(), icon: icon.trim() || null, color: kind === 'platforms' ? color : null }
+      : kind === 'platforms'
+        ? { name: name.trim(), color }
+        : { name: name.trim(), icon: icon.trim() || null }
 
     if (item) {
       update.mutate({ id: item.id, input, unlink: unlinking }, { onSuccess: onDone })
@@ -480,7 +552,17 @@ function LookupForm({
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3 sm:max-w-[360px]">
+    <form
+      onSubmit={submit}
+      // An Escape in one of the form's own popovers (country, emoji, colour)
+      // closes that popover alone, and never gets here.
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || event.nativeEvent.isComposing) return
+        event.preventDefault()
+        requestCancel()
+      }}
+      className="flex flex-col gap-3 sm:max-w-[360px]"
+    >
       <div className="flex gap-3">
         <Field
           label="Name"
@@ -503,37 +585,45 @@ function LookupForm({
       {item && kind !== 'genres' && (
         // A link is made, or moved, from a game's Identify: here it can only
         // be dropped, on Save like the rest of the form.
-        <p className="flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
+        //
+        // Inline rather than a flex row, so that the ids read as part of the
+        // sentence. Each id is a small pill, like the filter pills on Games,
+        // so that its × plainly belongs to it.
+        <p className="text-xs leading-relaxed text-ink-faint">
           {links.ids.length > 0 ? (
             <>
               Linked to IGDB as {links.ids.length === 1 ? IGDB_NOUN[links.kind].one : IGDB_NOUN[links.kind].many}
               {links.ids.map((id) => {
                 const dropped = unlinking.includes(id)
                 return (
-                  <span key={id} className="inline-flex items-center gap-1">
-                    {dropped ? (
-                      <s className="tabular-nums decoration-ink-faint">{id}</s>
-                    ) : (
-                      <IgdbLink
-                        kind={links.kind}
-                        id={id}
-                        className="tabular-nums underline decoration-line-strong underline-offset-2"
+                  <Fragment key={id}>
+                    {' '}
+                    <span className="inline-flex h-[18px] items-center rounded-control bg-sunken pr-px pl-1 leading-[14px]">
+                      {dropped ? (
+                        <s className="tabular-nums decoration-ink-faint">{id}</s>
+                      ) : (
+                        <IgdbLink
+                          kind={links.kind}
+                          id={id}
+                          tooltip={igdbNames.get(id)}
+                          className="text-ink-muted tabular-nums [&_svg]:-translate-y-px"
+                        >
+                          {id}
+                        </IgdbLink>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setUnlinking((current) => (dropped ? current.filter((x) => x !== id) : [...current, id]))
+                        }
+                        data-tooltip={dropped ? 'Keep this link' : 'Unlink when saved'}
+                        aria-label={dropped ? `Keep the link to ${id}` : `Unlink from ${id}`}
+                        className={`flex h-3.5 items-center justify-center rounded-full transition-colors duration-75 hover:bg-hover hover:text-ink ${dropped ? 'px-1' : 'w-3.5'}`}
                       >
-                        {id}
-                      </IgdbLink>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setUnlinking((current) => (dropped ? current.filter((x) => x !== id) : [...current, id]))
-                      }
-                      data-tooltip={dropped ? 'Keep this link' : 'Unlink when saved'}
-                      aria-label={dropped ? `Keep the link to ${id}` : `Unlink from ${id}`}
-                      className="transition-colors duration-75 hover:text-ink"
-                    >
-                      {dropped ? 'Undo' : <XIcon className="size-3" />}
-                    </button>
-                  </span>
+                        {dropped ? 'Undo' : <XIcon className="size-2.5" />}
+                      </button>
+                    </span>
+                  </Fragment>
                 )
               })}
             </>
@@ -543,12 +633,16 @@ function LookupForm({
         </p>
       )}
       {error && <Notice tone="error">{errorMessage(error)}</Notice>}
-      <div className="flex gap-2">
-        <Button type="submit" variant="primary" disabled={saving || offline || !name.trim()}>
-          {saving ? 'Saving…' : item ? 'Save' : 'Create'}
-        </Button>
-        <Button onClick={onDone}>Cancel</Button>
-      </div>
+      {confirmingCancel ? (
+        <DiscardPrompt onDiscard={onDone} onKeep={() => setConfirmingCancel(false)} />
+      ) : (
+        <div className="flex gap-2">
+          <Button type="submit" variant="primary" disabled={saving || offline || !name.trim()}>
+            {saving ? 'Saving…' : item ? 'Save' : 'Create'}
+          </Button>
+          <Button onClick={requestCancel}>Cancel</Button>
+        </div>
+      )}
     </form>
   )
 }

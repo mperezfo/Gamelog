@@ -70,3 +70,23 @@ func TestSteamGridDBKeyIsOptional(t *testing.T) {
 		}
 	}
 }
+
+func TestBackupRetention(t *testing.T) {
+	cfg, err := Load("")
+	if err != nil || cfg.BackupsEnabled() {
+		t.Fatalf("by default: enabled = %v, err = %v, want off", cfg.BackupsEnabled(), err)
+	}
+
+	t.Setenv("GAMELOG_BACKUP_WEEKLY", "4")
+	cfg, err = Load("")
+	if err != nil || !cfg.BackupsEnabled() || cfg.BackupWeekly != 4 || cfg.BackupDaily != 0 {
+		t.Errorf("weekly 4: %+v, err = %v, want only weekly backups, on", cfg, err)
+	}
+
+	for _, value := range []string{"-1", "seven"} {
+		t.Setenv("GAMELOG_BACKUP_DAILY", value)
+		if _, err := Load(""); err == nil {
+			t.Errorf("GAMELOG_BACKUP_DAILY=%s loaded, want an error", value)
+		}
+	}
+}

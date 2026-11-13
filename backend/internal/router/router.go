@@ -2,10 +2,7 @@
 package router
 
 import (
-	"net"
 	"net/http"
-	"net/netip"
-	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -53,6 +50,12 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
+	// The client's address, which the request log shows and failed logins
+	// are counted against. Behind the image's own Caddy every request comes
+	// from loopback, and Caddy passes the client's address in X-Real-IP,
+	// which it sets itself whatever the client sent (see Caddyfile): trusted
+	// from there, and from there only. Anything else reaching the backend
+	// directly is taken at its word, never at its headers.
 	r.Use(clientAddress)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -156,37 +159,7 @@ func openAPIConfig() huma.Config {
 	return cfg
 }
 
-// clientAddress sets a request's RemoteAddr to the client's own address,
-// which the logs show and failed logins are counted against.
-//
-// Behind the image's own Caddy every request comes from loopback, and Caddy
-// passes the client's address in X-Real-IP, which it sets itself whatever
-// the client sent: trusted from there, and from there only (see Caddyfile).
-// Anything else reaching the backend directly is taken at its word, never
-// at its headers, unlike chi's RealIP, which believes them from anyone.
-func clientAddress(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if real := realIP(r); real != "" {
-			r.RemoteAddr = real
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-// realIP is the address in X-Real-IP, for a request from loopback that has
-// a valid one.
-func realIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	peer, err := netip.ParseAddr(host)
-	if err != nil || !peer.IsLoopback() {
-		return ""
-	}
-	real, err := netip.ParseAddr(strings.TrimSpace(r.Header.Get("X-Real-IP")))
-	if err != nil {
-		return ""
-	}
-	return real.String()
-}
+// clientAddress stores the client's address for middleware.GetClientIP:
+// X-Real-IP from loopback, where the image's Caddy runs, and the peer itself
+// from anywhere else. A variable so that the test checks the very same one.
+var clientAddress = middleware.ClientIPFromHeader("X-Real-IP", "127.0.0.0/8", "::1/128")

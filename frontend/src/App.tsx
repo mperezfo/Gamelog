@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 
 import { QueryClient, useQueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { createBrowserRouter, Navigate, Route, RouterProvider, Routes } from 'react-router-dom'
 
 import { errorMessage, UnreachableError } from './api/client'
 import { AppShell } from './components/AppShell'
@@ -11,6 +11,7 @@ import { Tooltips } from './components/Tooltips'
 import { useReconnect } from './hooks/useOffline'
 import { useInlineValidation } from './hooks/useInlineValidation'
 import { useInputModality } from './hooks/useInputModality'
+import { RELEASE_DATES_KEY } from './hooks/useMetadata'
 import { useOfflineSync } from './hooks/useOfflineSync'
 import { useScrollbarFade } from './hooks/useScrollbarFade'
 import { useSession } from './hooks/useSession'
@@ -44,6 +45,12 @@ const queryClient = new QueryClient({
   },
 })
 
+/** A data router, for the one thing only it does: holding back the
+ * browser's own Back while a form has unsaved changes (see
+ * UnsavedChangesProvider). Every address goes to Gate, whose own `<Routes>`
+ * still decide what is on screen. */
+const router = createBrowserRouter([{ path: '*', element: <Gate /> }])
+
 export default function App() {
   useScrollbarFade()
   useTapFeedback()
@@ -56,13 +63,12 @@ export default function App() {
       persistOptions={persistOptions}
       // The copy restored from the device only stands in until the server
       // answers. Even the session and setup queries, which never go stale on
-      // their own, are asked again.
-      onSuccess={() => queryClient.invalidateQueries()}
+      // their own, are asked again. All but IGDB's release dates, which are
+      // kept for a day on purpose (see useIgdbReleaseDates).
+      onSuccess={() => queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] !== RELEASE_DATES_KEY })}
     >
       <ThemeProvider>
-        <BrowserRouter>
-          <Gate />
-        </BrowserRouter>
+        <RouterProvider router={router} />
         <Tooltips />
       </ThemeProvider>
     </PersistQueryClientProvider>

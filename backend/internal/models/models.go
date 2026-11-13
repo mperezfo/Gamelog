@@ -90,13 +90,23 @@ type Developer struct {
 	Name   string `gorm:"column:name" json:"name"`
 	Slug   string `gorm:"column:slug" json:"slug"`
 	// Country is where the developer is from, as an ISO 3166-1 two-letter
-	// code ("ES"), in place of the icon the other two simple entities have.
+	// code ("ES"), in place of the icon a genre has.
 	// See migration 00019.
 	Country *string `gorm:"column:country" json:"country"`
 	// IGDBCompanyIDs are the IGDB companies the developer stands for. They
 	// live in a table of their own (see migration 00016) and are filled in
 	// by LookupRepository's List and Get only, never written through here.
 	IGDBCompanyIDs []uint64 `gorm:"-" json:"igdb_company_ids,omitempty"`
+	// IGDBNames are the names IGDB gives those companies, for the ones the
+	// server has seen (see migration 00021). Filled in alongside them.
+	IGDBNames []IGDBName `gorm:"-" json:"igdb_names,omitempty"`
+}
+
+// IGDBName is the name IGDB gives one of the companies or platforms a
+// record is linked to.
+type IGDBName struct {
+	ID   uint64 `json:"id" doc:"IGDB's id for the company or platform." example:"37"`
+	Name string `json:"name" doc:"Its name on IGDB, as last seen." example:"Capcom"`
 }
 
 // Publisher is a game publisher.
@@ -109,19 +119,22 @@ type Publisher struct {
 	Country *string `gorm:"column:country" json:"country"`
 	// IGDBCompanyIDs: see Developer.IGDBCompanyIDs.
 	IGDBCompanyIDs []uint64 `gorm:"-" json:"igdb_company_ids,omitempty"`
+	// IGDBNames: see Developer.IGDBNames.
+	IGDBNames []IGDBName `gorm:"-" json:"igdb_names,omitempty"`
 }
 
 // Platform is a system a game was played.
 type Platform struct {
-	ID     uint64  `gorm:"column:id;primaryKey" json:"id"`
-	UserID uint64  `gorm:"column:user_id" json:"-"`
-	Name   string  `gorm:"column:name" json:"name"`
-	Slug   string  `gorm:"column:slug" json:"slug"`
-	Icon   *string `gorm:"column:icon" json:"icon"`
+	ID     uint64 `gorm:"column:id;primaryKey" json:"id"`
+	UserID uint64 `gorm:"column:user_id" json:"-"`
+	Name   string `gorm:"column:name" json:"name"`
+	Slug   string `gorm:"column:slug" json:"slug"`
 	// Color is a hex code ("#3b82f6") shown wherever a game's platform is.
 	// Platform only: see migration 00003.
 	Color *string `gorm:"column:color" json:"color"`
 	// IGDBPlatformIDs are the IGDB platforms the platform stands for, filled
 	// in the same way as Developer.IGDBCompanyIDs. See migration 00018.
 	IGDBPlatformIDs []uint64 `gorm:"-" json:"igdb_platform_ids,omitempty"`
+	// IGDBNames: see Developer.IGDBNames.
+	IGDBNames []IGDBName `gorm:"-" json:"igdb_names,omitempty"`
 }

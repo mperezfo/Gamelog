@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { useOffline } from '../hooks/useOffline'
+import { useUnsavedChangesContext } from '../hooks/unsavedChanges'
 import type { Game } from '../types/game'
 import { Button } from './Button'
 import { DiscardPrompt } from './DiscardPrompt'
@@ -40,6 +41,7 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   const closeTimer = useRef<number | undefined>(undefined)
   const navigate = useNavigate()
   const offline = useOffline()
+  const unsaved = useUnsavedChangesContext()
   useDocumentTitle(game ? game.title : 'New game')
 
   // Starts off-screen and slides in on the next frame — starting `visible`
@@ -48,6 +50,29 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
   useEffect(() => {
     const frame = requestAnimationFrame(() => setVisible(true))
     return () => cancelAnimationFrame(frame)
+  }, [])
+
+  // The footer the form draws its action row into (see GameForm's
+  // actionsTarget), and whether fields go on under it: more of the panel
+  // than a pixel left to scroll, which fractional heights never reach.
+  const [actionsEl, setActionsEl] = useState<HTMLDivElement | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [covering, setCovering] = useState(false)
+
+  useEffect(() => {
+    const scroller = scrollRef.current
+    const content = contentRef.current
+    if (!scroller || !content) return
+    const update = () => setCovering(scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight > 1)
+    const observer = new ResizeObserver(update)
+    observer.observe(scroller)
+    observer.observe(content)
+    scroller.addEventListener('scroll', update, { passive: true })
+    return () => {
+      observer.disconnect()
+      scroller.removeEventListener('scroll', update)
+    }
   }, [])
 
   useEffect(() => {
@@ -120,50 +145,79 @@ export function GamePanel({ game, onClose }: GamePanelProps) {
         aria-hidden="true"
       />
 
+      {/* A dialog, so that the page's own shortcuts (F, N) leave it alone
+          while it covers the page (see useShortcut). */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={game ? game.title : 'New game'}
         className={[
-          'relative flex h-full w-full flex-col overflow-y-auto bg-surface p-6',
-          'pt-[calc(1.5rem+env(safe-area-inset-top))] pb-[calc(1.5rem+env(safe-area-inset-bottom))]',
+          'relative flex h-full w-full flex-col bg-surface',
           'shadow-panel transition-transform duration-200 ease-out sm:w-[760px]',
           visible ? 'translate-x-0' : 'translate-x-full',
         ].join(' ')}
       >
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-base font-semibold tracking-tight text-ink">
-              {game ? (offline ? 'Game' : 'Edit game') : 'New game'}
-            </h2>
-            {game && (
-              <Link
-                to={`/games/${game.slug}`}
-                onClick={openFullPage}
-                className="text-xs font-medium text-accent hover:underline"
-              >
-                Open full page
-              </Link>
-            )}
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto px-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pb-5"
+        >
+          <div ref={contentRef}>
+            <div className="mb-4 flex items-center justify-between gap-2">
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-base font-semibold tracking-tight text-ink">
+                  {game ? (offline ? 'Game' : 'Edit game') : 'New game'}
+                </h2>
+                {game && (
+                  <Link
+                    to={`/games/${game.slug}`}
+                    onClick={openFullPage}
+                    className="text-xs font-medium text-accent hover:underline"
+                  >
+                    Open full page
+                  </Link>
+                )}
+              </div>
+              <Button variant="ghost" className="px-2" onClick={requestClose} aria-label="Close">
+                <XIcon />
+              </Button>
+            </div>
+
+            <GameForm
+              // Keyed by which game this is: GameForm seeds its fields from
+              // `game` only once, via useState, so swapping to a different game
+              // (or from the blank "new game" form to an existing one, as the
+              // duplicate-title notice's "Open it" link does) has to remount it
+              // rather than leave it showing the previous game's stale fields.
+              key={game?.slug ?? 'new'}
+              game={game}
+              onSaved={closeNow}
+              onDeleted={closeNow}
+              onCancel={requestClose}
+              onDirtyChange={setDirty}
+              focusTitle={!game}
+              actionsTarget={actionsEl}
+              actionsNotice={
+                pendingDiscard ? (
+                  <DiscardPrompt onDiscard={discard} onKeep={() => setPendingDiscard(null)} />
+                ) : (
+                  // The browser's Back, held back by the shell, asks here while
+                  // the panel covers the page (see AppShell).
+                  unsaved.leaving && <DiscardPrompt onDiscard={unsaved.discard} onKeep={unsaved.keep} />
+                )
+              }
+            />
           </div>
-          <Button variant="ghost" className="px-2" onClick={requestClose} aria-label="Close">
-            <XIcon />
-          </Button>
         </div>
 
-        {pendingDiscard && (
-          <DiscardPrompt onDiscard={discard} onKeep={() => setPendingDiscard(null)} className="mb-4" />
-        )}
-
-        <GameForm
-          // Keyed by which game this is: GameForm seeds its fields from
-          // `game` only once, via useState, so swapping to a different game
-          // (or from the blank "new game" form to an existing one, as the
-          // duplicate-title notice's "Open it" link does) has to remount it
-          // rather than leave it showing the previous game's stale fields.
-          key={game?.slug ?? 'new'}
-          game={game}
-          onSaved={closeNow}
-          onDeleted={closeNow}
-          onCancel={requestClose}
-          onDirtyChange={setDirty}
+        {/* The form's action row, below what scrolls rather than pinned
+            inside it, so that it never moves: a line along its top while
+            fields go on under it. */}
+        <div
+          ref={setActionsEl}
+          className={[
+            'shrink-0 border-t px-6 pt-1 pb-[calc(1.5rem+env(safe-area-inset-bottom))] transition-colors duration-150',
+            covering ? 'border-line' : 'border-transparent',
+          ].join(' ')}
         />
       </div>
     </div>

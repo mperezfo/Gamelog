@@ -1,14 +1,17 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 
 import { formatRange, parseRange, type Bound } from '../lib/range'
 import { Dropdown } from './Dropdown'
-import { ChevronLeftIcon, PlusIcon, XIcon } from './icons'
+import { PlusIcon, XIcon } from './icons'
+import { MenuStepBack, MenuStepRow, MenuSteps } from './MenuSteps'
 import { OptionRow } from './OptionRow'
 import { Popover } from './Popover'
 
 export interface FilterOption {
   value: string
   label: string
+  /** Shown after the label, in the list and on the pill (see OptionRow). */
+  marker?: ReactNode
 }
 
 export interface FilterField {
@@ -39,7 +42,7 @@ interface FilterBarProps {
 const SEARCHABLE_THRESHOLD = 6
 
 /** The same width whatever the field, wide enough for a search box. */
-const POPOVER_CLASS = 'w-56 overflow-hidden'
+const POPOVER_CLASS = 'w-60 overflow-hidden'
 
 /** Focuses each view of a popover as it is drawn: the "+ Filter" one swaps
  * its field list for a field's values, and the button that had focus goes
@@ -108,7 +111,13 @@ function FilterOptionList({
         {filtered.map((option) => {
           const active = selected.includes(option.value)
           return (
-            <OptionRow key={option.value} label={option.label} active={active} onClick={() => pick(option.value)} />
+            <OptionRow
+              key={option.value}
+              label={option.label}
+              marker={option.marker}
+              active={active}
+              onClick={() => pick(option.value)}
+            />
           )
         })}
       </div>
@@ -193,23 +202,62 @@ function FilterRangeEditor({
 
 /** The "+ Filter" trigger: picks a not-yet-active field, then immediately
  * shows that field's value list in the same popover (a small back arrow
- * returns to the field list) — Notion's own add-filter flow. */
+ * returns to the field list) — Notion's own add-filter flow. The two are
+ * steps of one menu (see MenuSteps): the field list is the step with no
+ * key. */
 function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
   const [open, setOpen] = useState(false)
   const [selectedKey, setSelectedKey] = useState<string | null>(null)
   const anchorRef = useRef<HTMLButtonElement>(null)
 
   const inactiveFields = fields.filter((f) => !values[f.key])
-  // Looked up from the full field list, not `inactiveFields`: picking a
-  // value can make the field active mid-interaction (a single-select commits
-  // immediately, a multi-select as soon as the first option is toggled),
-  // which would otherwise drop it out of `inactiveFields` and strand the
-  // popover with no field definition to keep rendering.
-  const selectedField = selectedKey ? (fields.find((f) => f.key === selectedKey) ?? null) : null
 
   function close() {
     setOpen(false)
     setSelectedKey(null)
+  }
+
+  function renderStep(key: string) {
+    // Looked up from the full field list, not `inactiveFields`: picking a
+    // value can make the field active mid-interaction (a single-select
+    // commits immediately, a multi-select as soon as the first option is
+    // toggled), which would otherwise drop it out of `inactiveFields` and
+    // strand the popover with no field definition to keep rendering.
+    const field = key ? fields.find((f) => f.key === key) : undefined
+    if (!field) {
+      return (
+        <div ref={focusOnMount} tabIndex={-1} className="max-h-[40vh] overflow-y-auto p-1 outline-none">
+          {inactiveFields.length === 0 && <p className="px-2 py-2 text-xs text-ink-faint">All filters added.</p>}
+          {inactiveFields.map((f) => (
+            <MenuStepRow key={f.key} onClick={() => setSelectedKey(f.key)}>
+              {f.label}
+            </MenuStepRow>
+          ))}
+        </div>
+      )
+    }
+    return (
+      <>
+        <MenuStepBack onClick={() => setSelectedKey(null)}>{field.label}</MenuStepBack>
+        {field.kind === 'range' ? (
+          <FilterRangeEditor
+            field={field}
+            value={values[field.key] ?? ''}
+            onChange={(value) => onChange(field.key, value)}
+            onDone={close}
+          />
+        ) : (
+          <FilterOptionList
+            field={field}
+            value={values[field.key] ?? ''}
+            onChange={(value) => {
+              onChange(field.key, value)
+              if (field.kind === 'single') close()
+            }}
+          />
+        )}
+      </>
+    )
   }
 
   return (
@@ -217,7 +265,10 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
       <button
         ref={anchorRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        // Closing through close(), as a click outside does, so that the
+        // menu opens again on the list of fields rather than on the step it
+        // was left at.
+        onClick={() => (open ? close() : setOpen(true))}
         className="inline-flex h-9 items-center gap-1.5 rounded-control bg-sunken px-2.5 text-[13px] font-medium text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
       >
         <PlusIcon className="size-3.5" />
@@ -225,49 +276,7 @@ function AddFilterButton({ fields, values, onChange }: FilterBarProps) {
       </button>
 
       <Popover anchorRef={anchorRef} open={open} onClose={close} aria-label="Add a filter" className={POPOVER_CLASS}>
-        {selectedField ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setSelectedKey(null)}
-              className="flex w-full items-center gap-1 border-b border-line py-2.5 pr-2.5 pl-2 text-left text-[13px] font-medium text-ink-muted transition-colors duration-75 hover:text-ink"
-            >
-              <ChevronLeftIcon className="size-4 shrink-0" />
-              {selectedField.label}
-            </button>
-            {selectedField.kind === 'range' ? (
-              <FilterRangeEditor
-                field={selectedField}
-                value={values[selectedField.key] ?? ''}
-                onChange={(value) => onChange(selectedField.key, value)}
-                onDone={close}
-              />
-            ) : (
-              <FilterOptionList
-                field={selectedField}
-                value={values[selectedField.key] ?? ''}
-                onChange={(value) => {
-                  onChange(selectedField.key, value)
-                  if (selectedField.kind === 'single') close()
-                }}
-              />
-            )}
-          </>
-        ) : (
-          <div ref={focusOnMount} tabIndex={-1} className="max-h-[40vh] overflow-y-auto p-1 outline-none">
-            {inactiveFields.length === 0 && <p className="px-2 py-2 text-xs text-ink-faint">All filters added.</p>}
-            {inactiveFields.map((field) => (
-              <button
-                key={field.key}
-                type="button"
-                onClick={() => setSelectedKey(field.key)}
-                className="flex w-full items-center rounded-control px-2 py-1.5 text-left text-sm text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink"
-              >
-                {field.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <MenuSteps step={selectedKey ?? ''} renderStep={renderStep} />
       </Popover>
     </div>
   )
@@ -288,12 +297,23 @@ function FilterPill({
 }) {
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
+  // A single value's marker goes along with it onto the pill.
+  const marker = field.options.find((o) => o.value === value)?.marker
 
   return (
     <span className="order-4 inline-flex h-9 items-center gap-0.5 rounded-control bg-sunken pr-1 pl-2.5 text-[13px] sm:order-none">
-      <button ref={anchorRef} type="button" onClick={() => setOpen((o) => !o)} className="max-w-[220px] truncate py-1.5 text-left">
-        <span className="text-ink-faint">{field.label}: </span>
-        <span className="font-medium text-ink">{valueSummary(field, value)}</span>
+      <button
+        ref={anchorRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex min-w-0 items-baseline gap-1 py-1.5 text-left"
+      >
+        {/* The summary truncates, and never the marker after it. */}
+        <span className="max-w-[220px] truncate">
+          <span className="text-ink-faint">{field.label}: </span>
+          <span className="font-medium text-ink">{valueSummary(field, value)}</span>
+        </span>
+        {marker}
       </button>
       <button
         type="button"
