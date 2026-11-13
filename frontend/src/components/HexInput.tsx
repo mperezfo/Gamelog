@@ -14,11 +14,12 @@ interface HexInputProps {
   className?: string
 }
 
-/** A colour as a hex code, typed or pasted, with or without its "#". It only
+/** A colour as a hex code, typed or pasted, with or without its "#", in a
+ * monospaced face so that every code takes the same room. It only
  * reaches `onChange` once it is a whole one, so that typing through "#d4"
  * does not repaint everything, and goes back to the colour's own code when
  * left half typed. */
-export function HexInput({ value, onChange, clearable = false, className = 'w-full' }: HexInputProps) {
+export function HexInput({ value, onChange, clearable = false, className = '' }: HexInputProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState(value)
   const [syncedFrom, setSyncedFrom] = useState(value)
@@ -34,11 +35,11 @@ export function HexInput({ value, onChange, clearable = false, className = 'w-fu
   }
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative w-fit ${className}`}>
       <input
         ref={inputRef}
         aria-label="Hex code"
-        placeholder={clearable ? 'No colour' : '#RRGGBB'}
+        placeholder={clearable ? 'None' : '#RRGGBB'}
         value={draft}
         maxLength={7}
         autoComplete="off"
@@ -50,7 +51,9 @@ export function HexInput({ value, onChange, clearable = false, className = 'w-fu
           if (HEX.test(next) || (clearable && !next)) commit(next)
         }}
         onBlur={() => setDraft(value)}
-        className={`h-8 w-full rounded-control bg-field shadow-field pl-2.5 text-sm text-ink uppercase tabular-nums outline-none placeholder:text-ink-faint placeholder:normal-case focus-visible:ring-2 focus-visible:ring-accent/40 ${clearable && value ? 'pr-6' : 'pr-2.5'}`}
+        // As wide as a code: seven characters of this same face, and the
+        // room for the × where there is one, whether it shows yet or not.
+        className={`h-8 rounded-control bg-field shadow-field pl-2.5 font-mono text-[13px] text-ink uppercase outline-none placeholder:font-sans placeholder:text-ink-faint placeholder:normal-case focus-visible:ring-2 focus-visible:ring-accent/40 ${clearable ? 'w-[calc(7ch+2.125rem+2px)] pr-6' : 'w-[calc(7ch+1.25rem+2px)] pr-2.5'}`}
       />
       {clearable && value && (
         <button

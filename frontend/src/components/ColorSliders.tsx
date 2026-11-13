@@ -129,7 +129,7 @@ export function ColorSliders({ value, onChange, chroma = SOFT_CHROMA, clearable 
           ) : (
             <span className="size-5 shrink-0 rounded-[3px] border border-dashed border-line-strong" />
           ))}
-        <HexInput value={value} onChange={onChange} clearable={clearable} className="w-24 shrink-0" />
+        <HexInput value={value} onChange={onChange} clearable={clearable} className="shrink-0" />
       </div>
     </div>
   )
