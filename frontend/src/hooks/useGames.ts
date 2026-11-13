@@ -132,7 +132,15 @@ export function useUpdateGame() {
     onError: (_err, _vars, context) => {
       context?.previous.forEach(([queryKey, games]) => queryClient.setQueryData(queryKey, games))
     },
-    onSuccess: (_game, { input }) => invalidateSavedGame(queryClient, input),
+    onSuccess: (saved, { input }) => {
+      // The game as the server stored it, in place at once, slug and all:
+      // the game panel, which can stay open on it after a save, finds it by
+      // its slug, which a rename changes before any refetch is back.
+      queryClient.setQueriesData<Game[]>({ predicate: (query) => isGamesListQuery(query.queryKey) }, (games) =>
+        games?.map((game) => (game.id === saved.id ? saved : game)),
+      )
+      invalidateSavedGame(queryClient, input)
+    },
   })
 }
 

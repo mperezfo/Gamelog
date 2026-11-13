@@ -1,6 +1,8 @@
+import { use } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import type { Game } from '../types/game'
+import { GameListContext } from './gameList'
 import { useGames } from './useGames'
 
 /** Query parameter the open game/new-game panel is reflected in, so that
@@ -25,29 +27,57 @@ const NEW = 'new'
 export function useGameModal() {
   const [searchParams, setSearchParams] = useSearchParams()
   const games = useGames()
+  const list = use(GameListContext)
 
   const raw = searchParams.get(PARAM)
   const creating = raw === NEW
   const game = raw && !creating ? games.data?.find((g) => g.slug === raw) : undefined
 
-  function withParam(update: (next: URLSearchParams) => void) {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev)
-      update(next)
-      return next
-    })
+  function withParam(update: (next: URLSearchParams) => void, replace = false) {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        update(next)
+        return next
+      },
+      { replace },
+    )
   }
+
+  // The list the panel was opened from, less any game deleted since, and
+  // where the game on screen sits in it, if it is there at all.
+  const from = game && list?.ids ? inOrder(list.ids, games.data ?? []) : null
+  const index = game && from ? from.findIndex((g) => g.id === game.id) : -1
 
   return {
     /** The game the panel is editing, once resolved. */
     game,
     /** Whether the panel is open for a new game. */
     creating,
-    /** Opens the panel to edit an existing game. */
-    openGame: (game: Game) => withParam((next) => next.set(PARAM, game.slug)),
+    /** Opens the panel to edit an existing game. `from` is the list it was
+     * picked from, in its order on screen, for the panel to step through. */
+    openGame: (game: Game, from?: Game[]) => {
+      list?.setIds(from ? from.map((g) => g.id) : null)
+      withParam((next) => next.set(PARAM, game.slug))
+    },
     /** Opens the panel for a new game. */
-    openNew: () => withParam((next) => next.set(PARAM, NEW)),
+    openNew: () => {
+      list?.setIds(null)
+      withParam((next) => next.set(PARAM, NEW))
+    },
     /** Closes the panel. */
     close: () => withParam((next) => next.delete(PARAM)),
+    /** The games before and after this one in the list it was opened from,
+     * undefined at either end, or null without such a list. */
+    neighbours: from && index !== -1 ? { previous: from[index - 1], next: from[index + 1] } : null,
+    /** Puts another game of the list in the panel. In place of the one on
+     * screen in the history, so that Back still closes the panel. */
+    show: (game: Game) => withParam((next) => next.set(PARAM, game.slug), true),
   }
+}
+
+/** The games of `ids` that are still there, in that order. */
+function inOrder(ids: number[], games: Game[]): Game[] {
+  const byId = new Map(games.map((game) => [game.id, game]))
+  return ids.flatMap((id) => byId.get(id) ?? [])
 }

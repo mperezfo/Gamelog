@@ -11,6 +11,7 @@ import { useThemeChoice } from '../theme/themeContext'
 import type { User } from '../types/auth'
 import { Button } from './Button'
 import { DiscardPrompt } from './DiscardPrompt'
+import { GameListProvider } from './GameListProvider'
 import { GamePanel } from './GamePanel'
 import { MenuIcon } from './icons'
 import { OfflineBanner } from './OfflineBanner'
@@ -38,7 +39,9 @@ export function AppShell({ user, children }: AppShellProps) {
 
   return (
     <UnsavedChangesProvider>
-      <LibraryShell user={user}>{children}</LibraryShell>
+      <GameListProvider>
+        <LibraryShell user={user}>{children}</LibraryShell>
+      </GameListProvider>
     </UnsavedChangesProvider>
   )
 }
