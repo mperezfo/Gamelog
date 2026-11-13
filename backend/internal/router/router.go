@@ -50,10 +50,13 @@ func New(cfg config.Config, db *gorm.DB, authentication *auth.Service, version s
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	// The client's address, for the request log, is read from X-Forwarded-For
-	// only when the request comes from loopback, which is Caddy in the image:
-	// a header a client sends itself is never believed.
-	r.Use(middleware.ClientIPFromXFF("127.0.0.0/8", "::1/128"))
+	// The client's address, which the request log shows and failed logins
+	// are counted against. Behind the image's own Caddy every request comes
+	// from loopback, and Caddy passes the client's address in X-Real-IP,
+	// which it sets itself whatever the client sent (see Caddyfile): trusted
+	// from there, and from there only. Anything else reaching the backend
+	// directly is taken at its word, never at its headers.
+	r.Use(clientAddress)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(requestTimeout(RequestTimeout))
@@ -155,3 +158,8 @@ func openAPIConfig() huma.Config {
 
 	return cfg
 }
+
+// clientAddress stores the client's address for middleware.GetClientIP:
+// X-Real-IP from loopback, where the image's Caddy runs, and the peer itself
+// from anywhere else. A variable so that the test checks the very same one.
+var clientAddress = middleware.ClientIPFromHeader("X-Real-IP", "127.0.0.0/8", "::1/128")

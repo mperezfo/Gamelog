@@ -4,13 +4,29 @@
 # the backend ever serving a file itself.
 {
 	admin off
+
+	# Which addresses may say who the client really is, in X-Forwarded-For:
+	# a reverse proxy in front of this one. Private ranges by default, where
+	# such a proxy lives (on the same Docker network, say); a deployment that
+	# knows better names them in GAMELOG_TRUSTED_PROXIES. Strict, so that
+	# only the address a trusted proxy added is read, never one a client
+	# wrote in the header itself.
+	servers {
+		trusted_proxies static {$GAMELOG_TRUSTED_PROXIES:private_ranges}
+		trusted_proxies_strict
+	}
 }
 
 :9999 {
 	encode gzip
 
 	handle /api/* {
-		reverse_proxy 127.0.0.1:{$GAMELOG_PORT:8080}
+		# The client's address as worked out above, which the backend
+		# trusts from here alone, for its logs and to count failed logins.
+		# Set here whatever the request carried.
+		reverse_proxy 127.0.0.1:{$GAMELOG_PORT:8080} {
+			header_up X-Real-IP {client_ip}
+		}
 	}
 
 	handle {
