@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 
 import { hexToOklch, oklchToHex } from '../lib/oklch'
 import { COLUMN_WIDTH } from '../lib/pickerGrid'
@@ -129,6 +129,17 @@ export function ColorSliders({ value, onChange }: ColorSlidersProps) {
   )
 }
 
+/** How long a slider takes to glide to a value it was not dragged to. */
+const GLIDE_MS = 200
+
+/**
+ * One slider. Dragged, it follows the pointer at once; moved by anything
+ * else (another slider, a code typed, the colour cleared), it glides there,
+ * so that what changed is seen to change. Not with reduced motion.
+ *
+ * A range input's thumb cannot be animated with CSS, so the value it shows
+ * is: eased from where it was to where it is going, a frame at a time.
+ */
 function Slider({
   label,
   max,
@@ -146,15 +157,48 @@ function Slider({
   thumb: string
   onChange: (value: number) => void
 }) {
+  const [shown, setShown] = useState(value)
+  // Where the thumb is drawn right now, mid-glide included.
+  const at = useRef(value)
+  // Whether the change in `value` is this slider's own, dragged.
+  const dragged = useRef(false)
+
+  useEffect(() => {
+    const from = at.current
+    if (dragged.current || from === value || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      dragged.current = false
+      at.current = value
+      setShown(value)
+      return
+    }
+    const start = performance.now()
+    let frame = requestAnimationFrame(function glide(now) {
+      const progress = Math.min(1, (now - start) / GLIDE_MS)
+      // Fast at first and settling at the end (cubic ease-out).
+      at.current = from + (value - from) * (1 - (1 - progress) ** 3)
+      setShown(at.current)
+      if (progress < 1) frame = requestAnimationFrame(glide)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [value])
+
   return (
     <input
       type="range"
       min={0}
       max={max}
-      value={value}
+      value={shown}
       aria-label={label}
       aria-valuetext={text}
-      onChange={(event) => onChange(Number(event.target.value))}
+      onChange={(event) => {
+        // Shown at once, in this same render: waiting for the effect would
+        // put the thumb back where it was for a frame under the pointer.
+        const next = Number(event.target.value)
+        dragged.current = true
+        at.current = next
+        setShown(next)
+        onChange(next)
+      }}
       className="gl-slider"
       style={{ '--track': track, '--thumb': thumb } as CSSProperties}
     />
