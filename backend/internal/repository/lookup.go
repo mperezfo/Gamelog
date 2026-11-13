@@ -12,7 +12,7 @@ import (
 	"github.com/mperezfo/gamelog/internal/slug"
 )
 
-// Lookup constrains the four entities that share the same id/name/icon shape.
+// Lookup constrains the four entities that share the same id/name/slug shape.
 // They get one generic repository instead of four identical
 // ones.
 type Lookup interface {

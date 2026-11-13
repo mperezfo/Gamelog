@@ -8,7 +8,7 @@ export interface Lookup {
   /** Derived from the name and kept in sync with it. The id is purely
    * internal — this is what belongs in a URL. */
   slug: string
-  /** An emoji shown beside the name. Genres and platforms only. */
+  /** An emoji shown beside the name. Genres only. */
   icon?: string | null
   /** Where a developer or publisher is from, as an ISO 3166-1 two-letter
    * code ("JP"), drawn as its flag. Developers and publishers only. */

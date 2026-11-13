@@ -50,11 +50,10 @@ type Document struct {
 }
 
 // LookupEntry is a genre, developer, publisher or platform: the four entities
-// that are little more than a name, with an icon for a genre or a platform,
-// a colour for a platform and a country for a developer or a publisher.
+// that are little more than a name, with an icon for a genre, a colour for a platform and a country for a developer or a publisher.
 type LookupEntry struct {
 	Name  string  `json:"name" doc:"Name of the record. Unique, compared ignoring case and accents." example:"Metroidvania"`
-	Icon  *string `json:"icon" doc:"Emoji or short icon shown next to the name. Only a genre or a platform has one; always null for the other two." example:"🗺️"`
+	Icon  *string `json:"icon" doc:"Emoji or short icon shown next to the name. Only a genre has one; always null for the other three." example:"🗺️"`
 	Color *string `json:"color,omitempty" doc:"Hex colour (\"#3b82f6\"). Only meaningful for a platform; always null for the other three." example:"#3b82f6"`
 	// Country is migration 00019's.
 	Country *string `json:"country,omitempty" doc:"Where the record is from, as an ISO 3166-1 two-letter code. Only a developer or a publisher has one." example:"ES"`
