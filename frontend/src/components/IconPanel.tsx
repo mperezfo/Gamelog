@@ -1,4 +1,4 @@
-import { Suspense, use, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { Suspense, use, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 
 import { useMediaQuery } from '../hooks/useMediaQuery'
 import { iconLabel } from '../lib/genreIcons'
@@ -225,8 +225,9 @@ function IconGrid({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       aria-hidden="true"
-                      className="size-5"
-                      style={color ? { color } : undefined}
+                      // As the icon will be drawn (see LookupIcon).
+                      className={`size-5 ${color ? 'tint-exact' : ''}`}
+                      style={color ? ({ '--tint': color } as CSSProperties) : undefined}
                       // The drawing comes from the build (genreIconsPlugin),
                       // never from anything a user typed.
                       dangerouslySetInnerHTML={{ __html: drawing }}

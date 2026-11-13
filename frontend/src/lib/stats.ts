@@ -21,9 +21,10 @@ export interface Highlight {
   /** A platform's own colour, or a genre's icon's (see genreColor). Null
    * means the accent. */
   color: string | null
-  /** Whether the colour is drawn exactly as it was picked, as a genre's icon
-   * is (`tint-solid`, `tint-glaze`), rather than adjusted to the theme, as a
-   * platform's badge is (`tint-fill`, `tint`). */
+  /** Whether the colour is drawn as it was picked, save where it would vanish
+   * into the page, as a genre's icon is (`tint-solid`, `tint-glaze`), rather
+   * than adjusted to the theme, as a platform's badge is (`tint-fill`,
+   * `tint`). */
   exact?: boolean
 }
 
