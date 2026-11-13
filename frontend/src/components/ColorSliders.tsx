@@ -18,18 +18,24 @@ interface Tone {
   lightness: number
 }
 
-/** Where the sliders start for an icon with no colour yet: a soft red. */
-const START: Tone = { hue: 25, saturation: 1, lightness: 0.72 }
-
 const toHex = ({ hue, saturation, lightness }: Tone) =>
   oklchToHex({ l: lightness, c: CHROMA * saturation, h: hue })
 
-/** The tone a stored colour stands for. */
+/** The colour of the text, which an icon with no colour of its own is drawn
+ * in (see IconPanel and LookupIcon): a grey, as light as the theme's. */
+function textTone(): Tone {
+  const ink = hexToOklch(getComputedStyle(document.documentElement).getPropertyValue('--gl-ink-muted').trim())
+  return { hue: 0, saturation: 0, lightness: ink ? Math.round(ink.l * 100) / 100 : 0.6 }
+}
+
+/** The tone a stored colour stands for. With none, the sliders start from
+ * the text's grey, which is how the icon looks without one, rather than from
+ * a colour nothing on screen has. */
 function toneOf(value: string): Tone {
   const color = value ? hexToOklch(value) : null
-  if (!color) return START
+  if (!color) return textTone()
   return {
-    hue: color.c < GREY_CHROMA ? START.hue : Math.round(color.h),
+    hue: color.c < GREY_CHROMA ? 0 : Math.round(color.h),
     saturation: Math.min(1, Math.round((color.c / CHROMA) * 100) / 100),
     lightness: Math.round(color.l * 100) / 100,
   }
@@ -60,6 +66,9 @@ export function ColorSliders({ value, onChange }: ColorSlidersProps) {
 
   function slide(next: Partial<Tone>) {
     const merged = { ...tone, ...next }
+    // A hue means nothing to a grey: moving it from one, the text's included,
+    // brings the colour in at full saturation rather than changing nothing.
+    if (next.hue !== undefined && tone.saturation === 0) merged.saturation = 1
     setSliding(merged)
     onChange(toHex(merged))
   }
@@ -91,7 +100,8 @@ export function ColorSliders({ value, onChange }: ColorSlidersProps) {
           max={359}
           value={tone.hue}
           text={`${tone.hue} degrees`}
-          track={gradient(Array.from({ length: 13 }, (_, i) => ({ ...tone, hue: i * 30 })))}
+          // The hues as moving it would give them, so in colour from a grey.
+          track={gradient(Array.from({ length: 13 }, (_, i) => ({ ...tone, saturation: tone.saturation || 1, hue: i * 30 })))}
           thumb={thumb}
           onChange={(hue) => slide({ hue })}
         />
