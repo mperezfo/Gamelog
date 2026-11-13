@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
 import { errorMessage } from '../api/client'
@@ -87,6 +87,12 @@ function hasCountry(kind: LookupKind): boolean {
 }
 
 type SortMode = 'count' | 'name'
+
+/** Which form is open: a record's, by id (the record itself is replaced
+ * whenever the list is refetched), the create form's, or none. */
+function formKey(editing: Lookup | 'new' | null): number | 'new' | null {
+  return editing === 'new' ? 'new' : (editing?.id ?? null)
+}
 
 /**
  * The IGDB link of a row in the list. It opens a small menu naming the IGDB
@@ -198,6 +204,28 @@ export function LookupPage({ kind, title }: LookupPageProps) {
   const games = useGames()
   const offline = useOffline()
   const [editing, setEditing] = useState<Lookup | 'new' | null>(null)
+  // Whether the open form holds changes, and the form to open instead (or
+  // none, for Cancel) while it asks whether to discard them.
+  const [dirty, setDirty] = useState(false)
+  const [pending, setPending] = useState<{ next: Lookup | 'new' | null } | null>(null)
+
+  // Opens another form, or closes the open one, asking first only when its
+  // changes would be lost, the way the game panel's close does. Asked once:
+  // the answer comes before any other switch.
+  function switchTo(next: Lookup | 'new' | null) {
+    if (pending || formKey(next) === formKey(editing)) return
+    if (dirty) setPending({ next })
+    else setEditing(next)
+  }
+
+  function discard() {
+    if (!pending) return
+    setEditing(pending.next)
+    setPending(null)
+  }
+
+  const prompt = pending && <DiscardPrompt onDiscard={discard} onKeep={() => setPending(null)} />
+
   // N opens the create form, unless a form is open already.
   useShortcut('n', () => setEditing('new'), !offline && editing === null)
   // Kept in the URL, same as GamesPage's own sort — a link built or bookmarked
@@ -258,7 +286,7 @@ export function LookupPage({ kind, title }: LookupPageProps) {
     for (const item of sorted) {
       const match = fuzzyMatch(debouncedSearch, item.name)
       if (match) out.push({ item, indices: match.indices, score: match.score })
-      else if (editing !== 'new' && editing?.id === item.id) out.push({ item, indices: [], score: -Infinity })
+      else if (formKey(editing) === item.id) out.push({ item, indices: [], score: -Infinity })
     }
     // A stable sort: equal scores keep the sorted order.
     if (debouncedSearch.trim()) out.sort((a, b) => b.score - a.score)
@@ -307,7 +335,7 @@ export function LookupPage({ kind, title }: LookupPageProps) {
           </div>
           <Button
             variant="primary"
-            onClick={() => setEditing('new')}
+            onClick={() => switchTo('new')}
             disabled={offline}
             data-tooltip={`Create a ${KIND_NOUN[kind]}`}
             data-tooltip-kbd="N"
@@ -351,7 +379,13 @@ export function LookupPage({ kind, title }: LookupPageProps) {
 
       {editing === 'new' && (
         <div className="mb-4 rounded-control border border-line bg-raised p-4">
-          <LookupForm kind={kind} onDone={() => setEditing(null)} />
+          <LookupForm
+            kind={kind}
+            onDone={() => setEditing(null)}
+            onCancel={() => switchTo(null)}
+            onDirtyChange={setDirty}
+            prompt={prompt}
+          />
         </div>
       )}
 
@@ -366,9 +400,16 @@ export function LookupPage({ kind, title }: LookupPageProps) {
             </p>
           )}
           {shown.map(({ item, indices }) =>
-            editing !== 'new' && editing?.id === item.id ? (
+            formKey(editing) === item.id ? (
               <li key={item.id} className="border-b border-line py-3 last:border-0">
-                <LookupForm kind={kind} item={item} onDone={() => setEditing(null)} />
+                <LookupForm
+                  kind={kind}
+                  item={item}
+                  onDone={() => setEditing(null)}
+                  onCancel={() => switchTo(null)}
+                  onDirtyChange={setDirty}
+                  prompt={prompt}
+                />
               </li>
             ) : (
               <LookupRow
@@ -377,7 +418,7 @@ export function LookupPage({ kind, title }: LookupPageProps) {
                 item={item}
                 highlight={indices}
                 count={counts.get(item.id) ?? 0}
-                onEdit={() => setEditing(item)}
+                onEdit={() => switchTo(item)}
               />
             ),
           )}
@@ -490,10 +531,23 @@ function LookupForm({
   kind,
   item,
   onDone,
+  onCancel,
+  onDirtyChange,
+  prompt,
 }: {
   kind: LookupKind
   item?: Lookup
+  /** Saved: the form closes. */
   onDone: () => void
+  /** Cancel or Escape: the page closes the form, or asks first (see
+   * LookupPage's switchTo). */
+  onCancel: () => void
+  /** Reports whether the form holds changes, and that it holds none once it
+   * is gone. */
+  onDirtyChange: (dirty: boolean) => void
+  /** The page's question before discarding the changes, in place of the
+   * action row. */
+  prompt: ReactNode
 }) {
   const [name, setName] = useState(item?.name ?? '')
   const [icon, setIcon] = useState(item?.icon ?? '')
@@ -504,8 +558,7 @@ function LookupForm({
   const links = item ? igdbLinksOf(kind, item) : NO_IGDB_LINKS
   // IGDB links to forget on Save, struck through until then.
   const [unlinking, setUnlinking] = useState<number[]>([])
-  // Whether Cancel is waiting on "Discard unsaved changes?".
-  const [confirmingCancel, setConfirmingCancel] = useState(false)
+  const actionsRef = useRef<HTMLDivElement>(null)
 
   // A form opened and left as it was is as disposable as no form at all.
   const dirty =
@@ -516,13 +569,17 @@ function LookupForm({
     unlinking.length > 0
   useUnsavedChanges(dirty)
 
-  // Cancel, and Escape with it, asks first only when there is something to
-  // lose, the way the game panel's close does.
-  function requestCancel() {
-    if (confirmingCancel) return
-    if (dirty) setConfirmingCancel(true)
-    else onDone()
-  }
+  useEffect(() => {
+    onDirtyChange(dirty)
+  }, [dirty, onDirtyChange])
+  useEffect(() => () => onDirtyChange(false), [onDirtyChange])
+
+  // The question can come from a button far from the form (New, at the top
+  // of a long list), so it is brought into view.
+  const asking = Boolean(prompt)
+  useEffect(() => {
+    if (asking) actionsRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [asking])
 
   const create = useCreateLookup(kind)
   const update = useUpdateLookup(kind)
@@ -559,7 +616,7 @@ function LookupForm({
       onKeyDown={(event) => {
         if (event.key !== 'Escape' || event.nativeEvent.isComposing) return
         event.preventDefault()
-        requestCancel()
+        onCancel()
       }}
       className="flex flex-col gap-3 sm:max-w-[360px]"
     >
@@ -636,16 +693,17 @@ function LookupForm({
         </p>
       )}
       {error && <Notice tone="error">{errorMessage(error)}</Notice>}
-      {confirmingCancel ? (
-        <DiscardPrompt onDiscard={onDone} onKeep={() => setConfirmingCancel(false)} />
-      ) : (
-        <div className="flex gap-2">
-          <Button type="submit" variant="primary" disabled={saving || offline || !name.trim()}>
-            {saving ? 'Saving…' : item ? 'Save' : 'Create'}
-          </Button>
-          <Button onClick={requestCancel}>Cancel</Button>
-        </div>
-      )}
+      {/* Clear of the sticky search box when scrolled to. */}
+      <div ref={actionsRef} className="scroll-mt-16">
+        {prompt || (
+          <div className="flex gap-2">
+            <Button type="submit" variant="primary" disabled={saving || offline || !name.trim()}>
+              {saving ? 'Saving…' : item ? 'Save' : 'Create'}
+            </Button>
+            <Button onClick={onCancel}>Cancel</Button>
+          </div>
+        )}
+      </div>
     </form>
   )
 }
