@@ -77,7 +77,7 @@ GET    /api/metadata/images?source=&title=&game_id=   a game's images on IGDB or
 
 Listing the games of a genre, a developer, a publisher or a platform is a filter on `GET /api/games` rather than a nested route, since the listing already has to support the same joins.
 
-Genres and platforms carry an `icon` (an emoji), platforms a `color` too, and developers and publishers a `country` instead of an icon: an ISO 3166-1 two-letter code (`"JP"`), shown as its flag.
+Genres carry an `icon` (an emoji), platforms a `color` instead, and developers and publishers a `country`: an ISO 3166-1 two-letter code (`"JP"`), shown as its flag.
 
 A game is written with its relations as ids (`platform_id`, `genre_ids`, `developer_ids`, `publisher_ids`) and read back with them loaded, so saving a game can never create or rename a genre by accident. `PUT` replaces the whole record: anything left out of the body is cleared.
 

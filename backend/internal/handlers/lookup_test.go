@@ -3,6 +3,7 @@ package handlers_test
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/mperezfo/gamelog/internal/models"
@@ -156,6 +157,44 @@ func TestLookupColorIsIgnoredOutsidePlatforms(t *testing.T) {
 	decode(t, created, &genre)
 	if genre.ID == 0 {
 		t.Fatal("the created genre came back without an id")
+	}
+}
+
+// TestPlatformHasNoIcon: a platform shows its colour instead (migration
+// 00022). An icon sent for one, through the API or an import, is ignored
+// without a word, and an export writes none.
+func TestPlatformHasNoIcon(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	created := request(t, handler, http.MethodPost, "/api/platforms", map[string]any{
+		"name":  "Nintendo Switch",
+		"icon":  "🎮",
+		"color": "#e60012",
+	})
+	expectStatus(t, created, http.StatusCreated, "creating a platform with an icon")
+	if body := created.Body.String(); strings.Contains(body, `"icon"`) {
+		t.Errorf("created platform = %s, want no icon", body)
+	}
+
+	report := importLibrary(t, handler, "/api/import", map[string]any{
+		"platforms": []map[string]any{
+			{"name": "Steam Deck", "icon": "🕹️"},
+			// Too long for an icon, which would be a warning on a genre.
+			{"name": "PlayStation 5", "icon": strings.Repeat("x", 101)},
+		},
+	})
+	if len(report.Warnings) != 0 {
+		t.Errorf("warnings = %+v, want none for an icon that is ignored", report.Warnings)
+	}
+
+	document := exportLibrary(t, handler)
+	if len(document.Platforms) != 3 {
+		t.Fatalf("exported platforms = %+v, want three", document.Platforms)
+	}
+	for _, entry := range document.Platforms {
+		if entry.Icon != nil {
+			t.Errorf("%s exported with the icon %q, want none", entry.Name, *entry.Icon)
+		}
 	}
 }
 

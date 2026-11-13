@@ -540,7 +540,9 @@ function LookupForm({
     if (!name.trim()) return
     const input = hasCountry(kind)
       ? { name: name.trim(), country: country || null }
-      : { name: name.trim(), icon: icon.trim() || null, color: kind === 'platforms' ? color : null }
+      : kind === 'platforms'
+        ? { name: name.trim(), color }
+        : { name: name.trim(), icon: icon.trim() || null }
 
     if (item) {
       update.mutate({ id: item.id, input, unlink: unlinking }, { onSuccess: onDone })

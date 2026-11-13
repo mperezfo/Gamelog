@@ -90,7 +90,7 @@ type Developer struct {
 	Name   string `gorm:"column:name" json:"name"`
 	Slug   string `gorm:"column:slug" json:"slug"`
 	// Country is where the developer is from, as an ISO 3166-1 two-letter
-	// code ("ES"), in place of the icon the other two simple entities have.
+	// code ("ES"), in place of the icon a genre has.
 	// See migration 00019.
 	Country *string `gorm:"column:country" json:"country"`
 	// IGDBCompanyIDs are the IGDB companies the developer stands for. They
@@ -125,11 +125,10 @@ type Publisher struct {
 
 // Platform is a system a game was played.
 type Platform struct {
-	ID     uint64  `gorm:"column:id;primaryKey" json:"id"`
-	UserID uint64  `gorm:"column:user_id" json:"-"`
-	Name   string  `gorm:"column:name" json:"name"`
-	Slug   string  `gorm:"column:slug" json:"slug"`
-	Icon   *string `gorm:"column:icon" json:"icon"`
+	ID     uint64 `gorm:"column:id;primaryKey" json:"id"`
+	UserID uint64 `gorm:"column:user_id" json:"-"`
+	Name   string `gorm:"column:name" json:"name"`
+	Slug   string `gorm:"column:slug" json:"slug"`
 	// Color is a hex code ("#3b82f6") shown wherever a game's platform is.
 	// Platform only: see migration 00003.
 	Color *string `gorm:"column:color" json:"color"`
