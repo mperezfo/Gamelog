@@ -86,9 +86,6 @@ function hasCountry(kind: LookupKind): boolean {
   return kind === 'developers' || kind === 'publishers'
 }
 
-/** A default so a new platform doesn't start colorless. */
-const DEFAULT_COLOR = '#787774'
-
 type SortMode = 'count' | 'name'
 
 /**
@@ -501,8 +498,8 @@ function LookupForm({
   const [name, setName] = useState(item?.name ?? '')
   const [icon, setIcon] = useState(item?.icon ?? '')
   const [country, setCountry] = useState(item?.country ?? '')
-  // A platform always has a colour; a genre's icon may well have none.
-  const savedColor = item?.color ?? (kind === 'platforms' ? DEFAULT_COLOR : '')
+  // A platform or a genre's icon with none is drawn in the theme's own grey.
+  const savedColor = item?.color ?? ''
   const [color, setColor] = useState(savedColor)
   const links = item ? igdbLinksOf(kind, item) : NO_IGDB_LINKS
   // IGDB links to forget on Save, struck through until then.
@@ -544,7 +541,7 @@ function LookupForm({
     const input = hasCountry(kind)
       ? { name: name.trim(), country: country || null }
       : kind === 'platforms'
-        ? { name: name.trim(), color }
+        ? { name: name.trim(), color: color || null }
         : { name: name.trim(), icon: icon.trim() || null, color: color || null }
 
     if (item) {

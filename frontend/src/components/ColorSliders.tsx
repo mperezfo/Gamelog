@@ -50,8 +50,8 @@ interface ColorSlidersProps {
  * border, a padding) are the caller's: the icon picker and ColorField.
  *
  * Cleared (where it can be), it starts from the text's grey, which is how a
- * genre's icon looks without a colour, rather than from a colour nothing on
- * screen has.
+ * genre's icon or a platform's badge looks without a colour, rather than from
+ * a colour nothing on screen has.
  */
 export function ColorSliders({ value, onChange, chroma = SOFT_CHROMA, clearable = false, preview }: ColorSlidersProps) {
   const toHex = ({ hue, saturation, lightness }: Tone) =>
