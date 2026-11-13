@@ -122,7 +122,7 @@ export function ColorSliders({ value, onChange }: ColorSlidersProps) {
           ) : (
             <span className="size-5 shrink-0 rounded-[3px] border border-dashed border-line-strong" />
           )}
-          <HexInput value={value} onChange={onChange} clearable className="w-28" />
+          <HexInput value={value} onChange={onChange} clearable className="w-24" />
         </div>
       </div>
     </div>

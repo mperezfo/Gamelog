@@ -50,7 +50,7 @@ export function HexInput({ value, onChange, clearable = false, className = 'w-fu
           if (HEX.test(next) || (clearable && !next)) commit(next)
         }}
         onBlur={() => setDraft(value)}
-        className={`h-8 w-full rounded-control bg-field shadow-field pl-2.5 text-sm text-ink uppercase tabular-nums outline-none placeholder:text-ink-faint placeholder:normal-case focus-visible:ring-2 focus-visible:ring-accent/40 ${clearable && value ? 'pr-7' : 'pr-2.5'}`}
+        className={`h-8 w-full rounded-control bg-field shadow-field pl-2.5 text-sm text-ink uppercase tabular-nums outline-none placeholder:text-ink-faint placeholder:normal-case focus-visible:ring-2 focus-visible:ring-accent/40 ${clearable && value ? 'pr-6' : 'pr-2.5'}`}
       />
       {clearable && value && (
         <button
@@ -62,7 +62,7 @@ export function HexInput({ value, onChange, clearable = false, className = 'w-fu
             commit('')
             inputRef.current?.focus()
           }}
-          className="absolute inset-y-0 right-0 flex w-7 items-center justify-center rounded-r-control text-ink-faint transition-colors duration-75 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          className="absolute inset-y-0 right-0 flex w-6 items-center justify-center rounded-r-control text-ink-faint transition-colors duration-75 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
         >
           <XIcon className="size-3.5" />
         </button>

@@ -71,7 +71,7 @@ export function IconField({ label, value, color, onChange, onColorChange }: Icon
           aria-expanded={open}
           aria-label={`${label}: ${description}`}
           onClick={toggle}
-          className={`flex items-center justify-center px-2.5 text-sm text-ink-muted transition-colors duration-75 hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${value ? 'min-w-11 rounded-l-control' : 'min-w-16 rounded-control'}`}
+          className={`flex items-center justify-center text-sm text-ink-muted transition-colors duration-75 hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${value ? 'w-9 rounded-l-control' : 'min-w-16 px-2.5 rounded-control'}`}
         >
           {value ? (
             <span className="text-lg leading-none">
