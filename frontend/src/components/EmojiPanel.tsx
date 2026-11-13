@@ -9,7 +9,7 @@ import {
 
 import { COLUMN_WIDTH, COLUMNS } from '../lib/pickerGrid'
 import { Emoji } from './Emoji'
-import { PanelFooter, PanelSearch } from './PickerParts'
+import { PanelSearch } from './PickerParts'
 
 /** The newest emoji version the Noto images cover (emoji-datasource-google's
  * major version): anything newer would have no image to show. */
@@ -20,21 +20,22 @@ interface EmojiPanelProps {
   search: string
   onSearch: (search: string) => void
   onPick: (emoji: string) => void
-  /** Clears the field, where it has a value to clear. */
-  onRemove?: () => void
 }
 
 /**
  * The Emoji tab of a genre's icon picker: a searchable picker (frimousse,
  * which only brings the behaviour; everything it draws is styled here),
  * showing every emoji as the same Noto image the rest of the app uses (see
- * Emoji).
+ * Emoji). As in the Icons tab, a line sets each category apart rather than
+ * its name, and an emoji names itself in its tooltip.
  */
-export function EmojiPanel({ search, onSearch, onPick, onRemove }: EmojiPanelProps) {
+export function EmojiPanel({ search, onSearch, onPick }: EmojiPanelProps) {
   return (
     <EmojiPicker.Root
       resolveEmojiData={loadEmojiData}
       columns={COLUMNS}
+      // A line has nothing to keep in view, unlike a category's name.
+      sticky={false}
       onEmojiSelect={({ emoji }) => onPick(emoji)}
       className="flex min-h-0 flex-1 flex-col"
     >
@@ -61,17 +62,17 @@ export function EmojiPanel({ search, onSearch, onPick, onRemove }: EmojiPanelPro
         </EmojiPicker.Empty>
         <EmojiPicker.List className="pb-1.5 select-none" components={{ CategoryHeader, Row, Emoji: EmojiButton }} />
       </EmojiPicker.Viewport>
-      <EmojiPicker.ActiveEmoji>
-        {({ emoji }) => <PanelFooter label={emoji?.label ?? ''} onRemove={onRemove} />}
-      </EmojiPicker.ActiveEmoji>
     </EmojiPicker.Root>
   )
 }
 
+/** A category's start: a line across the grid, its name only for assistive
+ * technology. */
 function CategoryHeader({ category, ...props }: EmojiPickerListCategoryHeaderProps) {
   return (
-    <div {...props} className="bg-surface pt-2.5 pb-1 text-xs font-medium text-ink-faint">
-      <div className={`${COLUMN_WIDTH} px-1.5`}>{category.label}</div>
+    <div {...props} className="flex h-3 items-center">
+      <div className={`${COLUMN_WIDTH} h-px bg-line`} />
+      <span className="sr-only">{category.label}</span>
     </div>
   )
 }
@@ -90,6 +91,7 @@ function EmojiButton({ emoji, ...props }: EmojiPickerListEmojiProps) {
   return (
     <button
       {...props}
+      data-tooltip={emoji.label}
       className="flex size-[2.125rem] items-center justify-center rounded-control text-xl leading-none data-[active]:bg-hover"
     >
       <Emoji value={emoji.emoji} />

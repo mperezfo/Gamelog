@@ -2,6 +2,7 @@ import { useId, useRef, useState } from 'react'
 
 import { HexColorPicker } from 'react-colorful'
 
+import { HexInput } from './HexInput'
 import { CheckIcon } from './icons'
 import { Popover } from './Popover'
 
@@ -22,8 +23,6 @@ const SWATCHES = [
   { name: 'Pink', value: '#c14c8a' },
   { name: 'Red', value: '#d44c47' },
 ]
-
-const HEX = /^#[0-9a-f]{6}$/i
 
 interface ColorFieldProps {
   label: string
@@ -90,37 +89,5 @@ export function ColorField({ label, value, onChange }: ColorFieldProps) {
         </div>
       </Popover>
     </div>
-  )
-}
-
-/** The colour as a hex code, which only reaches `onChange` once it is a
- * whole one, so that typing through "#d4" does not repaint everything. */
-function HexInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [draft, setDraft] = useState(value)
-  const [syncedFrom, setSyncedFrom] = useState(value)
-  // A pick from the swatches or the picker replaces whatever was typed.
-  if (value !== syncedFrom) {
-    setSyncedFrom(value)
-    setDraft(value)
-  }
-
-  return (
-    <input
-      aria-label="Hex code"
-      value={draft}
-      maxLength={7}
-      autoComplete="off"
-      spellCheck={false}
-      onChange={(event) => {
-        const next = '#' + event.target.value.replace(/[^0-9a-f]/gi, '').slice(0, 6)
-        setDraft(next)
-        if (HEX.test(next)) {
-          setSyncedFrom(next)
-          onChange(next)
-        }
-      }}
-      onBlur={() => setDraft(value)}
-      className="h-8 w-full rounded-control bg-field shadow-field px-2.5 text-sm text-ink uppercase tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-    />
   )
 }

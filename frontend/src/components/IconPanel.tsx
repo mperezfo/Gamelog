@@ -3,7 +3,7 @@ import { Suspense, use, useLayoutEffect, useMemo, useRef, useState, type Keyboar
 import { iconLabel } from '../lib/genreIcons'
 import { COLUMN_WIDTH, COLUMNS } from '../lib/pickerGrid'
 import { ColorSliders } from './ColorSliders'
-import { PanelFooter, PanelSearch } from './PickerParts'
+import { PanelSearch } from './PickerParts'
 
 type IconEntry = (typeof import('virtual:genre-icons'))['default'][number]
 
@@ -27,8 +27,6 @@ interface IconPanelProps {
   onPick: (name: string) => void
   /** The name of the icon the field has, if it has one. */
   selected: string | null
-  /** Clears the field, where it has a value to clear. */
-  onRemove?: () => void
   /** The colour the icon is drawn in (#rrggbb), or empty for none. */
   color: string
   onColor: (color: string) => void
@@ -36,11 +34,13 @@ interface IconPanelProps {
 
 /**
  * The Icons tab of a genre's icon picker: Tabler's icons, as filtered by
- * genre-icons.config.ts, by category, the hand-picked Suggested ones first.
- * The same grid as the Emoji tab, searched by name and by Tabler's tags,
- * drawn in the colour picked under it, so that every icon shows as it would.
+ * genre-icons.config.ts, the hand-picked Suggested ones first and the rest by
+ * category, each set apart by a line rather than named: an icon says what it
+ * is in its tooltip. The same grid as the Emoji tab, searched by name and by
+ * Tabler's tags, drawn in the colour picked under it, so that every icon
+ * shows as it would.
  */
-export function IconPanel({ search, onSearch, onPick, selected, onRemove, color, onColor }: IconPanelProps) {
+export function IconPanel({ search, onSearch, onPick, selected, color, onColor }: IconPanelProps) {
   const panel = useRef<HTMLDivElement>(null)
   const sliders = <ColorSliders value={color} onChange={onColor} />
 
@@ -79,11 +79,10 @@ export function IconPanel({ search, onSearch, onPick, selected, onRemove, color,
           <>
             <p className="flex flex-1 items-center justify-center text-xs text-ink-faint">Loading…</p>
             {sliders}
-            <PanelFooter label="" onRemove={onRemove} />
           </>
         }
       >
-        <IconGrid search={search} onPick={onPick} selected={selected} onRemove={onRemove} color={color} sliders={sliders} />
+        <IconGrid search={search} onPick={onPick} selected={selected} color={color} sliders={sliders} />
       </Suspense>
     </div>
   )
@@ -130,7 +129,6 @@ function IconGrid({
   search,
   onPick,
   selected,
-  onRemove,
   color,
   sliders,
 }: Omit<IconPanelProps, 'onSearch' | 'onColor'> & { sliders: ReactNode }) {
@@ -139,8 +137,6 @@ function IconGrid({
   const viewport = useRef<HTMLDivElement>(null)
   // The icon the keyboard is on, the one Tab lands on in the grid.
   const [focused, setFocused] = useState<Position>({ row: 0, column: 0 })
-  // What the footer names: the icon pointed at or focused, else the field's.
-  const [pointed, setPointed] = useState<string | null>(null)
 
   const current = rows[focused.row] && rows[focused.row].icons[focused.column] ? focused : { row: 0, column: 0 }
 
@@ -177,7 +173,6 @@ function IconGrid({
     if (opened) viewport.current?.querySelector(`[data-name="${opened}"]`)?.scrollIntoView({ block: 'center' })
   }, [opened])
 
-  const footer = pointed ?? selected
   return (
     <>
       {/* The scrollbar's gutter on both sides, so that the grid stays in the
@@ -187,8 +182,7 @@ function IconGrid({
         role="grid"
         aria-label="Icons"
         onKeyDown={move}
-        onPointerLeave={() => setPointed(null)}
-        className="relative flex-1 overflow-y-auto pb-1.5 outline-none select-none"
+        className="relative flex-1 overflow-y-auto pt-1 pb-1.5 outline-none select-none"
         style={{ scrollbarGutter: 'stable both-edges' }}
       >
         {rows.length === 0 && (
@@ -196,11 +190,8 @@ function IconGrid({
         )}
         {rows.map((row, rowIndex) => (
           <div key={`${row.category}-${rowIndex}`} role="row">
-            {row.first && (
-              <div className="sticky top-0 z-10 bg-surface pt-2.5 pb-1 text-xs font-medium text-ink-faint">
-                <div className={`${COLUMN_WIDTH} px-1.5`}>{row.category}</div>
-              </div>
-            )}
+            {/* A category starts after a line, not under its name. */}
+            {row.first && rowIndex > 0 && <div className={`${COLUMN_WIDTH} my-1.5 h-px bg-line`} />}
             <div className={`${COLUMN_WIDTH} flex scroll-my-1.5`}>
               {row.icons.map(([name, , , drawing], column) => {
                 const isFocused = rowIndex === current.row && column === current.column
@@ -213,13 +204,10 @@ function IconGrid({
                     data-position={`${rowIndex}-${column}`}
                     tabIndex={isFocused ? 0 : -1}
                     aria-label={iconLabel(name)}
+                    data-tooltip={iconLabel(name)}
                     aria-selected={name === selected}
                     onClick={() => onPick(name)}
-                    onFocus={() => {
-                      setFocused({ row: rowIndex, column })
-                      setPointed(name)
-                    }}
-                    onPointerEnter={() => setPointed(name)}
+                    onFocus={() => setFocused({ row: rowIndex, column })}
                     className={[
                       'flex size-[2.125rem] items-center justify-center rounded-control text-ink-muted outline-none',
                       'hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:ring-2 focus-visible:ring-accent/40',
@@ -248,7 +236,6 @@ function IconGrid({
         ))}
       </div>
       {sliders}
-      <PanelFooter label={footer ? iconLabel(footer) : ''} onRemove={onRemove} />
     </>
   )
 }

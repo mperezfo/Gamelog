@@ -2,6 +2,8 @@ import { useState, type CSSProperties } from 'react'
 
 import { hexToOklch, oklchToHex } from '../lib/oklch'
 import { COLUMN_WIDTH } from '../lib/pickerGrid'
+import { HexInput } from './HexInput'
+import { BanIcon } from './icons'
 
 /** The chroma at full saturation: soft rather than loud, so that two genres
  * of any hues sit well side by side. */
@@ -52,25 +54,29 @@ interface ColorSlidersProps {
 
 /**
  * The colour of a genre's icon, under the icons it is picked from (see
- * IconPanel): hue, saturation and lightness, each on a slider, in OKLCH so
- * that every hue is as light and as vivid as the next at the same settings.
- * The colour is drawn exactly as picked, in either theme. "No colour" leaves
- * the icon in the colour of the text around it.
+ * IconPanel), with no heading: its tracks say what it is. Hue, saturation
+ * and lightness, each on a slider, in OKLCH so that every hue is as light
+ * and as vivid as the next at the same settings; then the colour itself,
+ * with its hex code to read or type, and "No colour", which leaves the icon
+ * in the colour of the text around it. The colour is drawn exactly as
+ * picked, in either theme.
  */
 export function ColorSliders({ value, onChange }: ColorSlidersProps) {
   // The sliders' own tone while they are moved: read back from the hex code
   // it gave, a tone can come out a step off, which would hold the arrow keys
-  // in place. Dropped when the colour is cleared.
-  const [sliding, setSliding] = useState<Tone | null>(null)
-  const tone = (value && sliding) || toneOf(value)
+  // in place. Only while the colour is still the one it gave: a code typed,
+  // or none, puts the sliders where that colour is.
+  const [sliding, setSliding] = useState<{ tone: Tone; hex: string } | null>(null)
+  const tone = sliding && sliding.hex === value ? sliding.tone : toneOf(value)
 
   function slide(next: Partial<Tone>) {
     const merged = { ...tone, ...next }
     // A hue means nothing to a grey: moving it from one, the text's included,
     // brings the colour in at full saturation rather than changing nothing.
     if (next.hue !== undefined && tone.saturation === 0) merged.saturation = 1
-    setSliding(merged)
-    onChange(toHex(merged))
+    const hex = toHex(merged)
+    setSliding({ tone: merged, hex })
+    onChange(hex)
   }
 
   // With no colour, a hollow thumb: the track's colour shows nowhere yet.
@@ -79,22 +85,7 @@ export function ColorSliders({ value, onChange }: ColorSlidersProps) {
 
   return (
     <div className="shrink-0 border-t border-line">
-      <div className={`${COLUMN_WIDTH} flex flex-col gap-2 py-2`}>
-        <div className="flex h-6 items-center justify-between gap-2">
-          <span className="pl-1.5 text-xs font-medium text-ink-muted">Colour</span>
-          {value && (
-            <button
-              type="button"
-              onClick={() => {
-                setSliding(null)
-                onChange('')
-              }}
-              className="shrink-0 rounded-control px-2 py-1 text-xs font-medium text-ink-muted transition-colors duration-75 hover:bg-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-            >
-              No colour
-            </button>
-          )}
-        </div>
+      <div className={`${COLUMN_WIDTH} flex flex-col gap-1.5 py-2.5`}>
         <Slider
           label="Hue"
           max={359}
@@ -123,6 +114,28 @@ export function ColorSliders({ value, onChange }: ColorSlidersProps) {
           thumb={thumb}
           onChange={(lightness) => slide({ lightness: lightness / 100 })}
         />
+        <div className="mt-1 flex items-center gap-2">
+          {value ? (
+            <span
+              className="size-5 shrink-0 rounded-[3px] shadow-[inset_0_0_0_1px_rgb(0_0_0/0.1)]"
+              style={{ backgroundColor: value }}
+            />
+          ) : (
+            <span className="size-5 shrink-0 rounded-[3px] border border-dashed border-line-strong" />
+          )}
+          <HexInput value={value} onChange={onChange} className="w-24" />
+          {value && (
+            <button
+              type="button"
+              aria-label="No colour"
+              data-tooltip="No colour"
+              onClick={() => onChange('')}
+              className="ml-auto flex size-8 items-center justify-center rounded-control text-ink-faint transition-colors duration-75 hover:bg-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+            >
+              <BanIcon />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )

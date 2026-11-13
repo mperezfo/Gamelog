@@ -598,7 +598,17 @@
   width: 100%;
   height: 16px;
   background: transparent;
-  cursor: pointer;
+  /* A hand that can take hold of it, and holds it while it is dragged. */
+  cursor: grab;
+}
+
+.gl-slider:active,
+.gl-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.gl-slider:active::-moz-range-thumb {
+  cursor: grabbing;
 }
 
 .gl-slider::-webkit-slider-runnable-track {
