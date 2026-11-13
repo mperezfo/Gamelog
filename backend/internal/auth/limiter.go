@@ -4,6 +4,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/mperezfo/gamelog/internal/namematch"
 )
 
 // How failed logins are held back. A few attempts are free, enough for
@@ -51,10 +53,16 @@ func NewLoginLimiter(now func() time.Time) *LoginLimiter {
 	return &LoginLimiter{now: now, failures: map[string]*failures{}}
 }
 
-// loginKey is what failures are counted against: the username as it is
-// compared (ignoring case), and the client's address.
+// loginKey is what failures are counted against: the username as accounts
+// are told apart (ignoring case and accents, so that "Martín" and "martin"
+// share one count), and the client's address.
 func loginKey(username, address string) string {
-	return strings.ToLower(strings.TrimSpace(username)) + "\x00" + address
+	return userPrefix(username) + address
+}
+
+// userPrefix is the part of every key of one username.
+func userPrefix(username string) string {
+	return namematch.Fold(strings.TrimSpace(username)) + "\x00"
 }
 
 // Wait returns how long a login for username from address has to wait
@@ -101,6 +109,37 @@ func (l *LoginLimiter) Succeeded(username, address string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	delete(l.failures, loginKey(username, address))
+}
+
+// LockedUntil is when the latest lock on username, from any address, ends,
+// or the zero time when none is in force: what the admin sees of it.
+func (l *LoginLimiter) LockedUntil(username string) time.Time {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	now := l.now()
+	prefix := userPrefix(username)
+	var until time.Time
+	for key, entry := range l.failures {
+		if strings.HasPrefix(key, prefix) && entry.lockedUntil.After(now) && entry.lockedUntil.After(until) {
+			until = entry.lockedUntil
+		}
+	}
+	return until
+}
+
+// Forget clears every count of username, from every address: the admin
+// unlocking the account, or giving it a new password.
+func (l *LoginLimiter) Forget(username string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	prefix := userPrefix(username)
+	for key := range l.failures {
+		if strings.HasPrefix(key, prefix) {
+			delete(l.failures, key)
+		}
+	}
 }
 
 // lockFor is how long the lock after the nth failure past the free ones

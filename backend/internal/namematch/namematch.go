@@ -155,6 +155,10 @@ var genericWords = map[string]bool{
 	"america": true, "americas": true, "europe": true, "japan": true, "usa": true,
 }
 
+// Fold is s as the database compares names: in lower case and without
+// accents (see fold).
+func Fold(s string) string { return fold(s) }
+
 // fold lower-cases s and strips the accents of the Latin letters company names
 // are likely to carry, including the macrons of romanised Japanese ("Kōei").
 // The database collation does the same for names it compares, so a name this

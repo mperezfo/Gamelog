@@ -632,3 +632,74 @@ func TestFailedLoginsAreHeldBack(t *testing.T) {
 	expectStatus(t, request(t, handler, http.MethodPost, "/api/auth/login", wrong),
 		http.StatusUnauthorized, "a wrong password after the count was cleared")
 }
+
+// TestTheAdminUnlocksAnAccount: a lock from failed logins shows in the
+// admin's list, and the admin can lift it, by hand or by setting a new
+// password.
+func TestTheAdminUnlocksAnAccount(t *testing.T) {
+	db := testsupport.NewDatabase(t)
+	now := time.Date(2026, 10, 24, 12, 0, 0, 0, time.UTC)
+	service := auth.NewService(db, auth.Options{
+		Lifetime: testSessionLifetime,
+		Limiter:  auth.NewLoginLimiter(func() time.Time { return now }),
+	})
+	cfg := config.Config{SessionLifetime: testSessionLifetime, ImagesDir: os.TempDir()}
+	handler := router.New(cfg, db, service, "test")
+	admin := signedIn(t, handler, db, auth.AdminUsername, true)
+	signedIn(t, handler, db, "player", false)
+
+	lockOut := func() {
+		t.Helper()
+		wrong := map[string]string{"username": "player", "password": "not the password"}
+		for range 5 {
+			expectStatus(t, request(t, handler, http.MethodPost, "/api/auth/login", wrong),
+				http.StatusUnauthorized, "logging in with a wrong password")
+		}
+	}
+	type listed struct {
+		ID          uint64     `json:"id"`
+		Username    string     `json:"username"`
+		LockedUntil *time.Time `json:"locked_until"`
+	}
+	accounts := func() map[string]listed {
+		t.Helper()
+		rec := request(t, admin, http.MethodGet, "/api/users", nil)
+		expectStatus(t, rec, http.StatusOK, "listing the accounts")
+		var list []listed
+		decode(t, rec, &list)
+		byName := map[string]listed{}
+		for _, account := range list {
+			byName[account.Username] = account
+		}
+		return byName
+	}
+
+	lockOut()
+	list := accounts()
+	player := list["player"]
+	if player.LockedUntil == nil || !player.LockedUntil.Equal(now.Add(30*time.Second)) {
+		t.Errorf("player locked until %v, want 30 seconds from now", player.LockedUntil)
+	}
+	if list[auth.AdminUsername].LockedUntil != nil {
+		t.Errorf("admin locked until %v, want not locked", list[auth.AdminUsername].LockedUntil)
+	}
+
+	expectStatus(t, request(t, handler, http.MethodDelete, "/api/users/"+itoa(player.ID)+"/lock", nil),
+		http.StatusUnauthorized, "unlocking without a session")
+	expectStatus(t, request(t, admin, http.MethodDelete, "/api/users/"+itoa(player.ID)+"/lock", nil),
+		http.StatusNoContent, "the admin unlocking an account")
+	if accounts()["player"].LockedUntil != nil {
+		t.Error("the account is still listed as locked after unlocking it")
+	}
+	login(t, handler, "player", testPassword)
+
+	// A new password set by the admin lifts the lock too.
+	lockOut()
+	const newPassword = "another good enough password"
+	expectStatus(t, request(t, admin, http.MethodPut, "/api/users/"+itoa(player.ID)+"/password",
+		map[string]string{"password": newPassword}), http.StatusNoContent, "the admin resetting a password")
+	login(t, handler, "player", newPassword)
+
+	expectStatus(t, request(t, admin, http.MethodDelete, "/api/users/999999/lock", nil),
+		http.StatusNotFound, "unlocking an account that does not exist")
+}

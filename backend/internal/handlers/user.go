@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -32,8 +33,15 @@ type resetPasswordInput struct {
 	Body passwordBody
 }
 
+// account is an account as the admin's list shows it: with the lock that
+// failed logins put on it, if any.
+type account struct {
+	models.User
+	LockedUntil *time.Time `json:"locked_until,omitempty" doc:"Until when logins to the account are refused after too many failed attempts, from at least one address. Left out when they are not." example:"2026-11-13T18:42:00Z"`
+}
+
 type userListOutput struct {
-	Body []models.User
+	Body []account
 }
 
 // registerUsers registers the account management the admin does.
@@ -43,21 +51,43 @@ type userListOutput struct {
 func registerUsers(api huma.API, service *auth.Service) {
 	users := service.Users()
 
+	// forget clears the failed logins of an account, from every address.
+	forget := func(ctx context.Context, id uint64) error {
+		user, err := users.Get(ctx, id)
+		if err != nil {
+			return err
+		}
+		if limiter := service.Limiter(); limiter != nil {
+			limiter.Forget(user.Username)
+		}
+		return nil
+	}
+
 	huma.Register(api, huma.Operation{
 		OperationID: "list-users",
 		Method:      http.MethodGet,
 		Path:        "/api/users",
 		Summary:     "List accounts",
-		Description: "Returns every account, the admin first. Password hashes are never part of the answer.",
-		Tags:        []string{usersTag},
-		Metadata:    auth.Require(auth.AccessAdmin),
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden},
+		Description: "Returns every account, the admin first, with the lock too many failed logins " +
+			"put on it, if any. Password hashes are never part of the answer.",
+		Tags:     []string{usersTag},
+		Metadata: auth.Require(auth.AccessAdmin),
+		Errors:   []int{http.StatusUnauthorized, http.StatusForbidden},
 	}, func(ctx context.Context, _ *struct{}) (*userListOutput, error) {
 		list, err := users.List(ctx)
 		if err != nil {
 			return nil, apiError(err, "no accounts")
 		}
-		return &userListOutput{Body: list}, nil
+		accounts := make([]account, len(list))
+		for i, user := range list {
+			accounts[i] = account{User: user}
+			if limiter := service.Limiter(); limiter != nil {
+				if until := limiter.LockedUntil(user.Username); !until.IsZero() {
+					accounts[i].LockedUntil = &until
+				}
+			}
+		}
+		return &userListOutput{Body: accounts}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -127,8 +157,9 @@ func registerUsers(api huma.API, service *auth.Service) {
 		Method:      http.MethodPut,
 		Path:        "/api/users/{id}/password",
 		Summary:     "Reset an account's password",
-		Description: "Sets a new password for an account without knowing the old one, and ends " +
-			"every session it had. This is the recovery path for somebody who forgot theirs.",
+		Description: "Sets a new password for an account without knowing the old one, ends " +
+			"every session it had, and lifts the lock failed logins put on it, if any. This is " +
+			"the recovery path for somebody who forgot theirs.",
 		Tags:          []string{usersTag},
 		Metadata:      auth.Require(auth.AccessAdmin),
 		DefaultStatus: http.StatusNoContent,
@@ -142,6 +173,9 @@ func registerUsers(api huma.API, service *auth.Service) {
 		if err := service.SetPassword(ctx, input.ID, input.Body.Password); err != nil {
 			return nil, passwordError(err, "no account with that id")
 		}
+		if err := forget(ctx, input.ID); err != nil {
+			return nil, apiError(err, "no account with that id")
+		}
 
 		// Resetting the admin's own password ends the session doing the
 		// resetting too, which is correct but worth saying out loud in the
@@ -151,6 +185,26 @@ func registerUsers(api huma.API, service *auth.Service) {
 		} else {
 			slog.Info("account password reset", "id", input.ID)
 		}
+		return nil, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "unlock-user",
+		Method:      http.MethodDelete,
+		Path:        "/api/users/{id}/lock",
+		Summary:     "Unlock an account",
+		Description: "Lifts the lock that too many failed logins put on an account, from every " +
+			"address, and forgets the failures counted so far. Unlocking an account that is " +
+			"not locked is not an error.",
+		Tags:          []string{usersTag},
+		Metadata:      auth.Require(auth.AccessAdmin),
+		DefaultStatus: http.StatusNoContent,
+		Errors:        []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound},
+	}, func(ctx context.Context, input *userIDInput) (*struct{}, error) {
+		if err := forget(ctx, input.ID); err != nil {
+			return nil, apiError(err, "no account with that id")
+		}
+		slog.Info("account unlocked", "id", input.ID)
 		return nil, nil
 	})
 }

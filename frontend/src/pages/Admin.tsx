@@ -10,10 +10,10 @@ import { PageContainer } from '../components/PageContainer'
 import { Section } from '../components/Section'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
 import { usePreference } from '../hooks/useSession'
-import { useCreateUser, useDeleteUser, useResetUserPassword, useUsers } from '../hooks/useUsers'
+import { useCreateUser, useDeleteUser, useResetUserPassword, useUnlockUser, useUsers } from '../hooks/useUsers'
 import { dayKey } from '../lib/calendar'
 import { formatDate } from '../lib/format'
-import { MAX_PASSWORD, MAX_USERNAME, type User } from '../types/auth'
+import { MAX_PASSWORD, MAX_USERNAME, type Account, type User } from '../types/auth'
 
 /**
  * What the admin sees: the accounts, and nothing else.
@@ -57,10 +57,14 @@ export function Admin({ admin }: { admin: User }) {
   )
 }
 
-/** One account, with the two things that can be done to it. */
-function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
+/** The time of day a lock ends, which is never more than minutes away. */
+const lockEnd = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' })
+
+/** One account, with the things that can be done to it. */
+function UserRow({ user, isSelf }: { user: Account; isSelf: boolean }) {
   const dateFormat = usePreference('date_format')
   const [panel, setPanel] = useState<'none' | 'reset' | 'delete'>('none')
+  const unlock = useUnlockUser()
 
   return (
     <li className="group border-b border-line last:border-0">
@@ -77,41 +81,60 @@ function UserRow({ user, isSelf }: { user: User; isSelf: boolean }) {
           <p className="mt-0.5 text-xs text-ink-faint">
             Added {formatDate(dayKey(new Date(user.created_at)), dateFormat)}
           </p>
+          {user.locked_until && (
+            <p className="mt-0.5 text-xs text-danger">
+              Locked until {lockEnd.format(new Date(user.locked_until))} after too many failed sign-ins
+            </p>
+          )}
+          {unlock.isError && <p className="mt-0.5 text-xs text-danger">{errorMessage(unlock.error)}</p>}
         </div>
 
-        {/*
-          The actions stay out of the way until the row is pointed at, which is
-          the desktop behaviour. On touch there is no hover, so they are always
-          there.
-        */}
-        {/*
-          Nothing on your own row. Resetting your own password here would end
-          the session doing it and drop you back on the login screen mid-click;
-          the section below does the same thing properly, and deleting yourself
-          is refused by the API anyway.
-        */}
-        {!isSelf && (
-          <div className="flex shrink-0 items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
-            <Button
-              variant="ghost"
-              data-tooltip="Set a new password"
-              aria-label={`Set a new password for ${user.username}`}
-              onClick={() => setPanel(panel === 'reset' ? 'none' : 'reset')}
-              className="px-2"
-            >
-              <KeyIcon />
+        <div className="flex shrink-0 items-center gap-2">
+          {/*
+            Always in view, unlike the actions after it: it is only there when
+            something is wrong. On the admin's own row too, locked from another
+            address while signed in here.
+          */}
+          {user.locked_until && (
+            <Button disabled={unlock.isPending} onClick={() => unlock.mutate(user.id)}>
+              {unlock.isPending ? 'Unlocking…' : 'Unlock'}
             </Button>
-            <Button
-              variant="danger"
-              data-tooltip="Delete this account"
-              aria-label={`Delete ${user.username}`}
-              onClick={() => setPanel(panel === 'delete' ? 'none' : 'delete')}
-              className="px-2"
-            >
-              <TrashIcon />
-            </Button>
-          </div>
-        )}
+          )}
+
+          {/*
+            The actions stay out of the way until the row is pointed at, which is
+            the desktop behaviour. On touch there is no hover, so they are always
+            there.
+          */}
+          {/*
+            Nothing on your own row. Resetting your own password here would end
+            the session doing it and drop you back on the login screen mid-click;
+            the section below does the same thing properly, and deleting yourself
+            is refused by the API anyway.
+          */}
+          {!isSelf && (
+            <div className="flex items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+              <Button
+                variant="ghost"
+                data-tooltip="Set a new password"
+                aria-label={`Set a new password for ${user.username}`}
+                onClick={() => setPanel(panel === 'reset' ? 'none' : 'reset')}
+                className="px-2"
+              >
+                <KeyIcon />
+              </Button>
+              <Button
+                variant="danger"
+                data-tooltip="Delete this account"
+                aria-label={`Delete ${user.username}`}
+                onClick={() => setPanel(panel === 'delete' ? 'none' : 'delete')}
+                className="px-2"
+              >
+                <TrashIcon />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {panel === 'reset' && <ResetPassword user={user} onDone={() => setPanel('none')} />}

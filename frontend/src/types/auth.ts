@@ -76,6 +76,13 @@ export interface User extends Preferences {
   updated_at: string
 }
 
+/** An account as the admin's list shows it. */
+export interface Account extends User {
+  /** Until when logins to it are refused, after too many failed attempts
+   * from at least one address. Left out when they are not. */
+  locked_until?: string
+}
+
 /** Response of `GET /api/setup`. */
 export interface SetupStatus {
   /** Whether the deployment still has no accounts at all. */

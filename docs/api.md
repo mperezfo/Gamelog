@@ -40,7 +40,8 @@ POST   /api/setup                           creates the admin, once
 GET    /api/users                           admin only
 POST   /api/users                           admin only
 DELETE /api/users/{id}                      admin only
-PUT    /api/users/{id}/password             admin only
+PUT    /api/users/{id}/password             admin only, also lifts a login lock
+DELETE /api/users/{id}/lock                 admin only, lifts a login lock
 
 GET    /api/games?status=&platform_id=&genre_id=&developer_id=&publisher_id=&sort=&order=
 GET    /api/games/stats      same filters, returns count, average score and date range

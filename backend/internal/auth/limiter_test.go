@@ -93,3 +93,49 @@ func TestLoginLimiterIsBounded(t *testing.T) {
 		t.Error("the oldest count was kept, want it dropped to make room")
 	}
 }
+
+func TestLoginLimiterUnlocksAUsername(t *testing.T) {
+	c := newClock()
+	limiter := NewLoginLimiter(c.Now)
+
+	if until := limiter.LockedUntil("martin"); !until.IsZero() {
+		t.Fatalf("locked until %v before any failure, want not locked", until)
+	}
+
+	// Locked from two addresses, the second one later, and under spellings
+	// the database takes for the same account.
+	for range freeFailures {
+		limiter.Failed("martin", "192.0.2.1")
+	}
+	c.advance(10 * time.Second)
+	for range freeFailures {
+		limiter.Failed("Martín", "192.0.2.2")
+	}
+	for range freeFailures {
+		limiter.Failed("ana", "192.0.2.1")
+	}
+
+	if until, want := limiter.LockedUntil("MARTIN"), c.now.Add(firstLock); !until.Equal(want) {
+		t.Errorf("locked until %v, want %v, the end of the latest lock", until, want)
+	}
+
+	limiter.Forget("martin")
+	for _, address := range []string{"192.0.2.1", "192.0.2.2"} {
+		if wait := limiter.Wait("martin", address); wait != 0 {
+			t.Errorf("from %s, after unlocking wait = %v, want none", address, wait)
+		}
+	}
+	if until := limiter.LockedUntil("martin"); !until.IsZero() {
+		t.Errorf("locked until %v after unlocking, want not locked", until)
+	}
+	// Somebody else's lock stays.
+	if wait := limiter.Wait("ana", "192.0.2.1"); wait != firstLock {
+		t.Errorf("another username waits %v after unlocking martin, want %v", wait, firstLock)
+	}
+
+	// A lock that is over is not one.
+	c.advance(firstLock)
+	if until := limiter.LockedUntil("ana"); !until.IsZero() {
+		t.Errorf("locked until %v once the lock is over, want not locked", until)
+	}
+}
