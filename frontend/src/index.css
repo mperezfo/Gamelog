@@ -133,6 +133,39 @@
 }
 
 /*
+ * A genre's icon colour, as picked, save at the one end where it would melt
+ * into the page: no lighter than 0.78 on a light page, so that white shows
+ * as a pale grey, and no darker than 0.45 on a dark one, so that black shows
+ * as a dark grey. Everything in between, which is nearly every colour,
+ * stays exactly as picked. A step short of what text needs, since these are
+ * shapes: the icon itself (see LookupIcon), solid for a share of a chart,
+ * and as a glaze for a ranked list's bar, which its name is written over.
+ */
+@utility tint-exact {
+  color: oklch(from var(--tint) min(l, 0.78) c h);
+
+  @variant dark {
+    color: oklch(from var(--tint) max(l, 0.45) c h);
+  }
+}
+
+@utility tint-solid {
+  background-color: oklch(from var(--tint) min(l, 0.78) c h);
+
+  @variant dark {
+    background-color: oklch(from var(--tint) max(l, 0.45) c h);
+  }
+}
+
+@utility tint-glaze {
+  background-color: oklch(from var(--tint) min(l, 0.78) c h / 22%);
+
+  @variant dark {
+    background-color: oklch(from var(--tint) max(l, 0.45) c h / 22%);
+  }
+}
+
+/*
  * Which of the CJK families comes first. Chinese, Japanese and Korean share
  * the Han characters but draw many of them differently, and a title carries
  * no language to pick by, so the reader's own decides (see src/lib/cjk.ts).
@@ -567,32 +600,79 @@
 }
 
 /*
- * ColorField's free picker (react-colorful), in the theme's shapes instead of
- * the library's own rounded 200px square. Outside any layer on purpose: the
- * library injects its stylesheet at runtime, unlayered, and an unlayered rule
- * beats a layered one whatever its specificity.
+ * The colour sliders of a genre's icon and a platform (see ColorSliders): a
+ * gradient track, and a thumb in the colour picked.
  */
-.gl-colorful.react-colorful {
+.gl-slider {
+  appearance: none;
   width: 100%;
-  height: 150px;
-  gap: 8px;
+  height: 16px;
+  background: transparent;
+  /* The track is pressed, like a button: it moves the thumb there. */
+  cursor: pointer;
 }
 
-.gl-colorful .react-colorful__saturation {
-  border-bottom: none;
-  border-radius: var(--radius-control);
+/* The thumb is taken hold of, and held while it is dragged, wherever the
+   pointer then goes. */
+.gl-slider::-webkit-slider-thumb {
+  cursor: grab;
 }
 
-.gl-colorful .react-colorful__hue,
-.gl-colorful .react-colorful__last-control {
+.gl-slider::-moz-range-thumb {
+  cursor: grab;
+}
+
+.gl-slider:active,
+.gl-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.gl-slider:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+
+.gl-slider::-webkit-slider-runnable-track {
   height: 12px;
   border-radius: var(--radius-control);
+  background: var(--track);
 }
 
-.gl-colorful .react-colorful__pointer {
+.gl-slider::-moz-range-track {
+  height: 12px;
+  border-radius: var(--radius-control);
+  background: var(--track);
+}
+
+.gl-slider::-webkit-slider-thumb {
+  appearance: none;
   width: 16px;
   height: 16px;
-  border-width: 2px;
+  margin-top: -2px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--thumb);
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+.gl-slider::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--thumb);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+.gl-slider:focus-visible {
+  outline: none;
+}
+
+.gl-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 40%, transparent);
+}
+
+.gl-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 40%, transparent);
 }
 

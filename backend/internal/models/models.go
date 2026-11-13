@@ -81,6 +81,9 @@ type Genre struct {
 	// the id is purely internal. See migration 00011.
 	Slug string  `gorm:"column:slug" json:"slug"`
 	Icon *string `gorm:"column:icon" json:"icon"`
+	// Color is a hex code ("#3b82f6") for the icon, when it is one of the
+	// app's Tabler icons rather than an emoji. See migration 00023.
+	Color *string `gorm:"column:color" json:"color"`
 }
 
 // Developer is a game developer.

@@ -4,6 +4,7 @@ import { iconLabel, iconName, iconValue } from '../lib/genreIcons'
 import { COLUMN_WIDTH } from '../lib/pickerGrid'
 import { EmojiPanel } from './EmojiPanel'
 import { IconPanel } from './IconPanel'
+import { XIcon } from './icons'
 import { LookupIcon } from './LookupIcon'
 import { Popover } from './Popover'
 
@@ -15,16 +16,23 @@ interface IconFieldProps {
   label: string
   /** The icon (`tabler:<name>`, see LookupIcon), an emoji, or empty for none. */
   value: string
+  /** The colour a Tabler icon is drawn in (#rrggbb), or empty for none. */
+  color: string
   onChange: (value: string) => void
+  onColorChange: (color: string) => void
 }
 
 /**
  * A labelled genre icon: a popover with two tabs, plain icons (Tabler's, the
  * default) and emoji. It opens on the tab of the value it has, and one search
- * serves both, kept when switching.
+ * serves both, kept when switching. The Icons tab also picks the colour the
+ * icon is drawn in, which an emoji, with colours of its own, has no use for:
+ * a colour change shows at once and keeps the popover open, and picking an
+ * icon closes it.
  */
-export function IconField({ label, value, onChange }: IconFieldProps) {
+export function IconField({ label, value, color, onChange, onColorChange }: IconFieldProps) {
   const id = useId()
+  const fieldRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('icons')
@@ -47,34 +55,57 @@ export function IconField({ label, value, onChange }: IconFieldProps) {
     buttonRef.current?.focus()
   }
 
-  const remove = value ? () => pick('') : undefined
-
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-[13px] font-medium text-ink-muted">
         {label}
       </label>
-      <button
-        id={id}
-        ref={buttonRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        aria-label={`${label}: ${description}`}
-        onClick={toggle}
-        className="flex h-9 min-w-16 items-center justify-center rounded-control bg-field shadow-field px-2.5 text-sm text-ink-muted transition-colors duration-75 enabled:hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
-      >
-        {value ? (
-          <span className="text-lg leading-none">
-            <LookupIcon value={value} />
-          </span>
-        ) : (
-          <span className="text-ink-faint">None</span>
+      {/* The icon, and beside it, once there is one, the × that takes it
+          away without opening anything: one field, in two parts. */}
+      <div ref={fieldRef} className="flex h-9 items-stretch rounded-control bg-field shadow-field">
+        <button
+          id={id}
+          ref={buttonRef}
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={`${label}: ${description}`}
+          onClick={toggle}
+          className={`flex items-center justify-center text-sm text-ink-muted transition-colors duration-75 hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${value ? 'w-9 rounded-l-control' : 'min-w-16 px-2.5 rounded-control'}`}
+        >
+          {value ? (
+            <span className="text-lg leading-none">
+              <LookupIcon value={value} color={color} />
+            </span>
+          ) : (
+            <span className="text-ink-faint">None</span>
+          )}
+        </button>
+        {value && (
+          <button
+            type="button"
+            aria-label={`Remove the ${label.toLowerCase()}`}
+            data-tooltip={`Remove the ${label.toLowerCase()}`}
+            onClick={() => {
+              onChange('')
+              buttonRef.current?.focus()
+            }}
+            className="flex w-7 items-center justify-center rounded-r-control border-l border-line text-ink-faint transition-colors duration-75 hover:bg-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+          >
+            <XIcon className="size-3.5" />
+          </button>
         )}
-      </button>
+      </div>
 
-      <Popover anchorRef={buttonRef} open={open} onClose={() => setOpen(false)} aria-label={`Pick the ${label.toLowerCase()}`}>
-        <div className="flex h-[22rem] w-[19rem] flex-col">
+      <Popover
+        anchorRef={fieldRef}
+        triggerRef={buttonRef}
+        open={open}
+        onClose={() => setOpen(false)}
+        aria-label={`Pick the ${label.toLowerCase()}`}
+      >
+        {/* As tall on either tab, so that switching does not move it. */}
+        <div className="flex h-[24rem] w-[19rem] flex-col">
           <div className={`${COLUMN_WIDTH} flex gap-1 pt-2`} role="tablist" aria-label="Kind of icon">
             {(['icons', 'emoji'] as const).map((option) => (
               <button
@@ -99,10 +130,11 @@ export function IconField({ label, value, onChange }: IconFieldProps) {
               onSearch={setSearch}
               onPick={(name) => pick(iconValue(name))}
               selected={icon}
-              onRemove={remove}
+              color={color}
+              onColor={onColorChange}
             />
           ) : (
-            <EmojiPanel search={search} onSearch={setSearch} onPick={pick} onRemove={remove} />
+            <EmojiPanel search={search} onSearch={setSearch} onPick={pick} />
           )}
         </div>
       </Popover>

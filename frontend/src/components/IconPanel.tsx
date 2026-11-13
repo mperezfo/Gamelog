@@ -1,8 +1,10 @@
-import { Suspense, use, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Suspense, use, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { iconLabel } from '../lib/genreIcons'
 import { COLUMN_WIDTH, COLUMNS } from '../lib/pickerGrid'
-import { PanelFooter, PanelSearch } from './PickerParts'
+import { ColorSliders } from './ColorSliders'
+import { PanelSearch } from './PickerParts'
 
 type IconEntry = (typeof import('virtual:genre-icons'))['default'][number]
 
@@ -26,17 +28,29 @@ interface IconPanelProps {
   onPick: (name: string) => void
   /** The name of the icon the field has, if it has one. */
   selected: string | null
-  /** Clears the field, where it has a value to clear. */
-  onRemove?: () => void
+  /** The colour the icon is drawn in (#rrggbb), or empty for none. */
+  color: string
+  onColor: (color: string) => void
 }
 
 /**
  * The Icons tab of a genre's icon picker: Tabler's icons, as filtered by
- * genre-icons.config.ts, by category, the hand-picked Suggested ones first.
- * The same grid as the Emoji tab, searched by name and by Tabler's tags.
+ * genre-icons.config.ts, one after another, the hand-picked Suggested ones
+ * first and the rest in the order of their categories, unnamed: an icon
+ * says what it is in its tooltip. The same grid as the Emoji tab, searched by name and by
+ * Tabler's tags, drawn in the colour picked under it, so that every icon
+ * shows as it would.
  */
-export function IconPanel({ search, onSearch, onPick, selected, onRemove }: IconPanelProps) {
+export function IconPanel({ search, onSearch, onPick, selected, color, onColor }: IconPanelProps) {
+  const touch = useMediaQuery('(pointer: coarse)')
   const panel = useRef<HTMLDivElement>(null)
+  const sliders = (
+    <div className="shrink-0 border-t border-line">
+      <div className={`${COLUMN_WIDTH} py-2.5`}>
+        <ColorSliders value={color} onChange={onColor} clearable />
+      </div>
+    </div>
+  )
 
   // From the search box, Down goes into the grid and Enter picks the first
   // icon found, as in the Emoji tab.
@@ -62,8 +76,10 @@ export function IconPanel({ search, onSearch, onPick, selected, onRemove }: Icon
           onChange={(event) => onSearch(event.target.value)}
           onKeyDown={searchKeys}
           aria-label="Search icons"
-          data-autofocus=""
-          autoFocus
+          // Not on a touch screen, where it would bring the keyboard up
+          // over the grid; tapping the box searches.
+          data-autofocus={touch ? undefined : ''}
+          autoFocus={!touch}
           spellCheck={false}
           className="h-8 w-full rounded-control bg-field shadow-field px-2.5 text-sm text-ink outline-none placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-accent/40"
         />
@@ -72,44 +88,39 @@ export function IconPanel({ search, onSearch, onPick, selected, onRemove }: Icon
         fallback={
           <>
             <p className="flex flex-1 items-center justify-center text-xs text-ink-faint">Loading…</p>
-            <PanelFooter label="" onRemove={onRemove} />
+            {sliders}
           </>
         }
       >
-        <IconGrid search={search} onPick={onPick} selected={selected} onRemove={onRemove} />
+        <IconGrid search={search} onPick={onPick} selected={selected} color={color} sliders={sliders} />
       </Suspense>
     </div>
   )
 }
 
+/** One row of the grid. */
 interface Row {
-  /** The category the row belongs to; only its first row shows the name. */
-  category: string
-  first: boolean
   icons: IconEntry[]
 }
 
-/** The icons matching a search, in rows of the grid. Every word of the
- * search has to be in the icon's name or among its tags. */
+/** The icons matching a search, in rows of the grid, one after another
+ * whatever their category. Every word of the search has to be in the icon's
+ * name or among its tags. With no search, the Suggested ones come first and
+ * are not repeated in their own category further on. */
 function rowsFor(icons: IconEntry[], search: string): Row[] {
   const words = search.toLowerCase().split(/\s+/).filter(Boolean)
+  const suggested = new Set(icons.filter(([, category]) => category === SUGGESTED).map(([name]) => name))
   const matching = words.length
     ? icons.filter(([name, category, tags]) => {
         if (category === SUGGESTED) return false
         const text = `${name} ${tags.toLowerCase()}`
         return words.every((word) => text.includes(word))
       })
-    : icons
+    : icons.filter(([name, category]) => category === SUGGESTED || !suggested.has(name))
 
   const rows: Row[] = []
-  let category = ''
-  for (const icon of matching) {
-    const last = rows.at(-1)
-    if (icon[1] !== category || !last || last.icons.length === COLUMNS) {
-      rows.push({ category: icon[1], first: icon[1] !== category, icons: [] })
-      category = icon[1]
-    }
-    rows.at(-1)!.icons.push(icon)
+  for (let start = 0; start < matching.length; start += COLUMNS) {
+    rows.push({ icons: matching.slice(start, start + COLUMNS) })
   }
   return rows
 }
@@ -119,14 +130,18 @@ interface Position {
   column: number
 }
 
-function IconGrid({ search, onPick, selected, onRemove }: Omit<IconPanelProps, 'onSearch'>) {
+function IconGrid({
+  search,
+  onPick,
+  selected,
+  color,
+  sliders,
+}: Omit<IconPanelProps, 'onSearch' | 'onColor'> & { sliders: ReactNode }) {
   const icons = use(loadIcons())
   const rows = useMemo(() => rowsFor(icons, search), [icons, search])
   const viewport = useRef<HTMLDivElement>(null)
   // The icon the keyboard is on, the one Tab lands on in the grid.
   const [focused, setFocused] = useState<Position>({ row: 0, column: 0 })
-  // What the footer names: the icon pointed at or focused, else the field's.
-  const [pointed, setPointed] = useState<string | null>(null)
 
   const current = rows[focused.row] && rows[focused.row].icons[focused.column] ? focused : { row: 0, column: 0 }
 
@@ -163,7 +178,6 @@ function IconGrid({ search, onPick, selected, onRemove }: Omit<IconPanelProps, '
     if (opened) viewport.current?.querySelector(`[data-name="${opened}"]`)?.scrollIntoView({ block: 'center' })
   }, [opened])
 
-  const footer = pointed ?? selected
   return (
     <>
       {/* The scrollbar's gutter on both sides, so that the grid stays in the
@@ -173,20 +187,14 @@ function IconGrid({ search, onPick, selected, onRemove }: Omit<IconPanelProps, '
         role="grid"
         aria-label="Icons"
         onKeyDown={move}
-        onPointerLeave={() => setPointed(null)}
-        className="relative flex-1 overflow-y-auto pb-1.5 outline-none select-none"
+        className="relative flex-1 overflow-y-auto pt-1 pb-1.5 outline-none select-none"
         style={{ scrollbarGutter: 'stable both-edges' }}
       >
         {rows.length === 0 && (
           <p className="absolute inset-0 flex items-center justify-center text-xs text-ink-faint">No icon found.</p>
         )}
         {rows.map((row, rowIndex) => (
-          <div key={`${row.category}-${rowIndex}`} role="row">
-            {row.first && (
-              <div className="sticky top-0 z-10 bg-surface pt-2.5 pb-1 text-xs font-medium text-ink-faint">
-                <div className={`${COLUMN_WIDTH} px-1.5`}>{row.category}</div>
-              </div>
-            )}
+          <div key={rowIndex} role="row">
             <div className={`${COLUMN_WIDTH} flex scroll-my-1.5`}>
               {row.icons.map(([name, , , drawing], column) => {
                 const isFocused = rowIndex === current.row && column === current.column
@@ -199,13 +207,10 @@ function IconGrid({ search, onPick, selected, onRemove }: Omit<IconPanelProps, '
                     data-position={`${rowIndex}-${column}`}
                     tabIndex={isFocused ? 0 : -1}
                     aria-label={iconLabel(name)}
+                    data-tooltip={iconLabel(name)}
                     aria-selected={name === selected}
                     onClick={() => onPick(name)}
-                    onFocus={() => {
-                      setFocused({ row: rowIndex, column })
-                      setPointed(name)
-                    }}
-                    onPointerEnter={() => setPointed(name)}
+                    onFocus={() => setFocused({ row: rowIndex, column })}
                     className={[
                       'flex size-[2.125rem] items-center justify-center rounded-control text-ink-muted outline-none',
                       'hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:ring-2 focus-visible:ring-accent/40',
@@ -220,7 +225,9 @@ function IconGrid({ search, onPick, selected, onRemove }: Omit<IconPanelProps, '
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       aria-hidden="true"
-                      className="size-5"
+                      // As the icon will be drawn (see LookupIcon).
+                      className={`size-5 ${color ? 'tint-exact' : ''}`}
+                      style={color ? ({ '--tint': color } as CSSProperties) : undefined}
                       // The drawing comes from the build (genreIconsPlugin),
                       // never from anything a user typed.
                       dangerouslySetInnerHTML={{ __html: drawing }}
@@ -232,7 +239,7 @@ function IconGrid({ search, onPick, selected, onRemove }: Omit<IconPanelProps, '
           </div>
         ))}
       </div>
-      <PanelFooter label={footer ? iconLabel(footer) : ''} onRemove={onRemove} />
+      {sliders}
     </>
   )
 }

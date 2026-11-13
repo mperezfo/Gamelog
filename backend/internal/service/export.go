@@ -42,7 +42,7 @@ func (e *Exporter) Export(ctx context.Context) (*Document, error) {
 		return nil, err
 	}
 	if document.Genres, err = exportLookups(ctx, e.db, e.userID, func(g models.Genre) LookupEntry {
-		return LookupEntry{Name: g.Name, Icon: g.Icon}
+		return LookupEntry{Name: g.Name, Icon: g.Icon, Color: g.Color}
 	}); err != nil {
 		return nil, err
 	}

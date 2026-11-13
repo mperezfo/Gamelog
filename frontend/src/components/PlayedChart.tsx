@@ -68,7 +68,7 @@ export function PlayedChart({ buckets, highlight, onSelect, year, onOpenGame }: 
     [year ? `${bucket.label} ${year}` : bucket.label, highlight?.label].filter(Boolean).join(', ')
 
   const tint = highlight?.color ? ({ '--tint': highlight.color } as CSSProperties) : undefined
-  const fill = highlight?.color ? 'tint-fill' : 'bg-accent'
+  const fill = highlight?.color ? (highlight.exact ? 'tint-solid' : 'tint-fill') : 'bg-accent'
 
   return (
     <div className="flex flex-col gap-1.5">

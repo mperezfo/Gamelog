@@ -141,22 +141,70 @@ func TestPlatformColorRoundTrips(t *testing.T) {
 	}
 }
 
-// TestLookupColorIsIgnoredOutsidePlatforms guards the trade-off documented on
+// TestLookupColorIsIgnoredOnCompanies guards the trade-off documented on
 // lookupBody.Color: the field exists in every one of the four bodies, but
-// only platforms has a column for it.
-func TestLookupColorIsIgnoredOutsidePlatforms(t *testing.T) {
+// only platforms and genres have a column for it.
+func TestLookupColorIsIgnoredOnCompanies(t *testing.T) {
+	handler := newRouter(t, testsupport.NewDatabase(t), false)
+
+	created := request(t, handler, http.MethodPost, "/api/developers", map[string]any{
+		"name":  "Team Cherry",
+		"color": "#e60012",
+	})
+	expectStatus(t, created, http.StatusCreated, "creating a developer with a color")
+	if body := created.Body.String(); strings.Contains(body, `"color"`) {
+		t.Errorf("created developer = %s, want no color", body)
+	}
+}
+
+// TestGenreColorTravels: a genre's colour (migration 00023) is kept, cleared
+// by a replacement that leaves it out, and goes out with an export and back
+// in with an import, read loosely like the rest of a document.
+func TestGenreColorTravels(t *testing.T) {
 	handler := newRouter(t, testsupport.NewDatabase(t), false)
 
 	created := request(t, handler, http.MethodPost, "/api/genres", map[string]any{
 		"name":  "Metroidvania",
-		"color": "#e60012",
+		"icon":  "tabler:map",
+		"color": "#4dab9a",
 	})
 	expectStatus(t, created, http.StatusCreated, "creating a genre with a color")
-
 	var genre models.Genre
 	decode(t, created, &genre)
-	if genre.ID == 0 {
-		t.Fatal("the created genre came back without an id")
+	if genre.Color == nil || *genre.Color != "#4dab9a" {
+		t.Errorf("color = %v, want #4dab9a", genre.Color)
+	}
+
+	document := exportLibrary(t, handler)
+	if len(document.Genres) != 1 || document.Genres[0].Color == nil || *document.Genres[0].Color != "#4dab9a" {
+		t.Errorf("exported genres = %+v, want Metroidvania in #4dab9a", document.Genres)
+	}
+
+	report := importLibrary(t, handler, "/api/import", map[string]any{
+		"genres": []map[string]any{
+			{"name": "Roguelike", "icon": "tabler:dice-5", "colour": "#d44c47"},
+			{"name": "Puzzle", "color": "teal"},
+		},
+	})
+	if len(report.Warnings) != 1 {
+		t.Errorf("warnings = %+v, want the one about teal", report.Warnings)
+	}
+	colors := map[string]string{}
+	for _, entry := range exportLibrary(t, handler).Genres {
+		if entry.Color != nil {
+			colors[entry.Name] = *entry.Color
+		}
+	}
+	if colors["Roguelike"] != "#d44c47" || colors["Puzzle"] != "" || colors["Metroidvania"] != "#4dab9a" {
+		t.Errorf("imported colors = %v, want Roguelike in #d44c47, Puzzle with none and Metroidvania kept", colors)
+	}
+
+	// Like an icon, a colour left out of a replacement is cleared.
+	replaced := request(t, handler, http.MethodPut, itemPath("/api/genres", genre.ID), map[string]any{"name": "Metroidvania"})
+	expectStatus(t, replaced, http.StatusOK, "replacing a genre without its color")
+	decode(t, replaced, &genre)
+	if genre.Color != nil {
+		t.Errorf("color = %q after a replacement without one, want it cleared", *genre.Color)
 	}
 }
 

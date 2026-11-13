@@ -7,9 +7,10 @@ import {
   type SkinTone,
 } from 'frimousse'
 
+import { useMediaQuery } from '../hooks/useMediaQuery'
 import { COLUMN_WIDTH, COLUMNS } from '../lib/pickerGrid'
 import { Emoji } from './Emoji'
-import { PanelFooter, PanelSearch } from './PickerParts'
+import { PanelSearch } from './PickerParts'
 
 /** The newest emoji version the Noto images cover (emoji-datasource-google's
  * major version): anything newer would have no image to show. */
@@ -20,21 +21,23 @@ interface EmojiPanelProps {
   search: string
   onSearch: (search: string) => void
   onPick: (emoji: string) => void
-  /** Clears the field, where it has a value to clear. */
-  onRemove?: () => void
 }
 
 /**
  * The Emoji tab of a genre's icon picker: a searchable picker (frimousse,
  * which only brings the behaviour; everything it draws is styled here),
  * showing every emoji as the same Noto image the rest of the app uses (see
- * Emoji).
+ * Emoji). As in the Icons tab, they run on without a break between groups,
+ * and an emoji names itself in its tooltip.
  */
-export function EmojiPanel({ search, onSearch, onPick, onRemove }: EmojiPanelProps) {
+export function EmojiPanel({ search, onSearch, onPick }: EmojiPanelProps) {
+  const touch = useMediaQuery('(pointer: coarse)')
   return (
     <EmojiPicker.Root
       resolveEmojiData={loadEmojiData}
       columns={COLUMNS}
+      // A header with nothing in it has nothing to keep in view.
+      sticky={false}
       onEmojiSelect={({ emoji }) => onPick(emoji)}
       className="flex min-h-0 flex-1 flex-col"
     >
@@ -44,8 +47,10 @@ export function EmojiPanel({ search, onSearch, onPick, onRemove }: EmojiPanelPro
           placeholder="Search emoji…"
           value={search}
           onChange={(event) => onSearch(event.target.value)}
-          data-autofocus=""
-          autoFocus
+          // Not on a touch screen, where it would bring the keyboard up
+          // over the grid; tapping the box searches.
+          data-autofocus={touch ? undefined : ''}
+          autoFocus={!touch}
           className="h-8 w-full rounded-control bg-field shadow-field px-2.5 text-sm text-ink outline-none placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-accent/40"
         />
       </PanelSearch>
@@ -61,17 +66,18 @@ export function EmojiPanel({ search, onSearch, onPick, onRemove }: EmojiPanelPro
         </EmojiPicker.Empty>
         <EmojiPicker.List className="pb-1.5 select-none" components={{ CategoryHeader, Row, Emoji: EmojiButton }} />
       </EmojiPicker.Viewport>
-      <EmojiPicker.ActiveEmoji>
-        {({ emoji }) => <PanelFooter label={emoji?.label ?? ''} onRemove={onRemove} />}
-      </EmojiPicker.ActiveEmoji>
     </EmojiPicker.Root>
   )
 }
 
+/** The one category's start (see shapeEmojiData): a little room above the
+ * grid, as the Icons tab has, and its name for assistive technology. It
+ * cannot be nothing at all: the picker lays out no rows under a header with
+ * no height. */
 function CategoryHeader({ category, ...props }: EmojiPickerListCategoryHeaderProps) {
   return (
-    <div {...props} className="bg-surface pt-2.5 pb-1 text-xs font-medium text-ink-faint">
-      <div className={`${COLUMN_WIDTH} px-1.5`}>{category.label}</div>
+    <div {...props} className="h-1">
+      <span className="sr-only">{category.label}</span>
     </div>
   )
 }
@@ -90,6 +96,7 @@ function EmojiButton({ emoji, ...props }: EmojiPickerListEmojiProps) {
   return (
     <button
       {...props}
+      data-tooltip={emoji.label}
       className="flex size-[2.125rem] items-center justify-center rounded-control text-xl leading-none data-[active]:bg-hover"
     >
       <Emoji value={emoji.emoji} />
@@ -128,6 +135,10 @@ let emojiData: Promise<EmojiData> | undefined
  * does not apply here: every emoji is drawn as an image. So the data is
  * shaped here instead, the way that loader shapes it, keeping everything up
  * to the version the images cover.
+ *
+ * Every emoji goes into one category, so that the grid runs on from one
+ * group to the next without a gap, as the Icons tab does; Emojibase lists
+ * them in the order of their groups already.
  */
 function loadEmojiData(): Promise<EmojiData> {
   emojiData ??= Promise.all([import('emojibase-data/en/data.json'), import('emojibase-data/en/messages.json')]).then(
@@ -139,22 +150,22 @@ function loadEmojiData(): Promise<EmojiData> {
 function shapeEmojiData(data: EmojibaseEmoji[], messages: EmojibaseMessages): EmojiData {
   const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1)
   const flags = messages.subgroups.find((subgroup) => subgroup.key === 'country-flag')
+  // Skin tones and hair styles on their own, which are parts of emoji.
+  const component = messages.groups.find((group) => group.key === 'component')?.order
 
   return {
     locale: 'en',
-    categories: messages.groups
-      .filter((group) => group.key !== 'component')
-      .map((group) => ({ index: group.order, label: capitalize(group.message) })),
+    categories: [{ index: 0, label: 'Emoji' }],
     skinTones: Object.fromEntries(
       messages.skinTones.map((tone) => [tone.key, capitalize(tone.message)]),
     ) as EmojiData['skinTones'],
     emojis: data
-      .filter((emoji) => emoji.group !== undefined && emoji.version <= EMOJI_VERSION)
+      .filter((emoji) => emoji.group !== undefined && emoji.group !== component && emoji.version <= EMOJI_VERSION)
       .map((emoji) => {
         const singleToned = emoji.skins?.filter((skin) => typeof skin.tone === 'number')
         return {
           emoji: emoji.emoji,
-          category: emoji.group!,
+          category: 0,
           version: emoji.version,
           label: capitalize(emoji.label),
           tags: emoji.tags ?? [],

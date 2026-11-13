@@ -8,6 +8,7 @@ import type { Game } from '../types/game'
 import type { Lookup } from '../types/lookup'
 import { UNKNOWN_COUNTRY, countryName, countryOrUnknown } from './countries'
 import { MONTH_ABBREVIATIONS, yearOf } from './format'
+import { genreColor } from './genreIcons'
 import { formatRange } from './range'
 import { AGE_BANDS, YEAR_DAYS, daysAfterRelease, inAgeRange } from './releaseAge'
 
@@ -17,9 +18,14 @@ export interface Highlight {
   key: string
   label: string
   test: (game: Game) => boolean
-  /** A platform's own colour, painted through the `tint-fill` utility. Null
+  /** A platform's own colour, or a genre's icon's (see genreColor). Null
    * means the accent. */
   color: string | null
+  /** Whether the colour is drawn as it was picked, save where it would vanish
+   * into the page, as a genre's icon is (`tint-solid`, `tint-glaze`), rather
+   * than adjusted to the theme, as a platform's badge is (`tint-fill`,
+   * `tint`). */
+  exact?: boolean
 }
 
 /** One bar of the time chart: a year, or a month of one. */
@@ -34,7 +40,7 @@ export interface Bucket {
 /** One row of a ranked list, and what picking it out highlights. */
 export interface Share extends Highlight {
   count: number
-  /** The platform or genre itself, to draw its badge or emoji. Null for
+  /** The platform or genre itself, to draw its badge or icon. Null for
    * rows that are not a lookup, such as "No platform". */
   lookup: Lookup | null
   /** The country a row stands for, to draw its flag. */
@@ -160,7 +166,8 @@ export function breakdown(played: Game[], kind: BreakdownKind, year: string): Sh
       label: lookup.name,
       count,
       lookup,
-      color: kind === 'platforms' ? lookup.color : null,
+      color: kind === 'platforms' ? lookup.color : kind === 'genres' ? genreColor(lookup) : null,
+      exact: kind === 'genres',
       test: (game) => lookupsOf(game).some((l) => l.id === lookup.id),
       href: gamesHref(year, { [FILTER_KEY[kind]]: lookup.slug }),
     }))
