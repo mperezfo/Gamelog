@@ -67,7 +67,7 @@ function UserRow({ user, isSelf }: { user: Account; isSelf: boolean }) {
   const unlock = useUnlockUser()
 
   return (
-    <li className="group border-b border-line last:border-0">
+    <li className="border-b border-line last:border-0">
       <div className="flex items-center justify-between gap-3 py-2.5">
         <div className="min-w-0">
           <p className="flex items-center gap-2 text-sm text-ink">
@@ -91,9 +91,8 @@ function UserRow({ user, isSelf }: { user: Account; isSelf: boolean }) {
 
         <div className="flex shrink-0 items-center gap-2">
           {/*
-            Always in view, unlike the actions after it: it is only there when
-            something is wrong. On the admin's own row too, locked from another
-            address while signed in here.
+            Only there when something is wrong. On the admin's own row too,
+            locked from another address while signed in here.
           */}
           {user.locked_until && (
             <Button disabled={unlock.isPending} onClick={() => unlock.mutate(user.id)}>
@@ -102,18 +101,13 @@ function UserRow({ user, isSelf }: { user: Account; isSelf: boolean }) {
           )}
 
           {/*
-            The actions stay out of the way until the row is pointed at, which is
-            the desktop behaviour. On touch there is no hover, so they are always
-            there.
-          */}
-          {/*
             Nothing on your own row. Resetting your own password here would end
             the session doing it and drop you back on the login screen mid-click;
             the section below does the same thing properly, and deleting yourself
             is refused by the API anyway.
           */}
           {!isSelf && (
-            <div className="flex items-center gap-0.5 sm:opacity-0 sm:transition-opacity sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+            <div className="flex items-center gap-0.5">
               <Button
                 variant="ghost"
                 data-tooltip="Set a new password"
