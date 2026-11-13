@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
-import { cp, readdir, readFile, writeFile } from 'node:fs/promises'
+import { cp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 
@@ -8,9 +8,11 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin, type ProxyOptions } from 'vite'
 
+import { genreIcons, type TablerIcon } from './genre-icons.config.ts'
+
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), emojiPlugin(), fontPreloadPlugin(), serviceWorkerPlugin()],
+  plugins: [react(), tailwindcss(), emojiPlugin(), genreIconsPlugin(), fontPreloadPlugin(), serviceWorkerPlugin()],
   define: {
     // Identifies the build, so that the offline copy of the query cache an
     // older one wrote can be told apart and dropped (src/lib/offlineCache.ts).
@@ -71,9 +73,9 @@ function serviceWorkerPlugin(): Plugin {
         .filter((entry) => entry.isFile())
         .map((entry) => '/' + relative(outDir, join(entry.parentPath, entry.name)).split(sep).join('/'))
         .filter((path) => path !== '/sw.js')
-        // Close to four thousand of them, so the worker keeps each one as
-        // it is first shown instead (see emojiPlugin).
-        .filter((path) => !path.startsWith(EMOJI_PATH))
+        // Thousands of them each, so the worker keeps each one as it is
+        // first shown instead (see emojiPlugin and genreIconsPlugin).
+        .filter((path) => !path.startsWith(EMOJI_PATH) && !path.startsWith(GENRE_ICONS_PATH))
         .sort()
       // The fonts for the scripts Figtree lacks (see --font-sans in
       // index.css): some twenty megabytes, in pieces a browser only asks
@@ -155,6 +157,85 @@ function emojiPlugin(): Plugin {
     },
     async writeBundle() {
       await cp(imagesDir, join(outDir, EMOJI_PATH), { recursive: true })
+    },
+  }
+}
+
+/** Where the genre icons are served from, by the dev server and the build. */
+const GENRE_ICONS_PATH = '/genre-icons/'
+
+/** One element of an icon in Tabler's tabler-nodes-outline.json. */
+type IconNode = [tag: string, attributes: Record<string, string>]
+
+/**
+ * Serves Tabler's outline icons under /genre-icons/, one SVG per icon named
+ * after it, drawn at the stroke of the interface's own icons (see
+ * src/components/icons.tsx). A genre's icon is drawn from these files as a
+ * mask in the colour of the text around it (see LookupIcon), so the colour
+ * in them does not matter.
+ *
+ * Every icon is served, not only the ones the picker offers: one that
+ * genre-icons.config.ts leaves out later still shows on the genres that
+ * already have it.
+ *
+ * Also provides `virtual:genre-icons`: the icons the picker offers, with
+ * their category, their tags and their drawing, which only the picker loads.
+ */
+function genreIconsPlugin(): Plugin {
+  const require = createRequire(import.meta.url)
+  // The package exports its icons alone, so its own files are found from one.
+  const packageDir = resolve(dirname(require.resolve('@tabler/icons/outline/sword.svg')), '../..')
+  const indexId = 'virtual:genre-icons'
+  let outDir = ''
+  let nodes: Promise<Record<string, IconNode[]>> | undefined
+
+  const readNodes = () =>
+    (nodes ??= readFile(join(packageDir, 'tabler-nodes-outline.json'), 'utf8').then(
+      (text) => JSON.parse(text) as Record<string, IconNode[]>,
+    ))
+  const drawing = (icon: IconNode[]) =>
+    icon
+      .map(([tag, attributes]) => {
+        const attrs = Object.entries(attributes)
+          .filter(([name]) => name !== 'key')
+          .map(([name, value]) => ` ${name}="${value}"`)
+          .join('')
+        return `<${tag}${attrs}/>`
+      })
+      .join('')
+  const file = (icon: IconNode[]) =>
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" ' +
+    `stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${drawing(icon)}</svg>`
+
+  return {
+    name: 'gamelog-genre-icons',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir)
+    },
+    resolveId(id) {
+      return id === indexId ? '\0' + indexId : undefined
+    },
+    async load(id) {
+      if (id !== '\0' + indexId) return undefined
+      const all: Record<string, TablerIcon> = JSON.parse(await readFile(join(packageDir, 'icons.json'), 'utf8'))
+      const outline = await readNodes()
+      const index = genreIcons(all).map((icon) => [icon.name, icon.category, icon.tags.join(' '), drawing(outline[icon.name])])
+      return `export default ${JSON.stringify(index)}`
+    },
+    configureServer(server) {
+      server.middlewares.use(GENRE_ICONS_PATH, async (request, response, next) => {
+        const match = /^\/([a-z0-9-]+)\.svg$/.exec((request.url ?? '').split('?')[0])
+        const icon = match && (await readNodes())[match[1]]
+        if (!icon) return next()
+        response.setHeader('Content-Type', 'image/svg+xml')
+        response.end(file(icon))
+      })
+    },
+    async writeBundle() {
+      const dir = join(outDir, GENRE_ICONS_PATH)
+      await mkdir(dir, { recursive: true })
+      const outline = await readNodes()
+      await Promise.all(Object.entries(outline).map(([name, icon]) => writeFile(join(dir, `${name}.svg`), file(icon))))
     },
   }
 }

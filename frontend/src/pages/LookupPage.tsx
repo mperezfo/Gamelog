@@ -9,8 +9,9 @@ import { CountryField } from '../components/CountryField'
 import { CountryFlag } from '../components/CountryFlag'
 import { DiscardPrompt } from '../components/DiscardPrompt'
 import { Emoji } from '../components/Emoji'
-import { EmojiField } from '../components/EmojiField'
+import { LookupIcon } from '../components/LookupIcon'
 import { Field } from '../components/Field'
+import { IconField } from '../components/IconField'
 import { HighlightMatch } from '../components/HighlightMatch'
 import { IgdbLink } from '../components/IgdbLink'
 import { ExternalLinkIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon, XIcon } from '../components/icons'
@@ -422,7 +423,7 @@ function LookupRow({
             </span>
           ) : (
             <span className="flex min-w-0 items-center gap-2 text-sm text-ink">
-              {item.icon && <span aria-hidden="true"><Emoji value={item.icon} /></span>}
+              {item.icon && <span aria-hidden="true"><LookupIcon value={item.icon} /></span>}
               {item.country && <CountryFlag code={item.country} />}
               {/* The link to IGDB hangs off the name itself, the way an
                   external link is usually marked, rather than trailing the
@@ -579,7 +580,7 @@ function LookupForm({
         ) : hasCountry(kind) ? (
           <CountryField label="Country" value={country} onChange={setCountry} />
         ) : (
-          <EmojiField label="Icon" value={icon} onChange={setIcon} />
+          <IconField label="Icon" value={icon} onChange={setIcon} />
         )}
       </div>
       {item && kind !== 'genres' && (

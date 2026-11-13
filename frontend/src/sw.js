@@ -9,8 +9,8 @@
 //   copy can never go stale and is served without asking the server first.
 //   Cache Storage also outlives the HTTP cache, which Android is quick to
 //   evict for an installed app.
-// - The emoji images and the fonts for scripts other than Latin, each kept
-//   the first time it is used rather than with the shell.
+// - The emoji images, the genre icons and the fonts for scripts other than
+//   Latin, each kept the first time it is used rather than with the shell.
 //
 // This file is not served as is: the build fills in the three values below
 // (see serviceWorkerPlugin in vite.config.ts).
@@ -33,6 +33,12 @@ const IMAGES_CACHE = 'gamelog-images-v1'
 // thousand. Bumped along with the emoji-datasource-google package, whose
 // images keep their names when they are redrawn.
 const EMOJI_CACHE = 'gamelog-emoji-v16'
+
+// The genre icons (see genreIconsPlugin in vite.config.ts), kept the same
+// way: there are over five thousand. Bumped along with the @tabler/icons
+// package, or when the plugin draws them differently, since an icon keeps
+// its name either way.
+const GENRE_ICONS_CACHE = 'gamelog-genre-icons-v3.51'
 
 // How long a page load waits for the server before falling back to the
 // cached shell. An unreachable host often does not fail outright, it just
@@ -61,6 +67,7 @@ self.addEventListener('activate', (event) => {
         (name) =>
           (name.startsWith('gamelog-images-') && name !== IMAGES_CACHE) ||
           (name.startsWith('gamelog-emoji-') && name !== EMOJI_CACHE) ||
+          (name.startsWith('gamelog-genre-icons-') && name !== GENRE_ICONS_CACHE) ||
           (name.startsWith('gamelog-shell-') && name !== SHELL_CACHE)
       )
       await Promise.all(stale.map((name) => caches.delete(name)))
@@ -81,7 +88,9 @@ self.addEventListener('fetch', (event) => {
   } else if (url.pathname.startsWith('/api/')) {
     return
   } else if (url.pathname.startsWith('/emoji/')) {
-    event.respondWith(cachedEmoji(event, request))
+    event.respondWith(cachedOnUse(event, request, EMOJI_CACHE))
+  } else if (url.pathname.startsWith('/genre-icons/')) {
+    event.respondWith(cachedOnUse(event, request, GENRE_ICONS_CACHE))
   } else if (request.mode === 'navigate') {
     event.respondWith(navigation(request))
   } else if (shellFiles.has(url.pathname)) {
@@ -138,11 +147,12 @@ async function cachedImage(event, request) {
   return response
 }
 
-/** Only an image is kept: a name the set has no file for is answered with
- * index.html (see try_files in the Caddyfile), which must not be stored as
- * if it were one. */
-async function cachedEmoji(event, request) {
-  const cache = await caches.open(EMOJI_CACHE)
+/** An emoji image or a genre icon, kept the first time it is shown. Only an
+ * image is kept: a name the set has no file for is answered with index.html
+ * (see try_files in the Caddyfile), which must not be stored as if it were
+ * one. */
+async function cachedOnUse(event, request, cacheName) {
+  const cache = await caches.open(cacheName)
   const cached = await cache.match(request)
   if (cached) return cached
 

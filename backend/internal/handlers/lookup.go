@@ -23,7 +23,7 @@ import (
 // a request to reach the database and fail there on length.
 type lookupBody struct {
 	Name string  `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name. Unique, and compared ignoring case and accents." example:"Metroidvania"`
-	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Emoji or short icon shown next to the name. Genres only. Stored without the blank space around it; nothing but blank space clears it." example:"🗺️"`
+	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Shown next to the name: an emoji, or \"tabler:<name>\" for one of the Tabler icons the app draws (\"tabler:swords\"). Genres only. Stored without the blank space around it; nothing but blank space clears it." example:"🗺️"`
 	// Icon has a column on genres only (migrations 00019 and 00022), and is
 	// ignored for the other three like color and country are.
 	//

@@ -6,6 +6,7 @@ import { previewHandlers, type Highlight, type SetPreview, type Share } from '..
 import type { Game } from '../types/game'
 import { CountryFlag } from './CountryFlag'
 import { Emoji } from './Emoji'
+import { LookupIcon } from './LookupIcon'
 import { GamesPreviewLink } from './GamesPreviewLink'
 import { ChevronRightIcon } from './icons'
 
@@ -165,7 +166,7 @@ function RowLabel({ row }: { row: Share }) {
       {row.color && <span className="tint-fill size-2 shrink-0 rounded-full" aria-hidden="true" />}
       {lookup?.icon && (
         <span className="shrink-0" aria-hidden="true">
-          <Emoji value={lookup.icon} />
+          <LookupIcon value={lookup.icon} />
         </span>
       )}
       {lookup?.country && <CountryFlag code={lookup.country} />}
