@@ -11,6 +11,7 @@ import { DiscardPrompt } from '../components/DiscardPrompt'
 import { Emoji } from '../components/Emoji'
 import { Field } from '../components/Field'
 import { HighlightMatch } from '../components/HighlightMatch'
+import { HueField } from '../components/HueField'
 import { IconField } from '../components/IconField'
 import { IgdbLink } from '../components/IgdbLink'
 import { ExternalLinkIcon, PencilIcon, PlusIcon, SearchIcon, TrashIcon, XIcon } from '../components/icons'
@@ -588,7 +589,7 @@ function LookupForm({
             {/* Only a Tabler icon takes a colour: an emoji has its own. The
                 colour picked stays in the form while an emoji is chosen,
                 and comes back with an icon. */}
-            {iconName(icon) && <ColorField label="Color" value={color} onChange={setColor} optional />}
+            {iconName(icon) && <HueField label="Color" value={color} onChange={setColor} />}
           </>
         )}
       </div>

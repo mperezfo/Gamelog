@@ -602,6 +602,63 @@
   border-radius: var(--radius-control);
 }
 
+/*
+ * HueField's slider: the hues on a track as tall as react-colorful's above,
+ * and a thumb in the colour picked.
+ */
+.gl-hue {
+  appearance: none;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.gl-hue::-webkit-slider-runnable-track {
+  height: 12px;
+  border-radius: var(--radius-control);
+  background: var(--track);
+}
+
+.gl-hue::-moz-range-track {
+  height: 12px;
+  border-radius: var(--radius-control);
+  background: var(--track);
+}
+
+.gl-hue::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -2px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--thumb);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+.gl-hue::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--thumb);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
+}
+
+.gl-hue:focus-visible {
+  outline: none;
+}
+
+.gl-hue:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 40%, transparent);
+}
+
+.gl-hue:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-accent) 40%, transparent);
+}
+
 .gl-colorful .react-colorful__pointer {
   width: 16px;
   height: 16px;
