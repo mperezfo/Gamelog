@@ -7,8 +7,8 @@ interface DiscardPromptProps {
 }
 
 /** The one way the app asks before unsaved changes are thrown away: closing
- * the game panel, cancelling a lookup form, or leaving a section from the
- * sidebar. */
+ * the game panel, cancelling a lookup form or opening another in its place,
+ * or leaving a section from the sidebar. */
 export function DiscardPrompt({ onDiscard, onKeep, className = '' }: DiscardPromptProps) {
   return (
     <div
