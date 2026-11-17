@@ -37,15 +37,18 @@ export function Notice({ tone, children }: NoticeProps) {
 }
 
 /**
- * The icon in front of a note, for a flex row with the text in a span of its
- * own next to it. One line tall (1lh), so that it stays by the first line
- * when the text wraps. Centred on that line, it would read as sitting low: it
- * is taller than the capitals and hangs below the baseline. Lifted by 1px
- * (measured), it centres on the capitals instead.
+ * The icon in front of a 13px note, for a flex row with the text in a span of
+ * its own next to it, by whose first line it stays when the text wraps.
+ *
+ * Centred on the capitals, which is 2px below the top of the line (measured).
+ * That keeps it a whole number of pixels (12) above the baseline, so that it
+ * snaps to the pixel grid the same way the text does: centred on the line
+ * instead, it was a fraction off the baseline, and whenever the note landed
+ * on a half pixel the two snapped in opposite directions, a pixel apart.
  */
 export function InfoMark() {
   return (
-    <span className="relative -top-px flex h-[1lh] shrink-0 items-center">
+    <span className="flex shrink-0 pt-[2px]">
       <InfoIcon className="size-3.5" />
     </span>
   )
