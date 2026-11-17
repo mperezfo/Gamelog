@@ -5,7 +5,7 @@ import type { DateFormat } from '../types/auth'
 import { usePreference } from '../hooks/useSession'
 import { DatePicker } from './DatePicker'
 import { Dropdown } from './Dropdown'
-import { CalendarIcon } from './icons'
+import { CalendarIcon, InfoIcon } from './icons'
 import { Popover } from './Popover'
 
 interface DateFieldProps {
@@ -13,8 +13,10 @@ interface DateFieldProps {
   /** yyyy-mm-dd, or empty for no date. */
   value: string
   onChange: (value: string) => void
-  /** A quiet line under the field, as Field has. */
-  hint?: string
+  /** More about the field, behind an info icon beside its label: in a
+   * tooltip rather than a line under the field, so that it coming and going
+   * never moves what is below. */
+  info?: string
 }
 
 type SegmentKind = 'd' | 'm' | 'y'
@@ -67,8 +69,13 @@ const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(in
  * than the browser's: a pick from it lands in the segments through `value`,
  * like any other change from outside.
  */
-export function DateField({ label, value, onChange, hint }: DateFieldProps) {
+export function DateField({ label, value, onChange, info }: DateFieldProps) {
   const id = useId()
+  // The last note there was, so that the icon can fade out still saying it
+  // rather than vanish the moment `info` goes. Never set for a field that has
+  // never had one, which so never renders the icon at all.
+  const [lastInfo, setLastInfo] = useState(info)
+  if (info && info !== lastInfo) setLastInfo(info)
   const dateFormat = usePreference('date_format')
   const order = SEGMENT_ORDER[dateFormat]
   const separator = SEPARATOR[dateFormat]
@@ -205,7 +212,29 @@ export function DateField({ label, value, onChange, hint }: DateFieldProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[13px] font-medium text-ink-muted">{label}</label>
+      <div className="flex items-center gap-1">
+        <label className="text-[13px] font-medium text-ink-muted">{label}</label>
+        {lastInfo && (
+          <span
+            tabIndex={0}
+            role="img"
+            aria-label={lastInfo}
+            data-tooltip={lastInfo}
+            // Hidden rather than unmounted, to fade. `invisible` takes it
+            // out of reach of the pointer and the keyboard too, and only
+            // once the fade is over, since visibility switches at the end
+            // of a transition towards hidden. `starting:` fades it in the
+            // first time too, when it mounts already shown.
+            className={[
+              'cursor-help rounded-full text-ink-faint transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none starting:opacity-0',
+              'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
+              info ? 'visible opacity-100' : 'invisible opacity-0',
+            ].join(' ')}
+          >
+            <InfoIcon className="size-3.5" />
+          </span>
+        )}
+      </div>
       <div
         ref={fieldRef}
         className="relative flex h-9 items-center gap-1 rounded-control bg-field shadow-field pr-7 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"
@@ -277,7 +306,6 @@ export function DateField({ label, value, onChange, hint }: DateFieldProps) {
           }}
         />
       </Popover>
-      {hint && <p className="text-xs text-ink-faint">{hint}</p>}
     </div>
   )
 }
