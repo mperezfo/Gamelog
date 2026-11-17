@@ -507,7 +507,7 @@ export function Dashboard() {
                                     game={game}
                                     draggable={!isTouchDevice}
                                     compact={status === 'wishlist' || status === 'pending'}
-                                    onClick={() => modal.openGame(game)}
+                                    onClick={() => modal.openGame(game, byStatus[status])}
                                   />
                                 </Fragment>
                               ))
