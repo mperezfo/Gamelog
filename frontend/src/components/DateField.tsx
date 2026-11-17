@@ -71,6 +71,11 @@ const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(in
  */
 export function DateField({ label, value, onChange, info }: DateFieldProps) {
   const id = useId()
+  // The last note there was, so that the icon can fade out still saying it
+  // rather than vanish the moment `info` goes. Never set for a field that has
+  // never had one, which so never renders the icon at all.
+  const [lastInfo, setLastInfo] = useState(info)
+  if (info && info !== lastInfo) setLastInfo(info)
   const dateFormat = usePreference('date_format')
   const order = SEGMENT_ORDER[dateFormat]
   const separator = SEPARATOR[dateFormat]
@@ -209,13 +214,22 @@ export function DateField({ label, value, onChange, info }: DateFieldProps) {
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1">
         <label className="text-[13px] font-medium text-ink-muted">{label}</label>
-        {info && (
+        {lastInfo && (
           <span
             tabIndex={0}
             role="img"
-            aria-label={info}
-            data-tooltip={info}
-            className="cursor-help rounded-full text-ink-faint focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
+            aria-label={lastInfo}
+            data-tooltip={lastInfo}
+            // Hidden rather than unmounted, to fade. `invisible` takes it
+            // out of reach of the pointer and the keyboard too, and only
+            // once the fade is over, since visibility switches at the end
+            // of a transition towards hidden. `starting:` fades it in the
+            // first time too, when it mounts already shown.
+            className={[
+              'cursor-help rounded-full text-ink-faint transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none starting:opacity-0',
+              'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
+              info ? 'visible opacity-100' : 'invisible opacity-0',
+            ].join(' ')}
           >
             <InfoIcon className="size-3.5" />
           </span>
