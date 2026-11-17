@@ -35,10 +35,10 @@ const IMAGES_CACHE = 'gamelog-images-v1'
 const EMOJI_CACHE = 'gamelog-emoji-v16'
 
 // The genre icons (see genreIconsPlugin in vite.config.ts), kept the same
-// way: there are over five thousand. Bumped along with the @tabler/icons
-// package, or when the plugin draws them differently, since an icon keeps
-// its name either way.
-const GENRE_ICONS_CACHE = 'gamelog-genre-icons-v3.51'
+// way: there are over seven thousand. Bumped along with the @tabler/icons
+// and lucide-static packages (their versions, in that order), or when the
+// plugin draws them differently, since an icon keeps its name either way.
+const GENRE_ICONS_CACHE = 'gamelog-genre-icons-v3.51-1.74'
 
 // How long a page load waits for the server before falling back to the
 // cached shell. An unreachable host often does not fail outright, it just

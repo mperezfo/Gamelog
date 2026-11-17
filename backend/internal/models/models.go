@@ -82,7 +82,7 @@ type Genre struct {
 	Slug string  `gorm:"column:slug" json:"slug"`
 	Icon *string `gorm:"column:icon" json:"icon"`
 	// Color is a hex code ("#3b82f6") for the icon, when it is one of the
-	// app's Tabler icons rather than an emoji. See migration 00023.
+	// app's icons (Tabler's or Lucide's) rather than an emoji. See migration 00023.
 	Color *string `gorm:"column:color" json:"color"`
 }
 
