@@ -80,6 +80,11 @@ export function DateField({ label, value, onChange, info, suggestToday = false }
   // never had one, which so never renders the icon at all.
   const [lastInfo, setLastInfo] = useState(info)
   if (info && info !== lastInfo) setLastInfo(info)
+  // The same for the Today button: mounted from the first time it is
+  // offered, and from then on only faded in and out.
+  const offeringToday = suggestToday && !value
+  const [todayOffered, setTodayOffered] = useState(offeringToday)
+  if (offeringToday && !todayOffered) setTodayOffered(true)
   const dateFormat = usePreference('date_format')
   const order = SEGMENT_ORDER[dateFormat]
   const separator = SEPARATOR[dateFormat]
@@ -245,12 +250,18 @@ export function DateField({ label, value, onChange, info, suggestToday = false }
             icon already fill the field. Written like NewMark, and padded
             out with a negative margin so that it is easier to tap without
             making the row any taller than the label, which would put this
-            field out of line with its neighbour. */}
-        {suggestToday && !value && (
+            field out of line with its neighbour. It fades like the info
+            icon beside the label. */}
+        {todayOffered && (
           <button
             type="button"
             onClick={() => onChange(dayKey(new Date()))}
-            className="-m-1.5 rounded-control p-1.5 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase transition-colors duration-75 hover:text-accent-strong focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
+            className={[
+              '-m-1.5 rounded-control p-1.5 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase',
+              'transition-[color,opacity,visibility] duration-150 ease-out hover:text-accent-strong motion-reduce:transition-none starting:opacity-0',
+              'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
+              offeringToday ? 'visible opacity-100' : 'invisible opacity-0',
+            ].join(' ')}
             aria-label={`Set the ${label.toLowerCase()} to today`}
           >
             Today
