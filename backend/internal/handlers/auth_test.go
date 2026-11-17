@@ -488,6 +488,7 @@ func TestPreferencesUpdateOnlyWhatIsSent(t *testing.T) {
 		"games_view":    "grid",
 		"calendar_view": "logged",
 		"search_hidden": []string{"genres", "platforms"},
+		"saved_views":   []map[string]string{{"name": "Pending", "query": "status=pending"}},
 	}), http.StatusOK, "setting every preference")
 
 	updated := request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{"games_view": "table"})
@@ -497,6 +498,7 @@ func TestPreferencesUpdateOnlyWhatIsSent(t *testing.T) {
 	want := models.Preferences{
 		Theme: "dark", DateFormat: "ymd", GamesView: "table", CalendarView: "logged",
 		SearchHidden: []string{"genres", "platforms"},
+		SavedViews:   []models.SavedView{{Name: "Pending", Query: "status=pending"}},
 	}
 	if !reflect.DeepEqual(after.Preferences, want) {
 		t.Errorf("preferences = %+v, want %+v", after.Preferences, want)
@@ -509,6 +511,8 @@ func TestPreferencesUpdateOnlyWhatIsSent(t *testing.T) {
 		{"search_hidden": []string{"games", "games"}},
 		// The search box always searches something.
 		{"search_hidden": []string{"games", "developers", "publishers", "platforms", "genres"}},
+		{"saved_views": []map[string]string{{"name": "", "query": "status=pending"}}},
+		{"saved_views": []map[string]string{{"name": "Pending", "query": "a"}, {"name": "pending", "query": "b"}}},
 	} {
 		expectStatus(t, request(t, handler, http.MethodPut, "/api/auth/preferences", body),
 			http.StatusUnprocessableEntity, fmt.Sprintf("updating the preferences with %v", body))
@@ -554,6 +558,9 @@ func TestPreferencesDefaultAndCanBeChanged(t *testing.T) {
 	}
 	if before.SearchHidden == nil || len(before.SearchHidden) != 0 {
 		t.Errorf("search_hidden = %v, want it to default to an empty list", before.SearchHidden)
+	}
+	if before.SavedViews == nil || len(before.SavedViews) != 0 {
+		t.Errorf("saved_views = %v, want it to default to an empty list", before.SavedViews)
 	}
 
 	updated := request(t, handler, http.MethodPut, "/api/auth/preferences", map[string]any{

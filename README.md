@@ -27,7 +27,7 @@ Here are [more screenshots](docs/screenshots.md), in desktop and phone formats, 
 
 - **Identify from IGDB**: Fill in a game's release date, platform, developers and publishers from [IGDB](https://www.igdb.com), and link it to its page there. See [Game metadata](docs/self-hosting.md#game-metadata-igdb).
 
-- **Search and filters**: Search from any page, and filter the games list by status, platform, genre, developer, publisher, their country, year or a field still left empty.
+- **Search and filters**: Search from any page, and filter the games list by status, platform, genre, developer, publisher, their country, year or a field still left empty, and save the combinations you use.
 
 - **Installable and offline**: Add it to a phone's home screen as a PWA. Without a connection it still opens, read-only.
 

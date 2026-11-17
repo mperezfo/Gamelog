@@ -102,8 +102,9 @@ type updatePreferencesInput struct {
 
 // preferencesBody is models.Preferences as PUT /api/auth/preferences takes
 // it: every field optional, since only the ones sent change, and each one
-// taking the values models.PreferenceDefinitions gives it. It lives here
-// for the reason statusSchema gives.
+// taking the values models.PreferenceDefinitions gives it, or as many saved
+// views as an account keeps. It lives here for the reason statusSchema
+// gives.
 type preferencesBody models.Preferences
 
 // TransformSchema implements huma.SchemaTransformer.
@@ -126,6 +127,8 @@ func (preferencesBody) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Sc
 		}
 		property.Enum = values
 	}
+	maxViews := models.MaxSavedViews
+	s.Properties["saved_views"].MaxItems = &maxViews
 	return s
 }
 

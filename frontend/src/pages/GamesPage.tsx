@@ -15,6 +15,7 @@ import { IgdbLink } from '../components/IgdbLink'
 import { GridIcon, PlusIcon, SearchIcon, TableIcon, XIcon } from '../components/icons'
 import { Notice } from '../components/Notice'
 import { Pill } from '../components/Pill'
+import { SavedViewChips, SaveViewButton } from '../components/SavedViews'
 import { PlatformBadge } from '../components/PlatformBadge'
 import { useDebouncedValue } from '../hooks/useDebouncedValue'
 import { useDocumentTitle } from '../hooks/useDocumentTitle'
@@ -27,9 +28,11 @@ import { useLookups } from '../hooks/useLookups'
 import { useReloadScroll } from '../hooks/useReloadScroll'
 import { useScrollToTop } from '../hooks/useScrollToTop'
 import { STATUS_LABELS, type Game } from '../types/game'
+import type { SavedView } from '../types/auth'
 import type { Lookup } from '../types/lookup'
 import { dateRange, dateRangeSpan, formatDate, formatScore, yearOf } from '../lib/format'
 import { preloadImage } from '../lib/cover'
+import { describeFilters } from '../lib/filterSummary'
 import { parseRange } from '../lib/range'
 import { AGE_UNITS, boundDays, describeAgeRange, inAgeRange } from '../lib/releaseAge'
 import { UNKNOWN_COUNTRY, countryName, countryOrUnknown } from '../lib/countries'
@@ -39,6 +42,54 @@ import { useFilterParams } from '../hooks/useFilterParams'
 import { Emoji } from '../components/Emoji'
 
 const DEFAULT_SORT_FIELD = 'title'
+
+/** Everything the page keeps in its URL (see useFilterParams), each as it
+ * reads when left out of it. */
+const PAGE_PARAMS = {
+  q: '',
+  exact: '',
+  status: '',
+  genre: '',
+  developer: '',
+  publisher: '',
+  developerCountry: '',
+  publisherCountry: '',
+  platform: '',
+  missing: '',
+  releaseYear: '',
+  playedYear: '',
+  playedAfter: '',
+  view: '',
+  sort: '',
+  sortDir: '',
+}
+
+type PageParams = typeof PAGE_PARAMS
+
+/** The params that lay the games out rather than pick them: a saved view
+ * still reads as the one shown when only these differ from it, so that
+ * switching to the grid or sorting by score does not lose it. */
+const LAYOUT_PARAMS = new Set<string>(['view', 'sort', 'sortDir'])
+
+/** The page's params as a query string, always in the same order, so that
+ * two of them compare as strings. Without the layout, it is what a saved
+ * view is told apart by. */
+function pageQuery(values: PageParams, withLayout = true): string {
+  const params = new URLSearchParams()
+  for (const key of Object.keys(PAGE_PARAMS) as (keyof PageParams)[]) {
+    if (values[key] && (withLayout || !LAYOUT_PARAMS.has(key))) params.set(key, values[key])
+  }
+  return params.toString()
+}
+
+/** A saved view's query string as the page's params, every one it leaves
+ * out back to its default. */
+function viewParams(query: string): PageParams {
+  const params = new URLSearchParams(query)
+  const values = { ...PAGE_PARAMS }
+  for (const key of Object.keys(PAGE_PARAMS) as (keyof PageParams)[]) values[key] = params.get(key) ?? ''
+  return values
+}
 
 /** Says that an option only looks at Played games: a quiet aside on the
  * label's baseline. */
@@ -116,24 +167,7 @@ export function GamesPage() {
   // rather than to a concrete layout: an empty URL is what falls back to the
   // signed-in account's own preference below, while an explicit `?view=` —
   // typed by hand or set by clicking a toggle — always wins.
-  const [filters, setFilter, setFilters] = useFilterParams({
-    q: '',
-    exact: '',
-    status: '',
-    genre: '',
-    developer: '',
-    publisher: '',
-    developerCountry: '',
-    publisherCountry: '',
-    platform: '',
-    missing: '',
-    releaseYear: '',
-    playedYear: '',
-    playedAfter: '',
-    view: '',
-    sort: '',
-    sortDir: '',
-  })
+  const [filters, setFilter, setFilters] = useFilterParams(PAGE_PARAMS)
   const {
     status,
     genre: genreSlug,
@@ -437,6 +471,25 @@ export function GamesPage() {
   })
   const sortedRows = table.getRowModel().rows.map((row) => row.original)
 
+  // A saved view is the one shown when the games it picks are; the layout
+  // is left out of the comparison (see LAYOUT_PARAMS). The star that saves
+  // one shows only when something is picked, and not saved already.
+  const savedViews = usePreference('saved_views')
+  const selection = pageQuery(filters, false)
+  const activeView = selection
+    ? savedViews.find((saved) => pageQuery(viewParams(saved.query), false) === selection)
+    : undefined
+  const picking = Boolean(filters.q) || filterFields.some((field) => filters[field.key as keyof PageParams])
+  const canSaveView = picking && !activeView && !offline
+  const suggestedViewName = [...(filters.q ? [`"${filters.q}"`] : []), ...describeFilters(filterFields, filters)].join(', ')
+
+  function applyView(saved: SavedView) {
+    const values = viewParams(saved.query)
+    setFilters(values)
+    // The search box keeps its own text (see `search` above).
+    setSearch(values.q)
+  }
+
   // The list scrolls in a region of its own, under the filters.
   const listRef = useRef<HTMLDivElement>(null)
   useReloadScroll(() => listRef.current, games.data != null)
@@ -484,7 +537,9 @@ export function GamesPage() {
           </div>
         </div>
 
+        <SavedViewChips activeName={activeView?.name} onApply={applyView} />
         <FilterBar fields={filterFields} values={filters} onChange={(key, value) => setFilter(key as keyof typeof filters, value)} />
+        {canSaveView && <SaveViewButton query={pageQuery(filters)} suggestedName={suggestedViewName} />}
 
         <div className="order-5 ml-auto flex items-center gap-0.5 rounded-control bg-sunken p-0.5 sm:order-none">
           <button

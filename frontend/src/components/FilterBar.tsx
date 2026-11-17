@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 
+import { valueSummary } from '../lib/filterSummary'
 import { formatRange, parseRange, type Bound } from '../lib/range'
 import { Dropdown } from './Dropdown'
 import { PlusIcon, XIcon } from './icons'
@@ -51,16 +52,6 @@ const POPOVER_CLASS = 'w-60 overflow-hidden'
  * on every render. */
 function focusOnMount(element: HTMLElement | null) {
   element?.focus({ preventScroll: true })
-}
-
-/** How a field's current value(s) read on its pill — up to two option
- * labels, then a "+N" for the rest, rather than every one spelled out. */
-function valueSummary(field: FilterField, raw: string): string {
-  if (field.summary) return field.summary(raw)
-  const values = raw ? raw.split(',') : []
-  const labels = values.map((v) => field.options.find((o) => o.value === v)?.label ?? v)
-  if (labels.length <= 2) return labels.join(', ')
-  return `${labels.slice(0, 2).join(', ')} +${labels.length - 2}`
 }
 
 /** The search box + scrollable option list shared by the "+ Filter" add flow

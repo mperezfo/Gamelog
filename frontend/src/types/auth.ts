@@ -36,6 +36,21 @@ export const SEARCH_KINDS: { value: SearchKind; label: string }[] = [
   { value: 'genres', label: 'Genres' },
 ]
 
+/** A set of the Games page's filters kept under a name: the page's query
+ * string, which holds every filter, the search, the sort and the layout,
+ * so that applying one is opening the page with it. */
+export interface SavedView {
+  /** Unique, ignoring case. */
+  name: string
+  /** Without the leading question mark. */
+  query: string
+}
+
+/** How many saved views an account keeps, and the longest name one takes,
+ * the same as the backend's (see models.SavedView). */
+export const MAX_SAVED_VIEWS = 20
+export const MAX_SAVED_VIEW_NAME = 40
+
 /** Display preferences. They travel with the account rather than the
  * browser, so they follow it across devices and are part of the backup. */
 export interface Preferences {
@@ -46,6 +61,8 @@ export interface Preferences {
   /** The kinds the global search leaves out: never all of them. Stored as
    * those left out, so that a kind it learns later is searched for all. */
   search_hidden: SearchKind[]
+  /** The Games page's saved views, in the order they are shown. */
+  saved_views: SavedView[]
 }
 
 /** What an account starts with, and what is shown while it loads, the same
@@ -56,6 +73,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   games_view: 'table',
   calendar_view: 'release',
   search_hidden: [],
+  saved_views: [],
 }
 
 /** An account, as every endpoint that returns one describes it. */

@@ -118,6 +118,7 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 		"games_view":    "grid",
 		"calendar_view": "logged",
 		"search_hidden": []string{"genres"},
+		"saved_views":   []map[string]string{{"name": "Pending on Switch", "query": "status=pending&platform=switch"}},
 	})
 	expectStatus(t, preferences, http.StatusOK, "setting preferences")
 
@@ -165,6 +166,10 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 			GamesView    string   `json:"games_view"`
 			CalendarView string   `json:"calendar_view"`
 			SearchHidden []string `json:"search_hidden"`
+			SavedViews   []struct {
+				Name  string `json:"name"`
+				Query string `json:"query"`
+			} `json:"saved_views"`
 		} `json:"account"`
 	}
 	if err := json.Unmarshal(readZipEntry(t, archive, "gamelog.json"), &document); err != nil {
@@ -182,6 +187,9 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 	if document.Account.Theme != "dark" || document.Account.DateFormat != "ymd" || document.Account.GamesView != "grid" ||
 		document.Account.CalendarView != "logged" || !reflect.DeepEqual(document.Account.SearchHidden, []string{"genres"}) {
 		t.Errorf("account preferences = %+v, want theme=dark date_format=ymd games_view=grid calendar_view=logged", document.Account)
+	}
+	if len(document.Account.SavedViews) != 1 || document.Account.SavedViews[0].Name != "Pending on Switch" {
+		t.Errorf("account.saved_views = %+v, want the one saved view", document.Account.SavedViews)
 	}
 
 	otherSession := login(t, bare, "player", testPassword)
@@ -228,6 +236,9 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 		GamesView          string   `json:"games_view"`
 		CalendarView       string   `json:"calendar_view"`
 		SearchHidden       []string `json:"search_hidden"`
+		SavedViews         []struct {
+			Name string `json:"name"`
+		} `json:"saved_views"`
 	}
 	decode(t, me, &account)
 	if !account.MustChangePassword {
@@ -239,6 +250,9 @@ func TestBackupExportAndImportRoundTrip(t *testing.T) {
 	if account.Theme != "dark" || account.DateFormat != "ymd" || account.GamesView != "grid" || account.CalendarView != "logged" ||
 		!reflect.DeepEqual(account.SearchHidden, []string{"genres"}) {
 		t.Errorf("restored preferences = %+v, want theme=dark date_format=ymd games_view=grid calendar_view=logged", account)
+	}
+	if len(account.SavedViews) != 1 || account.SavedViews[0].Name != "Pending on Switch" {
+		t.Errorf("restored saved_views = %+v, want the one saved view", account.SavedViews)
 	}
 
 	// Nothing but the session operations work until the password changes.

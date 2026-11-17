@@ -32,7 +32,7 @@ POST   /api/auth/logout
 GET    /api/auth/me                         the current account, or 401
 PUT    /api/auth/password                   change your own
 PUT    /api/auth/profile                    display name and avatar
-PUT    /api/auth/preferences                theme and view settings
+PUT    /api/auth/preferences                theme, view settings and saved views
 
 GET    /api/setup                           is the first run still pending?
 POST   /api/setup                           creates the admin, once
