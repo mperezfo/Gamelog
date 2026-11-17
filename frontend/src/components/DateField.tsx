@@ -228,14 +228,15 @@ export function DateField({ label, value, onChange, info, suggestToday = false }
         </div>
         {/* Beside the label rather than inside the field: two date fields
             share a row even on a phone, where the segments and the calendar
-            icon already fill the field. The negative margin keeps the row
-            as tall as a bare label, so this field still lines up with its
-            neighbour. */}
+            icon already fill the field. Written like NewMark, and padded
+            out with a negative margin so that it is easier to tap without
+            making the row any taller than the label, which would put this
+            field out of line with its neighbour. */}
         {suggestToday && !value && (
           <button
             type="button"
             onClick={() => onChange(dayKey(new Date()))}
-            className="-my-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent transition-colors duration-75 hover:bg-accent hover:text-accent-ink"
+            className="-m-1.5 rounded-control p-1.5 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase transition-colors duration-75 hover:text-accent-strong focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
             aria-label={`Set the ${label.toLowerCase()} to today`}
           >
             Today
