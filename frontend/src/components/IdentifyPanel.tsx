@@ -423,7 +423,7 @@ function IdentifyConfirm({
         // line, it reads as sitting low: it is taller than the capitals and
         // hangs below the baseline. Lifted by 1px (measured), it centres on
         // the capitals instead.
-        <p className="flex gap-1.5 text-[13px] text-ink-muted">
+        <p className="flex gap-1 text-[13px] text-ink-muted">
           <span className="relative -top-px flex h-[1lh] shrink-0 items-center">
             <InfoIcon className="size-3.5" />
           </span>
