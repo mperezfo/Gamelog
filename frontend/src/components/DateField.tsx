@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type FocusEvent, type KeyboardEvent, type RefObject } from 'react'
 
+import { dayKey } from '../lib/calendar'
 import { MONTH_ABBREVIATIONS } from '../lib/format'
 import type { DateFormat } from '../types/auth'
 import { usePreference } from '../hooks/useSession'
@@ -17,6 +18,9 @@ interface DateFieldProps {
    * tooltip rather than a line under the field, so that it coming and going
    * never moves what is below. */
   info?: string
+  /** Offers today's date as a one-tap "Today" chip while the field is
+   * empty. Only ever a suggestion: nothing is set until it is tapped. */
+  suggestToday?: boolean
 }
 
 type SegmentKind = 'd' | 'm' | 'y'
@@ -69,13 +73,18 @@ const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(in
  * than the browser's: a pick from it lands in the segments through `value`,
  * like any other change from outside.
  */
-export function DateField({ label, value, onChange, info }: DateFieldProps) {
+export function DateField({ label, value, onChange, info, suggestToday = false }: DateFieldProps) {
   const id = useId()
   // The last note there was, so that the icon can fade out still saying it
   // rather than vanish the moment `info` goes. Never set for a field that has
   // never had one, which so never renders the icon at all.
   const [lastInfo, setLastInfo] = useState(info)
   if (info && info !== lastInfo) setLastInfo(info)
+  // The same for the Today button: mounted from the first time it is
+  // offered, and from then on only faded in and out.
+  const offeringToday = suggestToday && !value
+  const [todayOffered, setTodayOffered] = useState(offeringToday)
+  if (offeringToday && !todayOffered) setTodayOffered(true)
   const dateFormat = usePreference('date_format')
   const order = SEGMENT_ORDER[dateFormat]
   const separator = SEPARATOR[dateFormat]
@@ -212,27 +221,51 @@ export function DateField({ label, value, onChange, info }: DateFieldProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1">
-        <label className="text-[13px] font-medium text-ink-muted">{label}</label>
-        {lastInfo && (
-          <span
-            tabIndex={0}
-            role="img"
-            aria-label={lastInfo}
-            data-tooltip={lastInfo}
-            // Hidden rather than unmounted, to fade. `invisible` takes it
-            // out of reach of the pointer and the keyboard too, and only
-            // once the fade is over, since visibility switches at the end
-            // of a transition towards hidden. `starting:` fades it in the
-            // first time too, when it mounts already shown.
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <label className="text-[13px] font-medium text-ink-muted">{label}</label>
+          {lastInfo && (
+            <span
+              tabIndex={0}
+              role="img"
+              aria-label={lastInfo}
+              data-tooltip={lastInfo}
+              // Hidden rather than unmounted, to fade. `invisible` takes it
+              // out of reach of the pointer and the keyboard too, and only
+              // once the fade is over, since visibility switches at the end
+              // of a transition towards hidden. `starting:` fades it in the
+              // first time too, when it mounts already shown.
+              className={[
+                'cursor-help rounded-full text-ink-faint transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none starting:opacity-0',
+                'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
+                info ? 'visible opacity-100' : 'invisible opacity-0',
+              ].join(' ')}
+            >
+              <InfoIcon className="size-3.5" />
+            </span>
+          )}
+        </div>
+        {/* Beside the label rather than inside the field: two date fields
+            share a row even on a phone, where the segments and the calendar
+            icon already fill the field. Written like NewMark, and padded
+            out with a negative margin so that it is easier to tap without
+            making the row any taller than the label, which would put this
+            field out of line with its neighbour. It fades like the info
+            icon beside the label. */}
+        {todayOffered && (
+          <button
+            type="button"
+            onClick={() => onChange(dayKey(new Date()))}
             className={[
-              'cursor-help rounded-full text-ink-faint transition-[opacity,visibility] duration-150 ease-out motion-reduce:transition-none starting:opacity-0',
+              '-m-1.5 rounded-control p-1.5 text-[10px] leading-none font-semibold tracking-wide text-accent uppercase',
+              'transition-[color,opacity,visibility] duration-150 ease-out hover:text-accent-strong motion-reduce:transition-none starting:opacity-0',
               'focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none',
-              info ? 'visible opacity-100' : 'invisible opacity-0',
+              offeringToday ? 'visible opacity-100' : 'invisible opacity-0',
             ].join(' ')}
+            aria-label={`Set the ${label.toLowerCase()} to today`}
           >
-            <InfoIcon className="size-3.5" />
-          </span>
+            Today
+          </button>
         )}
       </div>
       <div
