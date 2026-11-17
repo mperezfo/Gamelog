@@ -13,8 +13,8 @@ import { CountryFlag } from './CountryFlag'
 import { Dots } from './Dots'
 import { Dropdown } from './Dropdown'
 import { Emoji } from './Emoji'
-import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, InfoIcon, PlusIcon, XIcon } from './icons'
-import { Notice } from './Notice'
+import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
+import { InfoMark, Notice } from './Notice'
 import { Popover } from './Popover'
 import { Reveal } from './Reveal'
 import { Switch } from './Switch'
@@ -418,15 +418,10 @@ function IdentifyConfirm({
           deliberate. Titles are never compared, since remakes, ports and
           sequels share them; the IGDB game is what tells. */}
       {libraryGame && (
-        // The icon sets it apart from the fields below, and stays by the
-        // first line (1lh tall) when a long title wraps it. Centred on that
-        // line, it reads as sitting low: it is taller than the capitals and
-        // hangs below the baseline. Lifted by 1px (measured), it centres on
-        // the capitals instead.
+        // The icon sets it apart from the fields below. No strip as on a
+        // Notice: the panel is already the same tint.
         <p className="flex gap-1 text-[13px] text-ink-muted">
-          <span className="relative -top-px flex h-[1lh] shrink-0 items-center">
-            <InfoIcon className="size-3.5" />
-          </span>
+          <InfoMark />
           <span className="min-w-0">
             Already in your library as{' '}
             <button

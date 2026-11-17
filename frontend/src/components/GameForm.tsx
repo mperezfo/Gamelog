@@ -505,7 +505,7 @@ export function GameForm({
         )}
 
         {igdbTwin && (
-          <Notice tone="ok">
+          <Notice tone="info">
             “<Emoji value={igdbTwin.title} />” is linked to this IGDB game too.{' '}
             <button
               type="button"
