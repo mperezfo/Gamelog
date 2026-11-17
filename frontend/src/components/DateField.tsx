@@ -5,7 +5,7 @@ import type { DateFormat } from '../types/auth'
 import { usePreference } from '../hooks/useSession'
 import { DatePicker } from './DatePicker'
 import { Dropdown } from './Dropdown'
-import { CalendarIcon } from './icons'
+import { CalendarIcon, InfoIcon } from './icons'
 import { Popover } from './Popover'
 
 interface DateFieldProps {
@@ -13,8 +13,10 @@ interface DateFieldProps {
   /** yyyy-mm-dd, or empty for no date. */
   value: string
   onChange: (value: string) => void
-  /** A quiet line under the field, as Field has. */
-  hint?: string
+  /** More about the field, behind an info icon beside its label: in a
+   * tooltip rather than a line under the field, so that it coming and going
+   * never moves what is below. */
+  info?: string
 }
 
 type SegmentKind = 'd' | 'm' | 'y'
@@ -67,7 +69,7 @@ const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(in
  * than the browser's: a pick from it lands in the segments through `value`,
  * like any other change from outside.
  */
-export function DateField({ label, value, onChange, hint }: DateFieldProps) {
+export function DateField({ label, value, onChange, info }: DateFieldProps) {
   const id = useId()
   const dateFormat = usePreference('date_format')
   const order = SEGMENT_ORDER[dateFormat]
@@ -205,7 +207,20 @@ export function DateField({ label, value, onChange, hint }: DateFieldProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[13px] font-medium text-ink-muted">{label}</label>
+      <div className="flex items-center gap-1">
+        <label className="text-[13px] font-medium text-ink-muted">{label}</label>
+        {info && (
+          <span
+            tabIndex={0}
+            role="img"
+            aria-label={info}
+            data-tooltip={info}
+            className="cursor-help rounded-full text-ink-faint focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:outline-none"
+          >
+            <InfoIcon className="size-3.5" />
+          </span>
+        )}
+      </div>
       <div
         ref={fieldRef}
         className="relative flex h-9 items-center gap-1 rounded-control bg-field shadow-field pr-7 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"
@@ -277,7 +292,6 @@ export function DateField({ label, value, onChange, hint }: DateFieldProps) {
           }}
         />
       </Popover>
-      {hint && <p className="text-xs text-ink-faint">{hint}</p>}
     </div>
   )
 }
