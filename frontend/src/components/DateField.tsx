@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type FocusEvent, type KeyboardEvent, type RefObject } from 'react'
 
+import { dayKey } from '../lib/calendar'
 import { MONTH_ABBREVIATIONS } from '../lib/format'
 import type { DateFormat } from '../types/auth'
 import { usePreference } from '../hooks/useSession'
@@ -15,6 +16,9 @@ interface DateFieldProps {
   onChange: (value: string) => void
   /** A quiet line under the field, as Field has. */
   hint?: string
+  /** Offers today's date as a one-tap "Today" chip while the field is
+   * empty. Only ever a suggestion: nothing is set until it is tapped. */
+  suggestToday?: boolean
 }
 
 type SegmentKind = 'd' | 'm' | 'y'
@@ -67,7 +71,7 @@ const MONTH_OPTIONS = MONTH_ABBREVIATIONS.map((abbr, index) => ({ value: pad2(in
  * than the browser's: a pick from it lands in the segments through `value`,
  * like any other change from outside.
  */
-export function DateField({ label, value, onChange, hint }: DateFieldProps) {
+export function DateField({ label, value, onChange, hint, suggestToday = false }: DateFieldProps) {
   const id = useId()
   const dateFormat = usePreference('date_format')
   const order = SEGMENT_ORDER[dateFormat]
@@ -205,7 +209,24 @@ export function DateField({ label, value, onChange, hint }: DateFieldProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[13px] font-medium text-ink-muted">{label}</label>
+      <div className="flex items-center justify-between gap-2">
+        <label className="text-[13px] font-medium text-ink-muted">{label}</label>
+        {/* Beside the label rather than inside the field: two date fields
+            share a row even on a phone, where the segments and the calendar
+            icon already fill the field. The negative margin keeps the row
+            as tall as a bare label, so this field still lines up with its
+            neighbour. */}
+        {suggestToday && !value && (
+          <button
+            type="button"
+            onClick={() => onChange(dayKey(new Date()))}
+            className="-my-1 rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent transition-colors duration-75 hover:bg-accent hover:text-accent-ink"
+            aria-label={`Set the ${label.toLowerCase()} to today`}
+          >
+            Today
+          </button>
+        )}
+      </div>
       <div
         ref={fieldRef}
         className="relative flex h-9 items-center gap-1 rounded-control bg-field shadow-field pr-7 pl-2.5 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent/40"

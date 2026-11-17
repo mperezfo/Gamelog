@@ -565,6 +565,7 @@ export function GameForm({
             label="Logged date"
             value={loggedDate}
             onChange={setLoggedDate}
+            suggestToday={status === 'played'}
             // The rule playedGames in lib/stats applies. Only a hint: a game
             // can be played without its date being known.
             hint={status === 'played' && !loggedDate ? 'Played games without a logged date are left out of Stats.' : undefined}
