@@ -284,12 +284,16 @@ export function GameForm({
     return counts
   }, [games.data])
 
-  // The IGDB games the rest of the library is linked to, for Identify to
-  // point out among its results.
-  const libraryIgdbIds = useMemo(
-    () => new Set((games.data ?? []).flatMap((g) => (g.id !== game?.id && g.igdb_id !== null ? [g.igdb_id] : []))),
-    [games.data, game?.id],
-  )
+  // The rest of the library by the IGDB game each is linked to, for
+  // Identify to point out among its results and on the game picked. The
+  // first one found stands for any others linked to the same game.
+  const libraryGames = useMemo(() => {
+    const byIgdbId = new Map<number, Game>()
+    for (const g of games.data ?? []) {
+      if (g.id !== game?.id && g.igdb_id !== null && !byIgdbId.has(g.igdb_id)) byIgdbId.set(g.igdb_id, g)
+    }
+    return byIgdbId
+  }, [games.data, game?.id])
 
   useEffect(() => {
     onDirtyChange?.(isDirty)
@@ -473,7 +477,8 @@ export function GameForm({
                   key={identifyTitle}
                   title={identifyTitle}
                   current={identifyCurrent}
-                  libraryIgdbIds={libraryIgdbIds}
+                  libraryGames={libraryGames}
+                  onOpenGame={modal.openGame}
                   platforms={platforms.data ?? []}
                   platformGames={platformGames}
                   developers={developers.data ?? []}
@@ -500,7 +505,7 @@ export function GameForm({
         )}
 
         {igdbTwin && (
-          <Notice tone="ok">
+          <Notice tone="info">
             “<Emoji value={igdbTwin.title} />” is linked to this IGDB game too.{' '}
             <button
               type="button"

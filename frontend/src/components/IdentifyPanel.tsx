@@ -5,7 +5,7 @@ import { useGameCandidates } from '../hooks/useMetadata'
 import { usePreference } from '../hooks/useSession'
 import { formatDate } from '../lib/format'
 import { foldCase } from '../lib/fuzzy'
-import type { CompanyLink, NewLookup, NewPlatform, PlatformLink } from '../types/game'
+import type { CompanyLink, Game, NewLookup, NewPlatform, PlatformLink } from '../types/game'
 import { MAX_LOOKUP_NAME, type Lookup } from '../types/lookup'
 import type { CompanyMatch, GameCandidate, MatchTarget, PlatformMatch } from '../types/metadata'
 import { Button } from './Button'
@@ -14,7 +14,7 @@ import { Dots } from './Dots'
 import { Dropdown } from './Dropdown'
 import { Emoji } from './Emoji'
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
-import { Notice } from './Notice'
+import { InfoMark, Notice } from './Notice'
 import { Popover } from './Popover'
 import { Reveal } from './Reveal'
 import { Switch } from './Switch'
@@ -65,8 +65,10 @@ export type PlatformResolution = { id: number; link: PlatformLink | null } | { p
 interface IdentifyPanelProps {
   title: string
   current: IdentifyCurrent
-  /** IGDB games other games of the library are linked to. */
-  libraryIgdbIds: ReadonlySet<number>
+  /** The other games of the library, by the IGDB game they are linked to. */
+  libraryGames: ReadonlyMap<number, Game>
+  /** Opens one of them. */
+  onOpenGame: (game: Game) => void
   platforms: Lookup[]
   /** How many games of the library each platform has, by id. */
   platformGames: ReadonlyMap<number, number>
@@ -88,7 +90,8 @@ interface IdentifyPanelProps {
 export function IdentifyPanel({
   title,
   current,
-  libraryIgdbIds,
+  libraryGames,
+  onOpenGame,
   platforms,
   platformGames,
   developers,
@@ -149,6 +152,8 @@ export function IdentifyPanel({
           <IdentifyConfirm
             candidate={picked}
             current={current}
+            libraryGame={libraryGames.get(picked.igdb_id)}
+            onOpenGame={onOpenGame}
             platforms={platforms}
             platformGames={platformGames}
             developers={developers}
@@ -171,13 +176,8 @@ export function IdentifyPanel({
               <li key={candidate.igdb_id}>
                 <CandidateRow
                   candidate={candidate}
-                  mark={
-                    candidate.igdb_id === current.igdbId
-                      ? 'linked'
-                      : libraryIgdbIds.has(candidate.igdb_id)
-                        ? 'library'
-                        : undefined
-                  }
+                  linked={candidate.igdb_id === current.igdbId}
+                  libraryGame={libraryGames.get(candidate.igdb_id)}
                   onPick={() => setPicked(candidate)}
                 />
               </li>
@@ -195,13 +195,14 @@ function releaseYear(candidate: GameCandidate): string | null {
 
 interface CandidateRowProps {
   candidate: GameCandidate
-  /** linked: the game the form is linked to. library: one another game of
-   * the library is linked to. */
-  mark?: 'linked' | 'library'
+  /** Whether it is the game the form is linked to. */
+  linked: boolean
+  /** Another game of the library linked to it, if any. */
+  libraryGame?: Game
   onPick: () => void
 }
 
-function CandidateRow({ candidate, mark, onPick }: CandidateRowProps) {
+function CandidateRow({ candidate, linked, libraryGame, onPick }: CandidateRowProps) {
   // Platforms by IGDB's short names, which a phone's width has room for.
   const platforms = candidate.platforms.map((platform) => platform.abbreviation || platform.name).join(', ')
   const details = [releaseYear(candidate), platforms].filter(Boolean).join(' · ')
@@ -228,9 +229,9 @@ function CandidateRow({ candidate, mark, onPick }: CandidateRowProps) {
       <span className="flex min-w-0 flex-col">
         <span className="flex min-w-0 items-baseline gap-1.5">
           <span className="truncate text-sm font-medium text-ink"><Emoji value={candidate.name} /></span>
-          {mark === 'linked' && <LinkMark title="The IGDB game this game is linked to">linked</LinkMark>}
-          {mark === 'library' && (
-            <span data-tooltip="Another game of your library is linked to it" className="shrink-0 text-xs text-ink-faint">
+          {linked && <LinkMark title="The IGDB game this game is linked to">linked</LinkMark>}
+          {!linked && libraryGame && (
+            <span data-tooltip={`In your library as “${libraryGame.title}”`} className="shrink-0 text-xs text-ink-faint">
               In library
             </span>
           )}
@@ -337,6 +338,9 @@ function isEmpty(resolution: CompanyResolution): boolean {
 interface IdentifyConfirmProps {
   candidate: GameCandidate
   current: IdentifyCurrent
+  /** Another game of the library linked to the same IGDB game, if any. */
+  libraryGame?: Game
+  onOpenGame: (game: Game) => void
   platforms: Lookup[]
   platformGames: ReadonlyMap<number, number>
   developers: Lookup[]
@@ -355,6 +359,8 @@ interface IdentifyConfirmProps {
 function IdentifyConfirm({
   candidate,
   current,
+  libraryGame,
+  onOpenGame,
   platforms,
   platformGames,
   developers,
@@ -408,6 +414,27 @@ function IdentifyConfirm({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Only said, never in the way: two entries for one IGDB game can be
+          deliberate. Titles are never compared, since remakes, ports and
+          sequels share them; the IGDB game is what tells. */}
+      {libraryGame && (
+        // The icon sets it apart from the fields below. No strip as on a
+        // Notice: the panel is already the same tint.
+        <p className="flex gap-1 text-[13px] text-ink-muted">
+          <InfoMark />
+          <span className="min-w-0">
+            Already in your library as{' '}
+            <button
+              type="button"
+              onClick={() => onOpenGame(libraryGame)}
+              className="font-medium text-ink underline underline-offset-2"
+            >
+              “<Emoji value={libraryGame.title} />”
+            </button>
+          </span>
+        </p>
+      )}
+
       <InlineSection
         label="Title"
         // Nothing to decide when it is the same title already.
