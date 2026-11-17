@@ -13,7 +13,7 @@ import { CountryFlag } from './CountryFlag'
 import { Dots } from './Dots'
 import { Dropdown } from './Dropdown'
 import { Emoji } from './Emoji'
-import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, PlusIcon, XIcon } from './icons'
+import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, InfoIcon, PlusIcon, XIcon } from './icons'
 import { Notice } from './Notice'
 import { Popover } from './Popover'
 import { Reveal } from './Reveal'
@@ -418,15 +418,22 @@ function IdentifyConfirm({
           deliberate. Titles are never compared, since remakes, ports and
           sequels share them; the IGDB game is what tells. */}
       {libraryGame && (
-        <p className="text-[13px] text-ink-muted">
-          Already in your library as{' '}
-          <button
-            type="button"
-            onClick={() => onOpenGame(libraryGame)}
-            className="font-medium text-ink underline underline-offset-2"
-          >
-            “<Emoji value={libraryGame.title} />”
-          </button>
+        // The icon sets it apart from the fields below, and stays by the
+        // first line (1lh tall) when a long title wraps it.
+        <p className="flex gap-1.5 text-[13px] text-ink-muted">
+          <span className="flex h-[1lh] shrink-0 items-center">
+            <InfoIcon className="size-3.5" />
+          </span>
+          <span className="min-w-0">
+            Already in your library as{' '}
+            <button
+              type="button"
+              onClick={() => onOpenGame(libraryGame)}
+              className="font-medium text-ink underline underline-offset-2"
+            >
+              “<Emoji value={libraryGame.title} />”
+            </button>
+          </span>
         </p>
       )}
 
