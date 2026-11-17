@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from 'react'
 
-import { iconLabel, iconName, iconValue } from '../lib/genreIcons'
+import { iconFile, iconLabel } from '../lib/genreIcons'
 import { COLUMN_WIDTH } from '../lib/pickerGrid'
 import { EmojiPanel } from './EmojiPanel'
 import { IconPanel } from './IconPanel'
@@ -14,18 +14,19 @@ const TAB_NAMES: Record<Tab, string> = { icons: 'Icons', emoji: 'Emoji' }
 
 interface IconFieldProps {
   label: string
-  /** The icon (`tabler:<name>`, see LookupIcon), an emoji, or empty for none. */
+  /** The icon (`tabler:<name>` or `lucide:<name>`, see LookupIcon), an
+   * emoji, or empty for none. */
   value: string
-  /** The colour a Tabler icon is drawn in (#rrggbb), or empty for none. */
+  /** The colour an icon is drawn in (#rrggbb), or empty for none. */
   color: string
   onChange: (value: string) => void
   onColorChange: (color: string) => void
 }
 
 /**
- * A labelled genre icon: a popover with two tabs, plain icons (Tabler's, the
- * default) and emoji. It opens on the tab of the value it has, and one search
- * serves both, kept when switching. The Icons tab also picks the colour the
+ * A labelled genre icon: a popover with two tabs, plain icons (Tabler's and
+ * Lucide's, the default) and emoji. It opens on the tab of the value it has,
+ * and one search serves both, kept when switching. The Icons tab also picks the colour the
  * icon is drawn in, which an emoji, with colours of its own, has no use for:
  * a colour change shows at once and keeps the popover open, and picking an
  * icon closes it.
@@ -38,7 +39,7 @@ export function IconField({ label, value, color, onChange, onColorChange }: Icon
   const [tab, setTab] = useState<Tab>('icons')
   const [search, setSearch] = useState('')
 
-  const icon = value ? iconName(value) : null
+  const icon = value && iconFile(value) ? value : null
   const description = !value ? 'none' : icon ? iconLabel(icon) : value
 
   function toggle() {
@@ -128,7 +129,7 @@ export function IconField({ label, value, color, onChange, onColorChange }: Icon
             <IconPanel
               search={search}
               onSearch={setSearch}
-              onPick={(name) => pick(iconValue(name))}
+              onPick={pick}
               selected={icon}
               color={color}
               onColor={onColorChange}

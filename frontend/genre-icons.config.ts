@@ -1,6 +1,7 @@
 /**
- * Which Tabler icons a genre can be given (see genreIconsPlugin in
- * vite.config.ts).
+ * Which icons a genre can be given (see genreIconsPlugin in vite.config.ts):
+ * Tabler's, filtered by the rules below, and a few of Lucide's, listed one by
+ * one in LUCIDE.
  *
  * Tabler has some five thousand icons, most of them interface glyphs that say
  * nothing about a genre: arrows, letters, file and database variants, brand
@@ -548,6 +549,37 @@ export const SUGGESTED = [
 /** The name of the picker's first category. */
 export const SUGGESTED_CATEGORY = 'Suggested'
 
+/**
+ * Lucide's icons the picker offers as well, each in the category of Tabler's
+ * it would belong to: the few that suit a genre and that Tabler has nothing
+ * like. Picked one by one rather than filtered, since most of Lucide is in
+ * Tabler already, under one name or another. A name Tabler has too fails the
+ * build, so that no icon is offered twice.
+ */
+export const LUCIDE: Record<string, string> = {
+  amphora: 'Other',
+  anvil: 'Other',
+  broom: 'Other',
+  drum: 'Media',
+  eclipse: 'Weather',
+  'ferris-wheel': 'Buildings',
+  'fishing-rod': 'Sport',
+  flashlight: 'Devices',
+  'hockey-stick': 'Sport',
+  joystick: 'Devices',
+  origami: 'Other',
+  panda: 'Animals',
+  popcorn: 'Food',
+  rabbit: 'Animals',
+  rat: 'Animals',
+  'robot-arm': 'Games',
+  spotlight: 'Media',
+  squirrel: 'Animals',
+  turtle: 'Animals',
+  whistle: 'Sport',
+  worm: 'Animals',
+}
+
 /** One entry of Tabler's icons.json, as far as it is read here. */
 export interface TablerIcon {
   name: string
@@ -556,14 +588,18 @@ export interface TablerIcon {
   styles: { outline?: unknown }
 }
 
+/** The libraries a genre's icon can come from. */
+export type IconLibrary = 'tabler' | 'lucide'
+
 /** One icon the picker offers. */
 export interface GenreIcon {
+  library: IconLibrary
   name: string
   category: string
   tags: string[]
 }
 
-/** Whether the rules above offer an icon. */
+/** Whether the rules above offer one of Tabler's icons. */
 export function isOffered(icon: TablerIcon): boolean {
   if (!icon.styles.outline) return false
   if (KEPT.has(icon.name)) return true
@@ -574,26 +610,37 @@ export function isOffered(icon: TablerIcon): boolean {
 
 /**
  * The icons the picker offers, grouped: SUGGESTED first, then every category
- * in alphabetical order, each sorted by name. The icons KEPT from a dropped
- * category make one of their own, "Other".
+ * in alphabetical order, each sorted by name, Tabler's and Lucide's together.
+ * The icons KEPT from a dropped category make one of their own, "Other".
+ *
+ * `tabler` is Tabler's icons.json, `lucide` the tags of Lucide's icons by
+ * name (lucide-static's tags.json).
  */
-export function genreIcons(all: Record<string, TablerIcon>): GenreIcon[] {
-  const offered = Object.values(all).filter(isOffered)
-  const entry = (icon: TablerIcon, category: string): GenreIcon => ({
-    name: icon.name,
+export function genreIcons(tabler: Record<string, TablerIcon>, lucide: Record<string, string[]>): GenreIcon[] {
+  const entry = (library: IconLibrary, name: string, category: string, tags: (string | number)[]): GenreIcon => ({
+    library,
+    name,
     category,
-    tags: icon.tags.map(String),
+    tags: tags.map(String),
   })
 
   const suggested = SUGGESTED.map((name) => {
-    const icon = all[name]
+    const icon = tabler[name]
     if (!icon || !isOffered(icon)) throw new Error(`genre-icons.config.ts: suggested icon "${name}" is not offered`)
-    return entry(icon, SUGGESTED_CATEGORY)
+    return entry('tabler', name, SUGGESTED_CATEGORY, icon.tags)
   })
 
-  const rest = offered
-    .map((icon) => entry(icon, DROPPED_CATEGORIES.has(icon.category) ? 'Other' : icon.category))
-    .sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+  const fromTabler = Object.values(tabler)
+    .filter(isOffered)
+    .map((icon) => entry('tabler', icon.name, DROPPED_CATEGORIES.has(icon.category) ? 'Other' : icon.category, icon.tags))
+  const fromLucide = Object.entries(LUCIDE).map(([name, category]) => {
+    if (!lucide[name]) throw new Error(`genre-icons.config.ts: Lucide has no icon "${name}"`)
+    if (tabler[name]) throw new Error(`genre-icons.config.ts: "${name}" is one of Tabler's icons, so it is not taken from Lucide`)
+    return entry('lucide', name, category, lucide[name])
+  })
 
+  const rest = [...fromTabler, ...fromLucide].sort(
+    (a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name),
+  )
   return [...suggested, ...rest]
 }

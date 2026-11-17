@@ -23,7 +23,7 @@ import (
 // a request to reach the database and fail there on length.
 type lookupBody struct {
 	Name string  `json:"name" minLength:"1" maxLength:"100" pattern:"\\S" patternDescription:"more than blank space" doc:"Name. Unique, and compared ignoring case and accents." example:"Metroidvania"`
-	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Shown next to the name: an emoji, or \"tabler:<name>\" for one of the Tabler icons the app draws (\"tabler:swords\"). Genres only. Stored without the blank space around it; nothing but blank space clears it." example:"🗺️"`
+	Icon *string `json:"icon,omitempty" maxLength:"100" doc:"Shown next to the name: an emoji, or \"tabler:<name>\" or \"lucide:<name>\" for one of the Tabler or Lucide icons the app draws (\"tabler:swords\"). Genres only. Stored without the blank space around it; nothing but blank space clears it." example:"🗺️"`
 	// Icon has a column on genres only (migrations 00019 and 00022), and is
 	// ignored for the other three like country is.
 	//
@@ -36,7 +36,7 @@ type lookupBody struct {
 	// silently ignore it, the same trade-off made for icon and country: one
 	// schema in the documentation rather than a near-duplicate endpoint per
 	// entity.
-	Color *string `json:"color,omitempty" pattern:"^#[0-9a-fA-F]{6}$" doc:"Hex color. A platform's, or the colour of a genre's icon when it is one of the app's Tabler icons. Platforms and genres only." example:"#3b82f6"`
+	Color *string `json:"color,omitempty" pattern:"^#[0-9a-fA-F]{6}$" doc:"Hex color. A platform's, or the colour of a genre's icon when it is one of the app's Tabler or Lucide icons. Platforms and genres only." example:"#3b82f6"`
 }
 
 type lookupIDInput struct {

@@ -1,7 +1,7 @@
 import { Suspense, use, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 
 import { useMediaQuery } from '../hooks/useMediaQuery'
-import { iconLabel } from '../lib/genreIcons'
+import { iconLabel, iconName } from '../lib/genreIcons'
 import { COLUMN_WIDTH, COLUMNS } from '../lib/pickerGrid'
 import { ColorSliders } from './ColorSliders'
 import { PanelSearch } from './PickerParts'
@@ -25,8 +25,9 @@ interface IconPanelProps {
   /** The search, shared with the Emoji tab (see IconField). */
   search: string
   onSearch: (search: string) => void
-  onPick: (name: string) => void
-  /** The name of the icon the field has, if it has one. */
+  /** Called with the value a genre stores for the icon (`tabler:sword`). */
+  onPick: (value: string) => void
+  /** The value of the icon the field has, if it has one. */
   selected: string | null
   /** The colour the icon is drawn in (#rrggbb), or empty for none. */
   color: string
@@ -34,11 +35,11 @@ interface IconPanelProps {
 }
 
 /**
- * The Icons tab of a genre's icon picker: Tabler's icons, as filtered by
- * genre-icons.config.ts, one after another, the hand-picked Suggested ones
+ * The Icons tab of a genre's icon picker: Tabler's and Lucide's icons, as
+ * picked by genre-icons.config.ts, one after another, the hand-picked Suggested ones
  * first and the rest in the order of their categories, unnamed: an icon
  * says what it is in its tooltip. The same grid as the Emoji tab, searched by name and by
- * Tabler's tags, drawn in the colour picked under it, so that every icon
+ * the libraries' tags, drawn in the colour picked under it, so that every icon
  * shows as it would.
  */
 export function IconPanel({ search, onSearch, onPick, selected, color, onColor }: IconPanelProps) {
@@ -109,14 +110,16 @@ interface Row {
  * are not repeated in their own category further on. */
 function rowsFor(icons: IconEntry[], search: string): Row[] {
   const words = search.toLowerCase().split(/\s+/).filter(Boolean)
-  const suggested = new Set(icons.filter(([, category]) => category === SUGGESTED).map(([name]) => name))
+  const suggested = new Set(icons.filter(([, category]) => category === SUGGESTED).map(([value]) => value))
   const matching = words.length
-    ? icons.filter(([name, category, tags]) => {
+    ? icons.filter(([value, category, tags]) => {
         if (category === SUGGESTED) return false
-        const text = `${name} ${tags.toLowerCase()}`
+        // The name without its library, or "table" would find every one of
+        // Tabler's icons.
+        const text = `${iconName(value)} ${tags.toLowerCase()}`
         return words.every((word) => text.includes(word))
       })
-    : icons.filter(([name, category]) => category === SUGGESTED || !suggested.has(name))
+    : icons.filter(([value, category]) => category === SUGGESTED || !suggested.has(value))
 
   const rows: Row[] = []
   for (let start = 0; start < matching.length; start += COLUMNS) {
@@ -196,25 +199,25 @@ function IconGrid({
         {rows.map((row, rowIndex) => (
           <div key={rowIndex} role="row">
             <div className={`${COLUMN_WIDTH} flex scroll-my-1.5`}>
-              {row.icons.map(([name, , , drawing], column) => {
+              {row.icons.map(([value, , , drawing], column) => {
                 const isFocused = rowIndex === current.row && column === current.column
                 return (
                   <button
-                    key={name}
+                    key={value}
                     type="button"
                     role="gridcell"
-                    data-name={name}
+                    data-name={value}
                     data-position={`${rowIndex}-${column}`}
                     tabIndex={isFocused ? 0 : -1}
-                    aria-label={iconLabel(name)}
-                    data-tooltip={iconLabel(name)}
-                    aria-selected={name === selected}
-                    onClick={() => onPick(name)}
+                    aria-label={iconLabel(value)}
+                    data-tooltip={iconLabel(value)}
+                    aria-selected={value === selected}
+                    onClick={() => onPick(value)}
                     onFocus={() => setFocused({ row: rowIndex, column })}
                     className={[
                       'flex size-[2.125rem] items-center justify-center rounded-control text-ink-muted outline-none',
                       'hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:text-ink focus-visible:ring-2 focus-visible:ring-accent/40',
-                      name === selected ? 'bg-sunken text-ink' : '',
+                      value === selected ? 'bg-sunken text-ink' : '',
                     ].join(' ')}
                   >
                     <svg

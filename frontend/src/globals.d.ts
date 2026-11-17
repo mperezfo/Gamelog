@@ -1,11 +1,12 @@
 /** Identifies the build; see `define` in vite.config.ts. */
 declare const __BUILD_ID__: string
 
-/** The icons a genre can be given, in the picker's order, each as its name,
- * its category, its tags (space-separated) and its drawing (the inside of
- * a 24 by 24 SVG); see genreIconsPlugin in vite.config.ts. */
+/** The icons a genre can be given, in the picker's order, each as the value
+ * a genre stores for it (`tabler:sword`, `lucide:anvil`), its category, its
+ * tags (space-separated) and its drawing (the inside of a 24 by 24 SVG); see
+ * genreIconsPlugin in vite.config.ts. */
 declare module 'virtual:genre-icons' {
-  const icons: [name: string, category: string, tags: string, drawing: string][]
+  const icons: [value: string, category: string, tags: string, drawing: string][]
   export default icons
 }
 

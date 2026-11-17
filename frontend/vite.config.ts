@@ -8,7 +8,7 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig, type Plugin, type ProxyOptions } from 'vite'
 
-import { genreIcons, type TablerIcon } from './genre-icons.config.ts'
+import { genreIcons, type IconLibrary, type TablerIcon } from './genre-icons.config.ts'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -164,15 +164,19 @@ function emojiPlugin(): Plugin {
 /** Where the genre icons are served from, by the dev server and the build. */
 const GENRE_ICONS_PATH = '/genre-icons/'
 
-/** One element of an icon in Tabler's tabler-nodes-outline.json. */
+/** One element of an icon, in Tabler's tabler-nodes-outline.json and in
+ * Lucide's icon-nodes.json alike. */
 type IconNode = [tag: string, attributes: Record<string, string>]
 
+/** Where each library's icons are served, under GENRE_ICONS_PATH. */
+const LIBRARY_DIRS: Record<IconLibrary, string> = { tabler: '', lucide: 'lucide/' }
+
 /**
- * Serves Tabler's outline icons under /genre-icons/, one SVG per icon named
- * after it, drawn at the stroke of the interface's own icons (see
- * src/components/icons.tsx). A genre's icon is drawn from these files as a
- * mask in the colour of the text around it (see LookupIcon), so the colour
- * in them does not matter.
+ * Serves the outline icons of Tabler and Lucide under /genre-icons/, one SVG
+ * per icon named after it (Lucide's in /genre-icons/lucide/), all drawn at
+ * the stroke of the interface's own icons (see src/components/icons.tsx). A
+ * genre's icon is drawn from these files as a mask in the colour of the text
+ * around it (see LookupIcon), so the colour in them does not matter.
  *
  * Every icon is served, not only the ones the picker offers: one that
  * genre-icons.config.ts leaves out later still shows on the genres that
@@ -184,15 +188,18 @@ type IconNode = [tag: string, attributes: Record<string, string>]
 function genreIconsPlugin(): Plugin {
   const require = createRequire(import.meta.url)
   // The package exports its icons alone, so its own files are found from one.
-  const packageDir = resolve(dirname(require.resolve('@tabler/icons/outline/sword.svg')), '../..')
+  const tablerDir = resolve(dirname(require.resolve('@tabler/icons/outline/sword.svg')), '../..')
+  const lucideDir = dirname(require.resolve('lucide-static/icon-nodes.json'))
   const indexId = 'virtual:genre-icons'
   let outDir = ''
-  let nodes: Promise<Record<string, IconNode[]>> | undefined
+  let nodes: Promise<Record<IconLibrary, Record<string, IconNode[]>>> | undefined
 
+  const readJson = async <T,>(path: string) => JSON.parse(await readFile(path, 'utf8')) as T
   const readNodes = () =>
-    (nodes ??= readFile(join(packageDir, 'tabler-nodes-outline.json'), 'utf8').then(
-      (text) => JSON.parse(text) as Record<string, IconNode[]>,
-    ))
+    (nodes ??= Promise.all([
+      readJson<Record<string, IconNode[]>>(join(tablerDir, 'tabler-nodes-outline.json')),
+      readJson<Record<string, IconNode[]>>(join(lucideDir, 'icon-nodes.json')),
+    ]).then(([tabler, lucide]) => ({ tabler, lucide })))
   const drawing = (icon: IconNode[]) =>
     icon
       .map(([tag, attributes]) => {
@@ -217,25 +224,35 @@ function genreIconsPlugin(): Plugin {
     },
     async load(id) {
       if (id !== '\0' + indexId) return undefined
-      const all: Record<string, TablerIcon> = JSON.parse(await readFile(join(packageDir, 'icons.json'), 'utf8'))
-      const outline = await readNodes()
-      const index = genreIcons(all).map((icon) => [icon.name, icon.category, icon.tags.join(' '), drawing(outline[icon.name])])
+      const [tabler, lucide, drawn] = await Promise.all([
+        readJson<Record<string, TablerIcon>>(join(tablerDir, 'icons.json')),
+        readJson<Record<string, string[]>>(join(lucideDir, 'tags.json')),
+        readNodes(),
+      ])
+      const index = genreIcons(tabler, lucide).map((icon) => [
+        `${icon.library}:${icon.name}`,
+        icon.category,
+        icon.tags.join(' '),
+        drawing(drawn[icon.library][icon.name]),
+      ])
       return `export default ${JSON.stringify(index)}`
     },
     configureServer(server) {
       server.middlewares.use(GENRE_ICONS_PATH, async (request, response, next) => {
-        const match = /^\/([a-z0-9-]+)\.svg$/.exec((request.url ?? '').split('?')[0])
-        const icon = match && (await readNodes())[match[1]]
+        const match = /^\/(lucide\/)?([a-z0-9-]+)\.svg$/.exec((request.url ?? '').split('?')[0])
+        const icon = match && (await readNodes())[match[1] ? 'lucide' : 'tabler'][match[2]]
         if (!icon) return next()
         response.setHeader('Content-Type', 'image/svg+xml')
         response.end(file(icon))
       })
     },
     async writeBundle() {
-      const dir = join(outDir, GENRE_ICONS_PATH)
-      await mkdir(dir, { recursive: true })
-      const outline = await readNodes()
-      await Promise.all(Object.entries(outline).map(([name, icon]) => writeFile(join(dir, `${name}.svg`), file(icon))))
+      const drawn = await readNodes()
+      for (const library of ['tabler', 'lucide'] as const) {
+        const dir = join(outDir, GENRE_ICONS_PATH, LIBRARY_DIRS[library])
+        await mkdir(dir, { recursive: true })
+        await Promise.all(Object.entries(drawn[library]).map(([name, icon]) => writeFile(join(dir, `${name}.svg`), file(icon))))
+      }
     },
   }
 }

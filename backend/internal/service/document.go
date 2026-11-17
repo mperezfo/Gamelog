@@ -54,8 +54,8 @@ type Document struct {
 // colour for a platform and a country for a developer or a publisher.
 type LookupEntry struct {
 	Name  string  `json:"name" doc:"Name of the record. Unique, compared ignoring case and accents." example:"Metroidvania"`
-	Icon  *string `json:"icon" doc:"Shown next to the name: an emoji, or \"tabler:<name>\" for one of the Tabler icons the app draws (\"tabler:swords\"). Only a genre has one; always null for the other three." example:"🗺️"`
-	Color *string `json:"color,omitempty" doc:"Hex colour (\"#3b82f6\"): a platform's, or that of a genre's icon when it is one of the app's Tabler icons. Only a platform or a genre has one." example:"#3b82f6"`
+	Icon  *string `json:"icon" doc:"Shown next to the name: an emoji, or \"tabler:<name>\" or \"lucide:<name>\" for one of the Tabler or Lucide icons the app draws (\"tabler:swords\"). Only a genre has one; always null for the other three." example:"🗺️"`
+	Color *string `json:"color,omitempty" doc:"Hex colour (\"#3b82f6\"): a platform's, or that of a genre's icon when it is one of the app's Tabler or Lucide icons. Only a platform or a genre has one." example:"#3b82f6"`
 	// Country is migration 00019's.
 	Country *string `json:"country,omitempty" doc:"Where the record is from, as an ISO 3166-1 two-letter code. Only a developer or a publisher has one." example:"ES"`
 	// IGDBCompanyIDs carries the links of migration 00016, so that a backup

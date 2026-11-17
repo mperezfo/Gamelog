@@ -636,7 +636,7 @@ function LookupForm({
         ) : hasCountry(kind) ? (
           <CountryField label="Country" value={country} onChange={setCountry} />
         ) : (
-          // Only a Tabler icon takes a colour: an emoji has its own. The
+          // Only one of the app's icons takes a colour: an emoji has its own. The
           // colour picked stays in the form while an emoji is chosen, and
           // comes back with an icon.
           <IconField label="Icon" value={icon} color={color} onChange={setIcon} onColorChange={setColor} />
